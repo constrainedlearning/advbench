@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.laplace import Laplace
+from einops import rearrange, reduce, repeat
 
 from advbench import perturbations
 
@@ -102,8 +103,7 @@ class LMC_Gaussian_Linf(Attack_Linf):
             delta.requires_grad_(True)
             with torch.enable_grad():
                 adv_imgs = self.perturbation.perturb_img(imgs, delta)
-                adv_loss = torch.log(1 - torch.softmax(self.classifier(adv_imgs), dim=1)[range(batch_size), labels]).mean()
-                # adv_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
+                adv_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
             grad = torch.autograd.grad(adv_loss, [delta])[0].detach()
             delta.requires_grad_(False)
             noise = torch.randn_like(delta).to(self.device).detach()
@@ -128,7 +128,7 @@ class LMC_Laplacian_Linf(Attack_Linf):
             delta.requires_grad_(True)
             with torch.enable_grad():
                 adv_imgs = self.perturbation.perturb_img(imgs, delta)
-                adv_loss = torch.log(1 - torch.softmax(self.classifier(adv_imgs), dim=1)[range(batch_size), labels]).mean()
+                adv_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
             grad = torch.autograd.grad(adv_loss, [delta])[0].detach()
             delta.requires_grad_(False)
             noise = noise_dist.sample(grad.shape)
@@ -141,53 +141,40 @@ class LMC_Laplacian_Linf(Attack_Linf):
 
 class Grid_Search(Attack_Linf):
     def __init__(self, classifier,  hparams, device, perturbation='Linf'):
-        super(Grid_Search, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
-        
+        super(Grid_Search, self).__init__(classifier,  hparams, device,  perturbation=perturbation)        
         self.dim = self.perturbation.dim
+        self.grid_steps = int(self.hparams['grid_size']**(1/self.dim))
+        self.grid_size = self.grid_steps**self.dim
+        self.grid_shape = [self.grid_size, self.dim]
         if self.dim==1:
-            self.grid_shape = [self.hparams['grid_size']]
             self.epsilon = [self.hparams['epsilon']]
         else:
-            grid = []
             epsilon = []
             for i in range(self.dim):
-                grid.append(self.hparams[f'grid_size_{i}'])
                 epsilon.append(self.hparams[f'epsilon_{i}'])
-            self.grid_shape = grid
             self.epsilon = epsilon
         self.make_grid()
     
     def make_grid(self):
-        if self.dim>1:
-            grid = torch.empty(self.grid_shape).to(self.device)
-            for idx, (eps, num) in enumerate(zip(self.grid_shape, self.epsilon)):
-                step = 2*eps/num
-                grid[idx] = torch.arange(-eps, eps, step=step, device=self.device)
-        else:
-            eps = self.epsilon[0]
-            step = 2*eps/self.grid_shape[0]
-            grid = torch.arange(-eps, eps, step=step, device=self.device)
-
-        self.grid = grid
-        self.grid_size = torch.numel(grid)
+        grids = []
+        for idx in range(self.dim):
+            eps = self.epsilon[idx]
+            step = 2*eps/self.grid_steps
+            grids.append(torch.arange(-eps, eps, step=step, device=self.device))
+        coords = torch.stack(torch.meshgrid(grids), -1)
+        assert(self.grid_size==torch.numel(coords))
+        self.grid = coords
 
     def forward(self, imgs, labels):
         self.classifier.eval()
         batch_size = imgs.size(0)
-        deltas_size = [batch_size]
-        for dim in self.grid_shape:
-            deltas_size.append(dim)
         with torch.no_grad():
-            adv_imgs, y = self.perturbation.perturb_img(
-                imgs,
-                self.grid,
-                repeat=True,
-                labels=labels)
-            y_hat_adv = algorithm.predict(adv_imgs)
-            adv_loss = cross_entropy(y_hat_adv, y, reduction="none").reshape(*deltas_size, -1)
+            adv_imgs = self.perturbation.perturb_img(
+                repeat(imgs, 'B W H C -> (B S) W H C', B=batch_size, S=self.grid_size),
+                repeat(self.grid, 'S D -> (B S) D', B=batch_size, D=self.dim, S=self.grid_size))
+            adv_loss = F.cross_entropy(self.classifier(adv_imgs), repeat(labels, 'B -> (B S)', S=self.grid_size), reduction="none")
+        adv_loss = rearrange(adv_loss, '(B S) -> B S', B=batch_size, S=self.grid_size)
         max_idx = torch.argmax(adv_loss,dim=-1)
-        for dim in self.grid_size:
-            max_idx.append(range(dim))
         delta = self.grid[max_idx]
         adv_imgs = self.perturbation.perturb_img(imgs, delta)
         self.classifier.train()
@@ -201,27 +188,23 @@ class Worst_Of_K(Attack_Linf):
         self.classifier.eval()
         batch_size = imgs.size(0)
         delta = self.perturbation.delta_init(imgs)
-        deltas_size = [self.hparams['worst_of_k_steps']]
-        for dim in delta.shape:
-            deltas_size.append(dim)
-        deltas = torch.empty(deltas_size).to(self.device)
-        adv_loss = torch.empty((self.hparams['worst_of_k_steps'], imgs.shape[0]))
-        for i in range(self.hparams['worst_of_k_steps']):
-            with torch.no_grad():
-                delta = self.perturbation.delta_init(imgs).to(imgs.device)
-                delta = self.perturbation.clamp_delta(delta, imgs)
-                adv_imgs = self.perturbation.perturb_img(imgs, delta)
-                adv_loss[i] = torch.log(1 - torch.softmax(self.classifier(adv_imgs), dim=1)[range(batch_size), labels])
-                deltas[i] = delta
-        max_idx = [torch.argmax(adv_loss, dim=0), range(delta.shape[0])]
-        delta = deltas[max_idx]
+        steps = self.hparams['worst_of_k_steps']
+        with torch.no_grad():
+            repeated_images = repeat(imgs, 'B W H C -> (B S) W H C', B=batch_size, S=steps)
+            delta = self.perturbation.delta_init(repeated_images).to(imgs.device)
+            delta = self.perturbation.clamp_delta(delta, repeated_images)
+            adv_imgs = self.perturbation.perturb_img(repeated_images, delta)
+            adv_loss = F.cross_entropy(self.classifier(adv_imgs), repeat(labels, 'B -> (B S)', S=steps), reduction="none")
+            adv_loss = rearrange(adv_loss, '(B S) -> B S', B=batch_size, S=steps)
+            max_idx = torch.argmax(adv_loss, dim=-1)
+            delta = delta[max_idx]
         adv_imgs = self.perturbation.perturb_img(imgs, delta)
         self.classifier.train()
         return adv_imgs.detach(), delta.detach()
 
 class Rand_Aug(Attack_Linf):
     def __init__(self, classifier,  hparams, device, perturbation='Linf'):
-        super(Worst_Of_K, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+        super(Rand_Aug, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
 
     def forward(self, imgs, labels):
         batch_size = imgs.size(0)

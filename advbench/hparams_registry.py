@@ -174,7 +174,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
        
         # Grid Search
         _hparam('grid_dims', 1, lambda r: 1)
-        _hparam('grid_size', 120, lambda r: 120)
+        _hparam('grid_size', 10, lambda r: 10)
 
     elif perturbation=='SE':
         ##### Worst of K ######

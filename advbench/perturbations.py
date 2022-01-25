@@ -1,4 +1,4 @@
-from kornia.geometry import rotate, translate
+from kornia.geometry import rotate
 import torch
 from advbench.lib.transformations import se_transform
 
@@ -20,7 +20,7 @@ class Perturbation():
                 return adv_imgs, y
         else: # apply all transformations in delta to each img in batch
             x = imgs.repeat_interleave(delta.shape[0], dim=0)
-            adv_imgs = self._perturb(x, delta.repeat(imgs[0]))
+            adv_imgs = self._perturb(x, delta.repeat(imgs.shape[0]))
             if labels is not None:
                 y = labels.repeat_interleave(delta.shape[0], dim=0)
                 return adv_imgs, y
@@ -66,7 +66,10 @@ class Rotation(Perturbation):
         return delta
 
     def _perturb(self, imgs, delta):
-        return rotate(imgs, delta)
+        if delta.dim() > 1:
+            return rotate(imgs, delta.squeeze())
+        else:
+            return rotate(imgs, delta)
         
     def delta_init(self, imgs):
         eps = self.eps

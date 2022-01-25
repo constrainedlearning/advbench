@@ -23,16 +23,10 @@ ALGORITHMS = [
     'KL_DALE_PD',
     'NUTS_DALE',
     'Worst_Of_K',
-    'Rand_Aug',
-]
-
-PD_ALGORITHMS = [
-    'Gaussian_DALE',
-    'Laplacian_DALE',
-    'Gaussian_DALE_PD',
-    'Gaussian_DALE_PD_Reverse',
-    'KL_DALE_PD',
-    'NUTS_DALE',
+    'Augmentation',
+    'Batch_Augmentation',
+    'Grid_Search',
+    'Batch_Grid'
 ]
 
 class Algorithm(nn.Module):
@@ -407,10 +401,36 @@ class Grid_Search(Algorithm):
 
         self.meters['loss'].update(loss.item(), n=imgs.size(0))
 
-class Batch_Augment(Algorithm):
+class Augmentation(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
-        super(Batch_Augment, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+        super(Augmentation, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+        self.attack = attacks.Rand_Aug(self.classifier, self.hparams, device, perturbation=perturbation)
+    def step(self, imgs, labels):
+        adv_imgs, deltas =   self.attack(imgs, labels)
+        self.optimizer.zero_grad()
+        loss = F.cross_entropy(self.predict(adv_imgs), labels)
+        loss.backward()
+        self.optimizer.step()
 
+        self.meters['loss'].update(loss.item(), n=imgs.size(0))
+
+class Batch_Augmentation(Algorithm):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
+        super(Batch_Augmentation, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+        self.attack = attacks.Rand_Aug_Batch(self.classifier, self.hparams, device, perturbation=perturbation)
+    def step(self, imgs, labels):
+        adv_imgs, deltas =   self.attack(imgs, labels)
+        self.optimizer.zero_grad()
+        loss = F.cross_entropy(self.predict(adv_imgs), labels)
+        loss.backward()
+        self.optimizer.step()
+
+        self.meters['loss'].update(loss.item(), n=imgs.size(0))
+
+class Batch_Grid(Algorithm):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
+        super(Batch_Grid, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+        self.attack = attacks.Grid_Batch(self.classifier, self.hparams, device, perturbation=perturbation)
     def step(self, imgs, labels):
         adv_imgs, deltas =   self.attack(imgs, labels)
         self.optimizer.zero_grad()

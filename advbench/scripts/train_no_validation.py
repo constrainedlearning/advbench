@@ -18,6 +18,15 @@ try:
 except ImportError:
     wandb_log=False
 
+PD_ALGORITHMS = [
+    'Gaussian_DALE',
+    'Laplacian_DALE',
+    'Gaussian_DALE_PD',
+    'Gaussian_DALE_PD_Reverse',
+    'KL_DALE_PD',
+    'NUTS_DALE',
+]
+
 def main(args, hparams, test_hparams):
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -25,21 +34,21 @@ def main(args, hparams, test_hparams):
     if args.perturbation=='SE':
         hparams['epsilon'] = torch.tensor([hparams[f'epsilon_{i}'] for i in ("rot","tx","ty")]).to(device)
         test_hparams['epsilon'] = torch.tensor([test_hparams[f'epsilon_{tfm}'] for tfm in ("rot","tx","ty")]).to(device)
-
-
     dataset = vars(datasets)[args.dataset](args.data_dir)
     train_ldr, val_ldr, test_ldr = datasets.to_loaders(dataset, hparams)
-    if args.algorithm=="Gaussian_DALE_PD_Reverse":
-        init_dual = 0.0
-    else:
-        init_dual = 1.0
+    kw_args = {"perturbation": args.perturbation}
+    if args.algorithm in PD_ALGORITHMS: 
+        if args.algorithm=="Gaussian_DALE_PD_Reverse":
+            kw_args["init"] = 0.0
+        else:
+            kw_args["init"] = 1.0
     algorithm = vars(algorithms)[args.algorithm](
         dataset.INPUT_SHAPE, 
         dataset.NUM_CLASSES,
         hparams,
         device,
-        perturbation=args.perturbation,
-        init=init_dual).to(device)
+        **kw_args).to(device)
+
 
     adjust_lr = None if dataset.HAS_LR_SCHEDULE is False else dataset.adjust_lr
 
@@ -102,7 +111,6 @@ def main(args, hparams, test_hparams):
             add_results_row([epoch, test_adv_acc, attack_name, 'Test'])
             test_adv_accs.append(test_adv_acc)
             if wandb_log and args.perturbation!="Linf":
-                print("logging attack")
                 wandb.log({'test_acc_adv_'+attack_name: test_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'epoch': epoch, 'step':step})
                 plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step})
                 
