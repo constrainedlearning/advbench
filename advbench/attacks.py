@@ -1,4 +1,7 @@
 import os, sys
+from re import S
+
+from pyrsistent import T
 try:
     import hamiltorch
     HAMILTORCH_AVAILABLE = True
@@ -140,10 +143,14 @@ class LMC_Laplacian_Linf(Attack_Linf):
         return adv_imgs.detach(), delta.detach()
 
 class Grid_Search(Attack_Linf):
-    def __init__(self, classifier,  hparams, device, perturbation='Linf'):
+    def __init__(self, classifier,  hparams, device, perturbation='Linf', grid_size=None):
         super(Grid_Search, self).__init__(classifier,  hparams, device,  perturbation=perturbation)        
         self.dim = self.perturbation.dim
-        self.grid_steps = int(self.hparams['grid_size']**(1/self.dim))
+        if grid_size is None:
+            self.grid_size = self.hparams['grid_size']
+        else:
+            self.grid_size = grid_size
+        self.grid_steps = int(self.grid_size**(1/self.dim))
         self.grid_size = self.grid_steps**self.dim
         self.grid_shape = [self.grid_size, self.dim]
         if self.dim==1:
@@ -220,28 +227,24 @@ class Rand_Aug_Batch(Attack_Linf):
 
     def forward(self, imgs, labels):
         batch_size = imgs.size(0)
-        self.classifier.eval()
-        imgs = imgs.repeat(self.hparams['perturbation_batch_size'])
-        delta = self.perturbation.delta_init().to(imgs.device)
-        adv_imgs, new_labels = self.perturbation.perturb_img(imgs, delta, labels=labels)
-        self.classifier.train()
+        repeated_images = repeat(imgs, 'B W H C -> (B S) W H C', B=batch_size, S=self.hparams['perturbation_batch_size'])
+        delta = self.perturbation.delta_init(repeated_images).to(imgs.device)
+        delta = self.perturbation.clamp_delta(delta, repeated_images)
+        adv_imgs = self.perturbation.perturb_img(repeated_images, delta)
+        new_labels = repeat(labels, 'B -> (B S)', S=self.hparams['perturbation_batch_size'])
         return adv_imgs.detach(), delta.detach(), new_labels.detach()
 
 class Grid_Batch(Grid_Search):
     def __init__(self, classifier,  hparams, device, perturbation='Linf'):
-        super(Grid_Batch, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+        super(Grid_Batch, self).__init__(classifier,  hparams, device,  perturbation=perturbation, grid_size = hparams['perturbation_batch_size'])
 
     def forward(self, imgs, labels):
-        self.classifier.eval()
-        with torch.no_grad():
-            adv_imgs, new_labels = self.perturbation.perturb_img(
-                imgs,
-                self.grid,
-                repeat=True,
-                labels=labels)
-            
-        self.classifier.train()
-        return adv_imgs.detach(), delta.detach(), new_labels.detach()
+        batch_size = imgs.size(0)
+        adv_imgs = self.perturbation.perturb_img(
+                repeat(imgs, 'B W H C -> (B S) W H C', B=batch_size, S=self.grid_size),
+                repeat(self.grid, 'S D -> (B S) D', B=batch_size, D=self.dim, S=self.grid_size))
+        new_labels = repeat(labels, 'B -> (B S)', S=self.grid_size)
+        return adv_imgs.detach(), self.grid.detach(), new_labels.detach()
 
 if HAMILTORCH_AVAILABLE:
     class NUTS(Attack_Linf):
@@ -286,4 +289,44 @@ if HAMILTORCH_AVAILABLE:
         def enablePrint(self):
             sys.stdout = sys.__stdout__
 
-    
+
+class MCMC_Laplacian_Linf(Attack_Linf):
+    def __init__(self, classifier,  hparams, device, perturbation='Linf', acceptance_meter=None):
+        super(LMC_Laplacian_Linf, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+        if self.hparams['proposal']=='Laplace':
+            self.noise_dist = Laplace(torch.tensor(0.), self.hparams['mc_dale_scale'])
+        else:
+            raise NotImplementedError
+        self.get_proposal = lambda x: x + self.noise_dist.sample(x.shape)
+        if acceptance_meter is not None:
+            self.log_acceptance=True
+            self.acceptance_meter = acceptance_meter
+
+    def forward(self, imgs, labels):
+        self.classifier.eval()
+        with torch.no_grad():
+            delta = self.perturbation.delta_init(imgs).to(imgs.device)
+            delta = self.perturbation.clamp_delta(delta, imgs)
+            adv_imgs = self.perturbation.perturb_img(imgs, delta)
+            last_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
+            ones = torch.ones_like(last_loss)
+            for _ in range(self.hparams['mc_dale_n_steps']):
+                proposal = self.get_proposal(delta)
+                if delta != self.perturbation.clamp_delta(delta, adv_imgs):
+                    adv_imgs = self.perturbation.perturb_img(imgs, delta)
+                    proposal_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
+                    acceptance_ratio = (
+                        torch.minimum((proposal_loss / last_loss), ones)
+                    )
+                    if self.log_acceptance:
+                        self.acceptance_meter.update(acceptance_ratio.mean.item(), n=1)
+                    accepted = torch.bernoulli(acceptance_ratio).bool()
+                    delta[accepted] = proposal[accepted]
+                    last_loss[accepted] = proposal_loss[accepted]
+                elif self.log_acceptance:
+                    self.acceptance_meter.update(0, n=1)
+            delta = self.perturbation.clamp_delta(delta, imgs)
+        adv_imgs = self.perturbation.perturb_img(imgs, delta)
+
+        self.classifier.train()
+        return adv_imgs.detach(), delta.detach()

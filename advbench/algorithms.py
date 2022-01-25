@@ -414,14 +414,14 @@ class Augmentation(Algorithm):
 
         self.meters['loss'].update(loss.item(), n=imgs.size(0))
 
-class Batch_Augmentation(Algorithm):
+class Batch_Random(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
-        super(Batch_Augmentation, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+        super(Batch_Random, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
         self.attack = attacks.Rand_Aug_Batch(self.classifier, self.hparams, device, perturbation=perturbation)
     def step(self, imgs, labels):
-        adv_imgs, deltas =   self.attack(imgs, labels)
+        adv_imgs, deltas, new_labels =   self.attack(imgs, labels)
         self.optimizer.zero_grad()
-        loss = F.cross_entropy(self.predict(adv_imgs), labels)
+        loss = F.cross_entropy(self.predict(adv_imgs), new_labels)
         loss.backward()
         self.optimizer.step()
 
@@ -431,11 +431,11 @@ class Batch_Grid(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
         super(Batch_Grid, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
         self.attack = attacks.Grid_Batch(self.classifier, self.hparams, device, perturbation=perturbation)
+    
     def step(self, imgs, labels):
-        adv_imgs, deltas =   self.attack(imgs, labels)
+        adv_imgs, deltas, new_labels =   self.attack(imgs, labels)
         self.optimizer.zero_grad()
-        loss = F.cross_entropy(self.predict(adv_imgs), labels)
+        loss = F.cross_entropy(self.predict(adv_imgs), new_labels)
         loss.backward()
         self.optimizer.step()
-
         self.meters['loss'].update(loss.item(), n=imgs.size(0))

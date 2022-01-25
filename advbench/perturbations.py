@@ -7,25 +7,9 @@ class Perturbation():
         self.eps = epsilon
     def clamp_delta(self, delta):
         raise NotImplementedError
-    def perturb_img(self, imgs, delta, repeat=False, labels = None):
-        if not repeat:
-            if imgs.shape[0] == delta.shape[0]: # one perturbation vector for each image in batch
-                return self._perturb(imgs, delta)
-            elif imgs.shape[0] < delta.shape[0]:  # more than one perturbation vector for each image in batch
-                # assumes delta.shape[0] = Batchsize * Perturbations per image
-                x = imgs.repeat(delta.shape[0]//imgs.shape[0])
-                adv_imgs = self._perturb(x, delta)
-                if labels is not None:
-                    y = labels.repeat(delta.shape[0]//imgs.shape[0])
-                return adv_imgs, y
-        else: # apply all transformations in delta to each img in batch
-            x = imgs.repeat_interleave(delta.shape[0], dim=0)
-            adv_imgs = self._perturb(x, delta.repeat(imgs.shape[0]))
-            if labels is not None:
-                y = labels.repeat_interleave(delta.shape[0], dim=0)
-                return adv_imgs, y
-            else:
-                return adv_imgs
+    def perturb_img(self, imgs, delta):
+        return self._perturb(imgs, delta)
+                
     def _perturb(self, imgs, delta):
         raise NotImplementedError
     def delta_init(self, imgs):
