@@ -9,8 +9,16 @@ class Perturbation():
         raise NotImplementedError
     def perturb_img(self, imgs, delta, repeat=False, labels = None):
         if not repeat:
-            return self._perturb(imgs, delta)
-        else: # apply delta to every img in batch
+            if imgs.shape[0] == delta.shape[0]: # one perturbation vector for each image in batch
+                return self._perturb(imgs, delta)
+            elif imgs.shape[0] < delta.shape[0]:  # more than one perturbation vector for each image in batch
+                # assumes delta.shape[0] = Batchsize * Perturbations per image
+                x = imgs.repeat(delta.shape[0]//imgs.shape[0])
+                adv_imgs = self._perturb(x, delta)
+                if labels is not None:
+                    y = labels.repeat(delta.shape[0]//imgs.shape[0])
+                return adv_imgs, y
+        else: # apply all transformations in delta to each img in batch
             x = imgs.repeat_interleave(delta.shape[0], dim=0)
             adv_imgs = self._perturb(x, delta.repeat(imgs[0]))
             if labels is not None:
@@ -60,8 +68,6 @@ class Rotation(Perturbation):
     def _perturb(self, imgs, delta):
         return rotate(imgs, delta)
         
-
-
     def delta_init(self, imgs):
         eps = self.eps
         delta_init =   2*eps* torch.rand(imgs.shape[0])-eps
@@ -76,7 +82,7 @@ class SE(Perturbation):
         in the l_inf norm by self.hparams['epsilon'] and (2) so that the
         perturbed image is in [0, 1]^d."""
         for i in range(self.dim):
-            delta[:, i] = torch.clamp(delta[:, i], -self.eps[i], self.eps[i])
+            delta[:, i] = torch.clamp(delta[:, i], - self.eps[i], self.eps[i])
         return delta
 
     def _perturb(self, imgs, delta):
