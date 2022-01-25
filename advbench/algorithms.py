@@ -376,3 +376,46 @@ class NUTS_DALE(Algorithm):
         self.meters['loss'].update(total_loss.item(), n=imgs.size(0))
         self.meters['clean loss'].update(clean_loss.item(), n=imgs.size(0))
         self.meters['robust loss'].update(robust_loss.item(), n=imgs.size(0))
+
+class Worst_Of_K(Algorithm):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
+        super(Worst_Of_K, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+        self.attack = attacks.Worst_Of_K(self.classifier, self.hparams, device, perturbation=perturbation)
+
+    def step(self, imgs, labels):
+        with torch.no_grad():
+            adv_imgs, deltas =   self.attack(imgs, labels)
+        self.optimizer.zero_grad()
+        loss = F.cross_entropy(self.predict(adv_imgs), labels)
+        loss.backward()
+        self.optimizer.step()
+
+        self.meters['loss'].update(loss.item(), n=imgs.size(0))
+
+class Grid_Search(Algorithm):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
+        super(Grid_Search, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+        self.attack = attacks.Grid_Search(self.classifier, self.hparams, device, perturbation=perturbation)
+
+    def step(self, imgs, labels):
+        with torch.no_grad():
+            adv_imgs, deltas =   self.attack(imgs, labels)
+        self.optimizer.zero_grad()
+        loss = F.cross_entropy(self.predict(adv_imgs), labels)
+        loss.backward()
+        self.optimizer.step()
+
+        self.meters['loss'].update(loss.item(), n=imgs.size(0))
+
+class Batch_Augment(Algorithm):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
+        super(Batch_Augment, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+
+    def step(self, imgs, labels):
+        adv_imgs, deltas =   self.attack(imgs, labels)
+        self.optimizer.zero_grad()
+        loss = F.cross_entropy(self.predict(adv_imgs), labels)
+        loss.backward()
+        self.optimizer.step()
+
+        self.meters['loss'].update(loss.item(), n=imgs.size(0))

@@ -182,7 +182,7 @@ class Grid_Search(Attack_Linf):
                 imgs,
                 self.grid,
                 repeat=True,
-                labels=y)
+                labels=labels)
             y_hat_adv = algorithm.predict(adv_imgs)
             adv_loss = cross_entropy(y_hat_adv, y, reduction="none").reshape(*deltas_size, -1)
         max_idx = torch.argmax(adv_loss,dim=-1)
@@ -218,6 +218,47 @@ class Worst_Of_K(Attack_Linf):
         adv_imgs = self.perturbation.perturb_img(imgs, delta)
         self.classifier.train()
         return adv_imgs.detach(), delta.detach()
+
+class Rand_Aug(Attack_Linf):
+    def __init__(self, classifier,  hparams, device, perturbation='Linf'):
+        super(Worst_Of_K, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+
+    def forward(self, imgs, labels):
+        batch_size = imgs.size(0)
+        self.classifier.eval()
+        delta = self.perturbation.delta_init(imgs).to(imgs.device)
+        adv_imgs = self.perturbation.perturb_img(imgs, delta)
+        self.classifier.train()
+        return adv_imgs.detach(), delta.detach()
+
+class Rand_Aug_Batch(Attack_Linf):
+    def __init__(self, classifier,  hparams, device, perturbation='Linf'):
+        super(Rand_Aug_Batch, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+
+    def forward(self, imgs, labels):
+        batch_size = imgs.size(0)
+        self.classifier.eval()
+        imgs = imgs.repeat(self.hparams['perturbation_batch_size'])
+        delta = self.perturbation.delta_init().to(imgs.device)
+        adv_imgs, new_labels = self.perturbation.perturb_img(imgs, delta, labels=labels)
+        self.classifier.train()
+        return adv_imgs.detach(), delta.detach(), new_labels.detach()
+
+class Grid_Batch(Grid_Search):
+    def __init__(self, classifier,  hparams, device, perturbation='Linf'):
+        super(Grid_Batch, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+
+    def forward(self, imgs, labels):
+        self.classifier.eval()
+        with torch.no_grad():
+            adv_imgs, new_labels = self.perturbation.perturb_img(
+                imgs,
+                self.grid,
+                repeat=True,
+                labels=labels)
+            
+        self.classifier.train()
+        return adv_imgs.detach(), delta.detach(), new_labels.detach()
 
 if HAMILTORCH_AVAILABLE:
     class NUTS(Attack_Linf):
