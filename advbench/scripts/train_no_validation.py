@@ -23,6 +23,7 @@ PD_ALGORITHMS = [
     'Laplacian_DALE',
     'Gaussian_DALE_PD',
     'Gaussian_DALE_PD_Reverse',
+    'MCMC_DALE_PD_Reverse',
     'KL_DALE_PD',
     'NUTS_DALE',
 ]
@@ -35,10 +36,10 @@ def main(args, hparams, test_hparams):
         hparams['epsilon'] = torch.tensor([hparams[f'epsilon_{i}'] for i in ("rot","tx","ty")]).to(device)
         test_hparams['epsilon'] = torch.tensor([test_hparams[f'epsilon_{tfm}'] for tfm in ("rot","tx","ty")]).to(device)
     dataset = vars(datasets)[args.dataset](args.data_dir)
-    train_ldr, val_ldr, test_ldr = datasets.to_loaders(dataset, hparams)
+    train_ldr, _, test_ldr = datasets.to_loaders(dataset, hparams)
     kw_args = {"perturbation": args.perturbation}
     if args.algorithm in PD_ALGORITHMS: 
-        if args.algorithm=="Gaussian_DALE_PD_Reverse":
+        if args.algorithm.endswith("Reverse"):
             kw_args["init"] = 0.0
         else:
             kw_args["init"] = 1.0

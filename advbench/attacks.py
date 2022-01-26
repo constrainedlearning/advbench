@@ -1,7 +1,4 @@
 import os, sys
-from re import S
-
-from pyrsistent import T
 try:
     import hamiltorch
     HAMILTORCH_AVAILABLE = True
@@ -141,6 +138,47 @@ class LMC_Laplacian_Linf(Attack_Linf):
 
         self.classifier.train()
         return adv_imgs.detach(), delta.detach()
+class MCMC(Attack_Linf):
+    def __init__(self, classifier,  hparams, device, perturbation='Linf', acceptance_meter=None):
+        super(MCMC, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+        if self.hparams['mcmc_proposal']=='Laplace':
+            self.noise_dist = Laplace(torch.zeros(self.perturbation.dim, device=device), self.hparams['mcmc_dale_scale']*self.perturbation.eps.to(device))
+        else:
+            raise NotImplementedError
+        self.get_proposal = lambda x: x + self.noise_dist.sample([x.shape[0]]).to(x.device)
+        if acceptance_meter is not None:
+            self.log_acceptance=True
+            self.acceptance_meter = acceptance_meter
+
+    def forward(self, imgs, labels):
+        self.classifier.eval()
+        with torch.no_grad():
+            delta = self.perturbation.delta_init(imgs).to(imgs.device)
+            delta = self.perturbation.clamp_delta(delta, imgs)
+            adv_imgs = self.perturbation.perturb_img(imgs, delta)
+            last_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
+            ones = torch.ones_like(last_loss)
+            for _ in range(self.hparams['mcmc_dale_n_steps']):
+                proposal = self.get_proposal(delta)
+                if torch.allclose(delta, self.perturbation.clamp_delta(delta, adv_imgs)):
+                    adv_imgs = self.perturbation.perturb_img(imgs, delta)
+                    proposal_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
+                    acceptance_ratio = (
+                        torch.minimum((proposal_loss / last_loss), ones)
+                    )
+                    if self.log_acceptance:
+                        self.acceptance_meter.update(acceptance_ratio.mean().item(), n=1)
+                    accepted = torch.bernoulli(acceptance_ratio).bool()
+                    delta[accepted] = proposal[accepted]
+                    last_loss[accepted] = proposal_loss[accepted]
+                elif self.log_acceptance:
+                    self.acceptance_meter.update(0, n=1)
+            delta = self.perturbation.clamp_delta(delta, imgs)
+        adv_imgs = self.perturbation.perturb_img(imgs, delta)
+
+        self.classifier.train()
+        return adv_imgs.detach(), delta.detach()
+
 
 class Grid_Search(Attack_Linf):
     def __init__(self, classifier,  hparams, device, perturbation='Linf', grid_size=None):
@@ -288,45 +326,3 @@ if HAMILTORCH_AVAILABLE:
         # Restore
         def enablePrint(self):
             sys.stdout = sys.__stdout__
-
-
-class MCMC_Laplacian_Linf(Attack_Linf):
-    def __init__(self, classifier,  hparams, device, perturbation='Linf', acceptance_meter=None):
-        super(LMC_Laplacian_Linf, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
-        if self.hparams['proposal']=='Laplace':
-            self.noise_dist = Laplace(torch.tensor(0.), self.hparams['mc_dale_scale'])
-        else:
-            raise NotImplementedError
-        self.get_proposal = lambda x: x + self.noise_dist.sample(x.shape)
-        if acceptance_meter is not None:
-            self.log_acceptance=True
-            self.acceptance_meter = acceptance_meter
-
-    def forward(self, imgs, labels):
-        self.classifier.eval()
-        with torch.no_grad():
-            delta = self.perturbation.delta_init(imgs).to(imgs.device)
-            delta = self.perturbation.clamp_delta(delta, imgs)
-            adv_imgs = self.perturbation.perturb_img(imgs, delta)
-            last_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
-            ones = torch.ones_like(last_loss)
-            for _ in range(self.hparams['mc_dale_n_steps']):
-                proposal = self.get_proposal(delta)
-                if delta != self.perturbation.clamp_delta(delta, adv_imgs):
-                    adv_imgs = self.perturbation.perturb_img(imgs, delta)
-                    proposal_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
-                    acceptance_ratio = (
-                        torch.minimum((proposal_loss / last_loss), ones)
-                    )
-                    if self.log_acceptance:
-                        self.acceptance_meter.update(acceptance_ratio.mean.item(), n=1)
-                    accepted = torch.bernoulli(acceptance_ratio).bool()
-                    delta[accepted] = proposal[accepted]
-                    last_loss[accepted] = proposal_loss[accepted]
-                elif self.log_acceptance:
-                    self.acceptance_meter.update(0, n=1)
-            delta = self.perturbation.clamp_delta(delta, imgs)
-        adv_imgs = self.perturbation.perturb_img(imgs, delta)
-
-        self.classifier.train()
-        return adv_imgs.detach(), delta.detach()

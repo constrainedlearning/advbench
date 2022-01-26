@@ -20,13 +20,14 @@ ALGORITHMS = [
     'Laplacian_DALE',
     'Gaussian_DALE_PD',
     'Gaussian_DALE_PD_Reverse',
+    'MCMC_DALE_PD_Reverse',
     'KL_DALE_PD',
-    'NUTS_DALE',
     'Worst_Of_K',
     'Augmentation',
     'Batch_Augmentation',
     'Grid_Search',
-    'Batch_Grid'
+    'Batch_Grid',
+    'NUTS_DALE',
 ]
 
 class Algorithm(nn.Module):
@@ -324,6 +325,32 @@ class Gaussian_DALE_PD_Reverse(PrimalDualBase):
         self.meters['delta L1-border'].update((torch.abs(deltas)-self.hparams['epsilon']).mean().item(), n=imgs.size(0))
         self.meters['delta hist'].update(deltas.cpu())
 
+class MCMC_DALE_PD_Reverse(PrimalDualBase):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=1.0):
+        super(MCMC_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
+        self.meters['acceptance rate'] = meters.AverageMeter()
+        self.attack = attacks.MCMC(self.classifier, self.hparams, device, perturbation=perturbation, acceptance_meter=self.meters['acceptance rate'])
+        self.pd_optimizer = optimizers.PrimalDualOptimizer(
+            parameters=self.dual_params,
+            margin=self.hparams['g_dale_pd_inv_margin'],
+            eta=self.hparams['g_dale_pd_inv_eta'])
+
+    def step(self, imgs, labels):
+        adv_imgs, deltas =self.attack(imgs, labels)
+        self.optimizer.zero_grad()
+        clean_loss = F.cross_entropy(self.predict(imgs), labels)
+        robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
+        total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
+        total_loss.backward()
+        self.optimizer.step()
+        self.pd_optimizer.step(robust_loss.detach())
+        self.meters['loss'].update(total_loss.item(), n=imgs.size(0))
+        self.meters['clean loss'].update(clean_loss.item(), n=imgs.size(0))
+        self.meters['robust loss'].update(robust_loss.item(), n=imgs.size(0))
+        self.meters['dual variable'].update(self.dual_params['dual_var'].item(), n=1)
+        self.meters['delta L1-border'].update((torch.abs(deltas)-self.hparams['epsilon']).mean().item(), n=imgs.size(0))
+        self.meters['delta hist'].update(deltas.cpu())
+
 class KL_DALE_PD(PrimalDualBase):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=1.0):
         super(KL_DALE_PD, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
@@ -351,25 +378,6 @@ class KL_DALE_PD(PrimalDualBase):
         self.meters['robust loss'].update(robust_loss.item(), n=imgs.size(0))
         self.meters['dual variable'].update(self.dual_params['dual_var'].item(), n=1)
 
-class NUTS_DALE(Algorithm):
-    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=1.0):
-        super(NUTS_DALE, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
-        self.attack = attacks.NUTS(self.classifier, self.hparams, device, perturbation=perturbation)
-        self.meters['clean loss'] = meters.AverageMeter()
-        self.meters['robust loss'] = meters.AverageMeter()
-
-    def step(self, imgs, labels):
-        adv_imgs, deltas = self.attack(imgs, labels)
-        self.optimizer.zero_grad()
-        clean_loss = F.cross_entropy(self.predict(imgs), labels)
-        robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
-        total_loss = robust_loss + self.hparams['l_dale_nu'] * clean_loss
-        total_loss.backward()
-        self.optimizer.step()
-
-        self.meters['loss'].update(total_loss.item(), n=imgs.size(0))
-        self.meters['clean loss'].update(clean_loss.item(), n=imgs.size(0))
-        self.meters['robust loss'].update(robust_loss.item(), n=imgs.size(0))
 
 class Worst_Of_K(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
@@ -439,3 +447,23 @@ class Batch_Grid(Algorithm):
         loss.backward()
         self.optimizer.step()
         self.meters['loss'].update(loss.item(), n=imgs.size(0))
+
+class NUTS_DALE(Algorithm):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=1.0):
+        super(NUTS_DALE, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
+        self.attack = attacks.NUTS(self.classifier, self.hparams, device, perturbation=perturbation)
+        self.meters['clean loss'] = meters.AverageMeter()
+        self.meters['robust loss'] = meters.AverageMeter()
+
+    def step(self, imgs, labels):
+        adv_imgs, deltas = self.attack(imgs, labels)
+        self.optimizer.zero_grad()
+        clean_loss = F.cross_entropy(self.predict(imgs), labels)
+        robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
+        total_loss = robust_loss + self.hparams['l_dale_nu'] * clean_loss
+        total_loss.backward()
+        self.optimizer.step()
+
+        self.meters['loss'].update(total_loss.item(), n=imgs.size(0))
+        self.meters['clean loss'].update(clean_loss.item(), n=imgs.size(0))
+        self.meters['robust loss'].update(robust_loss.item(), n=imgs.size(0))
