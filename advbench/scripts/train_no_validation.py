@@ -53,6 +53,8 @@ def main(args, hparams, test_hparams):
 
     adjust_lr = None if dataset.HAS_LR_SCHEDULE is False else dataset.adjust_lr
 
+    adjust_lr_dual = None if dataset.HAS_LR_SCHEDULE_DUAL is False or not (args.algorithm in PD_ALGORITHMS) else dataset.adjust_lr_dual
+
     test_attacks = {
         a: vars(attacks)[a](algorithm.classifier, test_hparams, device, perturbation=args.perturbation) for a in args.test_attacks}
     
@@ -78,6 +80,8 @@ def main(args, hparams, test_hparams):
     for epoch in range(0, dataset.N_EPOCHS):
         if adjust_lr is not None:
             adjust_lr(algorithm.optimizer, epoch, hparams)
+        if adjust_lr_dual is not None:
+            adjust_lr_dual(algorithm.pd_optimizer, epoch)
         if wandb_log:
             wandb.log({'lr': hparams['learning_rate'], 'epoch': epoch, 'step':step})
         timer = meters.TimeMeter()
@@ -98,7 +102,6 @@ def main(args, hparams, test_hparams):
                             wandb.log({name+"_avg": meter.avg, 'epoch': epoch, 'step':step})
                 print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
             timer.batch_end()
-            break
 
         # save clean accuracies on validation/test sets
         test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
@@ -124,7 +127,6 @@ def main(args, hparams, test_hparams):
                     deltas, loss = eval[mode].eval_perturbed(single_img=(mode=='single'))
                     tag = "sample" if mode=='single' else "mean"
                     plotting.plot_perturbed_wandb(deltas, loss, name=f"{name}_loss_landscape_{tag}", wandb_args = {'epoch': epoch, 'step':step}, plot_mode="surface")
-            break
         epoch_end = time.time()
         total_time += epoch_end - epoch_start
 

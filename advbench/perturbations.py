@@ -19,6 +19,7 @@ class Linf(Perturbation):
     def __init__(self, epsilon):
         super(Linf, self).__init__(epsilon)
         self.dim = None
+        self.names = ['Linf']
     def clamp_delta(self, delta, imgs):
         """Clamp delta so that (1) the perturbation is bounded
         in the l_inf norm by self.hparams['epsilon'] and (2) so that the
@@ -42,6 +43,7 @@ class Rotation(Perturbation):
     def __init__(self, epsilon):
         super(Rotation, self).__init__(epsilon)
         self.dim = 1
+        self.names = ['Angle']
     def clamp_delta(self, delta, imgs):
         """Clamp delta so that (1) the perturbation is bounded
         in the l_inf norm by self.hparams['epsilon'] and (2) so that the
@@ -64,6 +66,7 @@ class SE(Perturbation):
     def __init__(self, epsilon):
         super(SE, self).__init__(epsilon)
         self.dim = 3
+        self.names = ['Angle', 'Tx', 'Ty']
     def clamp_delta(self, delta, imgs):
         """Clamp delta so that (1) the perturbation is bounded
         in the l_inf norm by self.hparams['epsilon'] and (2) so that the

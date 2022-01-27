@@ -4,9 +4,7 @@ import torch.nn.functional as F
 from collections import OrderedDict
 import pandas as pd
 
-from advbench import networks
-from advbench import optimizers
-from advbench import attacks
+from advbench import attacks, networks, optimizers, perturbations
 from advbench.lib import meters
 
 ALGORITHMS = [
@@ -272,8 +270,8 @@ class PrimalDualBase(Algorithm):
         self.meters['robust loss'] = meters.AverageMeter()
         self.meters['dual variable'] = meters.AverageMeter()
         self.meters['delta L1-border'] = meters.AverageMeter()
-        self.meters['delta hist'] = meters.WBHistogramMeter("delta")
-
+        perturbation = vars(perturbations)[perturbation](0)
+        self.meters['delta hist'] = meters.WBDeltaMeter(names = perturbation.names, dims = perturbation.dim)
 
 class Gaussian_DALE_PD(PrimalDualBase):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=1.0):

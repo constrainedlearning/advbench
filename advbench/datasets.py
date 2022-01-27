@@ -60,6 +60,7 @@ class AdvRobDataset(Dataset):
     LOSS_LANDSCAPE_INTERVAL = None # Subclasses should override
     LOSS_LANDSCAPE_BATCHES = None # Subclasses should override
     HAS_LR_SCHEDULE = False  # Default, subclass may override
+    HAS_LR_SCHEDULE_DUAL = False # Default, subclass may override
 
     def __init__(self):
         self.splits = dict.fromkeys(SPLITS)
@@ -75,6 +76,7 @@ if FFCV_AVAILABLE:
         LOSS_LANDSCAPE_INTERVAL = 10
         LOSS_LANDSCAPE_BATCHES = 20
         HAS_LR_SCHEDULE = True
+        HAS_LR_SCHEDULE_DUAL = False
 
         # test adversary parameters
         ADV_STEP_SIZE = 2/255.
@@ -111,19 +113,8 @@ if FFCV_AVAILABLE:
 
             self.splits['test'] = CIFAR10_(root, train=False)
             self.write()
-
-
-        @staticmethod
-        def adjust_lr(optimizer, epoch, hparams):
-            lr = hparams['learning_rate']
-            if epoch >= 150:
-                lr = hparams['learning_rate'] * 0.1
-            if epoch >= 175:
-                lr = hparams['learning_rate'] * 0.01
-            if epoch >= 190:
-                lr = hparams['learning_rate'] * 0.001
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = lr
+        
+        
 
         def write(self):
             folder = os.path.join('data','ffcv', 'CIFAR')
@@ -147,6 +138,7 @@ else:
         LOSS_LANDSCAPE_INTERVAL = 10
         LOSS_LANDSCAPE_BATCHES = 20
         HAS_LR_SCHEDULE = True
+        HAS_LR_SCHEDULE_DUAL = False
 
         # test adversary parameters
         ADV_STEP_SIZE = 2/255.
@@ -196,6 +188,7 @@ class MNIST(AdvRobDataset):
     HAS_LR_SCHEDULE = False
     LOSS_LANDSCAPE_GSIZE = 28000
     LOSS_LANDSCAPE_BATCHES = 10
+    HAS_LR_SCHEDULE_DUAL = True
 
     # test adversary parameters
     ADV_STEP_SIZE = 0.1
@@ -228,3 +221,18 @@ class MNIST(AdvRobDataset):
             lr = hparams['learning_rate'] * 0.001
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
+    
+    @staticmethod
+    def adjust_lr_dual(pd_optimizer, epoch):
+        lr = pd_optimizer.eta
+        if epoch == 10:
+            lr = lr * 2
+        if epoch == 20:
+            lr = lr * 2
+        if epoch == 25:
+            lr = lr * 2
+        if epoch == 50:
+            lr = lr * 5
+        if epoch == 90:
+            lr = lr * 5
+        pd_optimizer.eta = lr

@@ -50,6 +50,21 @@ if wandb:
 
         def update(self, val):
             wandb.log({self.name: wandb.Histogram(val)})
+    
+    class WBDeltaMeter(WBHistogramMeter):
+        def __init__(self, names = [], dims = 0):
+            self.print = False
+            self.dims = dims
+            if isinstance(names, str):
+                names = [f"{names} {i}" for i in range(dims)]
+            self.meters = [WBHistogramMeter(name) for name in names]
+
+        def reset(self):
+            pass
+
+        def update(self, vals):
+            for i in range(self.dims):
+                self.meters[i].update(vals[:,i])
 
 else:
     class WBHistogramMeter:
@@ -61,3 +76,7 @@ else:
 
         def update(self, val):
             pass
+
+    class WBDeltaMeter(WBHistogramMeter):
+        def __init__(self,names = [], dims = 0):
+            self.print = False
