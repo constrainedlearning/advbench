@@ -226,8 +226,8 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         # DALE (Laplacian-HMC)
         if dataset == 'MNIST':
             _hparam('l_dale_n_steps', 15, lambda r: 15)
-            _hparam('l_dale_step_size', 5, lambda r: 5)
-            _hparam('l_dale_noise_coeff', 1, lambda r: 10 ** r.uniform(-1.0, -1.0))
+            _hparam('l_dale_step_size', 0.05, lambda r: 0.05)
+            _hparam('l_dale_noise_coeff', 0.05,lambda r: 0.05)
         elif dataset == 'CIFAR10':
             _hparam('l_dale_n_steps', 10, lambda r: 10)
             _hparam('l_dale_step_size', 0.007, lambda r: 0.007)
@@ -241,7 +241,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('g_dale_pd_margin', 0.16, lambda r: 0.16)
 
         # DALE-PD-INV (Gaussian-HMC)
-        _hparam('g_dale_pd_inv_step_size', 2, lambda r: 2)
+        _hparam('g_dale_pd_inv_step_size', 1, lambda r: 1)
         _hparam('g_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
         _hparam('g_dale_pd_inv_margin', 0.1, lambda r: 0.1)
 
@@ -281,6 +281,8 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         _hparam('mcmc_dale_scale', 0.2)
         _hparam('mcmc_dale_n_steps', 10)
         _hparam('mcmc_proposal', 'Laplace')
+
+        
 
         ##### PGD #####
         if dataset == 'MNIST':
@@ -359,6 +361,12 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         # Grid Search
         _hparam('grid_dims', 1)
         _hparam('grid_size', 120)
+        # DALE (Laplacian-HMC)
+        if dataset == 'MNIST':
+            _hparam('l_dale_n_steps', 15)
+            _hparam('l_dale_step_size', 0.05)
+            _hparam('l_dale_noise_coeff', 0.05)
+        _hparam('l_dale_nu', 0.1)
     
     else:
         raise NotImplementedError

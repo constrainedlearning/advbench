@@ -94,7 +94,8 @@ class FGSM_Linf(Attack):
 class LMC_Gaussian_Linf(Attack_Linf):
     def __init__(self, classifier,  hparams, device, perturbation='Linf'):
         super(LMC_Gaussian_Linf, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
-
+        self.step = self.perturbation.eps*self.hparams['g_dale_step_size']
+        self.noise_coeff = self.perturbation.eps*self.hparams['g_dale_noise_coeff']
     def forward(self, imgs, labels):
         self.classifier.eval()
         batch_size = imgs.size(0)
@@ -107,7 +108,7 @@ class LMC_Gaussian_Linf(Attack_Linf):
             grad = torch.autograd.grad(adv_loss, [delta])[0].detach()
             delta.requires_grad_(False)
             noise = torch.randn_like(delta).to(self.device).detach()
-            delta += self.hparams['g_dale_step_size'] * torch.sign(grad) + self.hparams['g_dale_noise_coeff'] * noise
+            delta += self.step.to(self.device) * grad + self.noise_coeff.to(self.device) * noise
             delta = self.perturbation.clamp_delta(delta, imgs)
         adv_imgs = self.perturbation.perturb_img(imgs, delta)
 
@@ -118,7 +119,8 @@ class LMC_Gaussian_Linf(Attack_Linf):
 class LMC_Laplacian_Linf(Attack_Linf):
     def __init__(self, classifier,  hparams, device, perturbation='Linf'):
         super(LMC_Laplacian_Linf, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
-
+        self.step = self.perturbation.eps*self.hparams['l_dale_step_size']
+        self.noise_coeff = self.perturbation.eps*self.hparams['l_dale_noise_coeff']
     def forward(self, imgs, labels):
         self.classifier.eval()
         batch_size = imgs.size(0)
@@ -131,8 +133,8 @@ class LMC_Laplacian_Linf(Attack_Linf):
                 adv_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
             grad = torch.autograd.grad(adv_loss, [delta])[0].detach()
             delta.requires_grad_(False)
-            noise = noise_dist.sample(grad.shape)
-            delta += self.hparams['l_dale_step_size'] * torch.sign(grad + self.hparams['l_dale_noise_coeff'] * noise)
+            noise = noise_dist.sample(grad.shape).to(self.device)
+            delta += self.step.to(self.device) * torch.sign(grad) + self.noise_coeff.to(self.device) * noise
             delta = self.perturbation.clamp_delta(delta, imgs)
         adv_imgs = self.perturbation.perturb_img(imgs, delta)
 
@@ -149,6 +151,8 @@ class MCMC(Attack_Linf):
         if acceptance_meter is not None:
             self.log_acceptance=True
             self.acceptance_meter = acceptance_meter
+        else:
+            self.log_acceptance = False
 
     def forward(self, imgs, labels):
         self.classifier.eval()
