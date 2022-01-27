@@ -191,13 +191,7 @@ class Grid_Search(Attack_Linf):
         self.grid_steps = int(self.grid_size**(1/self.dim))
         self.grid_size = self.grid_steps**self.dim
         self.grid_shape = [self.grid_size, self.dim]
-        if self.dim==1:
-            self.epsilon = [self.hparams['epsilon']]
-        else:
-            epsilon = []
-            for i in range(self.dim):
-                epsilon.append(self.hparams[f'epsilon_{i}'])
-            self.epsilon = epsilon
+        self.epsilon = self.hparams['epsilon']
         self.make_grid()
     
     def make_grid(self):
@@ -206,9 +200,7 @@ class Grid_Search(Attack_Linf):
             eps = self.epsilon[idx]
             step = 2*eps/self.grid_steps
             grids.append(torch.arange(-eps, eps, step=step, device=self.device))
-        coords = torch.stack(torch.meshgrid(grids), -1)
-        assert(self.grid_size==torch.numel(coords))
-        self.grid = coords
+        self.grid = torch.cartesian_prod(*grids)
 
     def forward(self, imgs, labels):
         self.classifier.eval()
@@ -326,3 +318,4 @@ if HAMILTORCH_AVAILABLE:
         # Restore
         def enablePrint(self):
             sys.stdout = sys.__stdout__
+

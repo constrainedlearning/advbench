@@ -43,6 +43,7 @@ class Algorithm(nn.Module):
         self.meters = OrderedDict()
         self.meters['loss'] = meters.AverageMeter()
         self.meters_df = None
+        self.perturbation_name = perturbation
 
     def step(self, imgs, labels):
         raise NotImplementedError
@@ -441,7 +442,7 @@ class Batch_Grid(Algorithm):
         self.attack = attacks.Grid_Batch(self.classifier, self.hparams, device, perturbation=perturbation)
     
     def step(self, imgs, labels):
-        adv_imgs, deltas, new_labels =   self.attack(imgs, labels)
+        adv_imgs, deltas, new_labels =  self.attack(imgs, labels)
         self.optimizer.zero_grad()
         loss = F.cross_entropy(self.predict(adv_imgs), new_labels)
         loss.backward()

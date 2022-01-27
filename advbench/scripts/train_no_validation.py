@@ -66,12 +66,13 @@ def main(args, hparams, test_hparams):
         wandb.init(project="adversarial-constrained", name=name)
         wandb.config.update(args)
         wandb.config.update(hparams)
-        if args.perturbation != 'SE':
-            perturbation_eval = logging.GridEval(args.perturbation, 
-                                                dataset.LOSS_LANDSCAPE_BATCHES,
-                                                int(2*hparams["epsilon"]/0.5), 
-                                                hparams["epsilon"], 
-                                                device)
+        large_grid = dataset.LOSS_LANDSCAPE_GSIZE
+        small_grid = int(large_grid/100)
+        train_eval, test_eval = {}, {}
+        train_eval["single"]= logging.GridEval(algorithm, train_ldr, max_perturbations=large_grid)
+        test_eval["single"] = logging.GridEval(algorithm, test_ldr, max_perturbations=large_grid)
+        train_eval["batch"] = logging.GridEval(algorithm, train_ldr, max_perturbations=small_grid)
+        test_eval["batch"] = logging.GridEval(algorithm, test_ldr, max_perturbations=small_grid)
     total_time = 0
     step = 0
     for epoch in range(0, dataset.N_EPOCHS):
@@ -97,6 +98,7 @@ def main(args, hparams, test_hparams):
                             wandb.log({name+"_avg": meter.avg, 'epoch': epoch, 'step':step})
                 print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
             timer.batch_end()
+            break
 
         # save clean accuracies on validation/test sets
         test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
@@ -113,13 +115,16 @@ def main(args, hparams, test_hparams):
             test_adv_accs.append(test_adv_acc)
             if wandb_log and args.perturbation!="Linf":
                 wandb.log({'test_acc_adv_'+attack_name: test_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'epoch': epoch, 'step':step})
-                plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step})
+                plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
                 
-        if args.perturbation == 'Rotation' and wandb_log and batch_idx % dataset.LOSS_LANDSCAPE_INTERVAL == 0:
+        if wandb_log and batch_idx % dataset.LOSS_LANDSCAPE_INTERVAL == 0:
         # log loss landscape
-            loss, deltas = perturbation_eval.eval_perturbed(algorithm, test_ldr)
-            plotting.plot_perturbed_wandb(deltas.cpu().numpy(), loss.cpu().numpy(), name="test_loss_landscape", wandb_args = {'epoch': epoch, 'step':step})
-
+            for eval, name in zip([train_eval, test_eval], ['train', 'test']):
+                for mode in ('single', 'batch'):     
+                    deltas, loss = eval[mode].eval_perturbed(single_img=(mode=='single'))
+                    tag = "sample" if mode=='single' else "mean"
+                    plotting.plot_perturbed_wandb(deltas, loss, name=f"{name}_loss_landscape_{tag}", wandb_args = {'epoch': epoch, 'step':step}, plot_mode="surface")
+            break
         epoch_end = time.time()
         total_time += epoch_end - epoch_start
 

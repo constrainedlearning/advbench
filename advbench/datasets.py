@@ -194,6 +194,8 @@ class MNIST(AdvRobDataset):
     LOSS_LANDSCAPE_INTERVAL = 1
     LOSS_LANDSCAPE_BATCHES = 40
     HAS_LR_SCHEDULE = False
+    LOSS_LANDSCAPE_GSIZE = 28000
+    LOSS_LANDSCAPE_BATCHES = 10
 
     # test adversary parameters
     ADV_STEP_SIZE = 0.1

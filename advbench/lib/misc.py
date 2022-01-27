@@ -65,13 +65,12 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
     losses, deltas = [], []
 
     algorithm.eval()
-    for imgs, labels in loader:
-        imgs, labels = imgs.to(device), labels.to(device)
-        adv_imgs, delta = attack(imgs, labels)
-
-        with torch.no_grad():
+    with torch.no_grad():
+        for imgs, labels in loader:
+            imgs, labels = imgs.to(device), labels.to(device)
+            adv_imgs, delta = attack(imgs, labels)
             output = algorithm.predict(adv_imgs)
-            loss = F.cross_entropy(output, labels)
+            loss = F.cross_entropy(output, labels, reduction='none')
             pred = output.argmax(dim=1, keepdim=True)
         losses.append(loss.cpu().numpy())
         deltas.append(delta.cpu().numpy())
@@ -80,7 +79,7 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
         total += imgs.size(0)
     algorithm.train()
     acc = 100. * correct / total
-    return acc, np.stack(losses), np.stack(deltas)
+    return acc, np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0)
 
 class Tee:
     def __init__(self, fname, mode="a"):
