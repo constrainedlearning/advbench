@@ -26,6 +26,8 @@ ALGORITHMS = [
     'Grid_Search',
     'Batch_Grid',
     'NUTS_DALE',
+    'Worst_DALE_PD_Reverse',
+    'PGD_DALE_PD_Reverse'
 ]
 
 class Algorithm(nn.Module):
@@ -323,6 +325,41 @@ class Gaussian_DALE_PD_Reverse(PrimalDualBase):
         self.meters['dual variable'].update(self.dual_params['dual_var'].item(), n=1)
         self.meters['delta L1-border'].update((torch.abs(deltas)-self.hparams['epsilon']).mean().item(), n=imgs.size(0))
         self.meters['delta hist'].update(deltas.cpu())
+
+class Laplacian_DALE_PD_Reverse(PrimalDualBase):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=1.0):
+        super(Laplacian_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
+        self.attack = attacks.LMC_Laplacian_Linf(self.classifier, self.hparams, device, perturbation=perturbation)
+        self.pd_optimizer = optimizers.PrimalDualOptimizer(
+            parameters=self.dual_params,
+            margin=self.hparams['l_dale_pd_inv_margin'],
+            eta=self.hparams['l_dale_pd_inv_eta'])
+
+    def step(self, imgs, labels):
+        adv_imgs, deltas =self.attack(imgs, labels)
+        self.optimizer.zero_grad()
+        clean_loss = F.cross_entropy(self.predict(imgs), labels)
+        robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
+        total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
+        total_loss.backward()
+        self.optimizer.step()
+        self.pd_optimizer.step(robust_loss.detach())
+        self.meters['loss'].update(total_loss.item(), n=imgs.size(0))
+        self.meters['clean loss'].update(clean_loss.item(), n=imgs.size(0))
+        self.meters['robust loss'].update(robust_loss.item(), n=imgs.size(0))
+        self.meters['dual variable'].update(self.dual_params['dual_var'].item(), n=1)
+        self.meters['delta L1-border'].update((torch.abs(deltas)-self.hparams['epsilon']).mean().item(), n=imgs.size(0))
+        self.meters['delta hist'].update(deltas.cpu())
+
+class Worst_DALE_PD_Reverse(Laplacian_DALE_PD_Reverse):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=1.0):
+        super(Worst_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
+        self.attack = attacks.Worst_Of_K(self.classifier, self.hparams, device, perturbation=perturbation)
+
+class PGD_DALE_PD_Reverse(Laplacian_DALE_PD_Reverse):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=1.0):
+        super(PGD_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
+        self.attack = attacks.PGD_Linf(self.classifier, self.hparams, device, perturbation=perturbation)
 
 class MCMC_DALE_PD_Reverse(PrimalDualBase):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=1.0):

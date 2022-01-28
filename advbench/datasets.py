@@ -58,6 +58,7 @@ class AdvRobDataset(Dataset):
     CHECKPOINT_FREQ = None   # Subclasses should override
     LOG_INTERVAL = None      # Subclasses should override
     LOSS_LANDSCAPE_INTERVAL = None # Subclasses should override
+    ATTACK_INTERVAL = 1     # Default, subclass may override
     LOSS_LANDSCAPE_BATCHES = None # Subclasses should override
     HAS_LR_SCHEDULE = False  # Default, subclass may override
     HAS_LR_SCHEDULE_DUAL = False # Default, subclass may override
@@ -77,6 +78,8 @@ if FFCV_AVAILABLE:
         LOSS_LANDSCAPE_BATCHES = 20
         HAS_LR_SCHEDULE = True
         HAS_LR_SCHEDULE_DUAL = False
+        HAS_LR_SCHEDULE = True
+        HAS_LR_SCHEDULE_DUAL = True
 
         # test adversary parameters
         ADV_STEP_SIZE = 2/255.
@@ -113,6 +116,21 @@ if FFCV_AVAILABLE:
 
             self.splits['test'] = CIFAR10_(root, train=False)
             self.write()
+
+        @staticmethod
+        def adjust_lr_dual(pd_optimizer, epoch):
+            lr = pd_optimizer.eta
+            if epoch == 20:
+                lr = lr * 5
+            if epoch == 40:
+                lr = lr * 5
+            if epoch == 80:
+                lr = lr * 2
+            if epoch == 150:
+                lr = lr * 5
+            if epoch == 200:
+                lr = lr * 5
+            pd_optimizer.eta = lr   
         
         
 
@@ -130,15 +148,17 @@ if FFCV_AVAILABLE:
                 self.splits[name] = path
 else:
     class CIFAR10(AdvRobDataset):
+        ATTACK_INTERVAL = 10
         INPUT_SHAPE = (3, 32, 32)
         NUM_CLASSES = 10
         N_EPOCHS = 200
         CHECKPOINT_FREQ = 10
         LOG_INTERVAL = 100
         LOSS_LANDSCAPE_INTERVAL = 10
-        LOSS_LANDSCAPE_BATCHES = 20
+        LOSS_LANDSCAPE_GSIZE = 10000
+        LOSS_LANDSCAPE_BATCHES = 10
         HAS_LR_SCHEDULE = True
-        HAS_LR_SCHEDULE_DUAL = False
+        HAS_LR_SCHEDULE_DUAL = True
 
         # test adversary parameters
         ADV_STEP_SIZE = 2/255.
@@ -174,7 +194,19 @@ else:
             if epoch >= 190:
                 lr = hparams['learning_rate'] * 0.001
             for param_group in optimizer.param_groups:
-                param_group['lr'] = lr    
+                param_group['lr'] = lr
+        @staticmethod
+        def adjust_lr_dual(pd_optimizer, epoch):
+            lr = pd_optimizer.eta
+            if epoch == 20:
+                lr = lr * 1.5
+            if epoch == 40:
+                lr = lr * 2
+            if epoch == 80:
+                lr = lr * 2
+            if epoch == 150:
+                lr = lr * 5
+            pd_optimizer.eta = lr   
 
 class MNIST(AdvRobDataset):
 

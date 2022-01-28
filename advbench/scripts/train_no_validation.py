@@ -109,16 +109,16 @@ def main(args, hparams, test_hparams):
             wandb.log({'test_clean_acc': test_clean_acc, 'epoch': epoch, 'step':step})
 
         add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
-
-        # save adversarial accuracies on validation/test sets
-        test_adv_accs = []
-        for attack_name, attack in test_attacks.items():
-            test_adv_acc, loss, deltas = misc.adv_accuracy_loss_delta(algorithm, test_ldr, device, attack)
-            add_results_row([epoch, test_adv_acc, attack_name, 'Test'])
-            test_adv_accs.append(test_adv_acc)
-            if wandb_log and args.perturbation!="Linf":
-                wandb.log({'test_acc_adv_'+attack_name: test_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'epoch': epoch, 'step':step})
-                plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
+        if  batch_idx % dataset.ATTACK_INTERVAL == 0:
+            # compute save and log adversarial accuracies on validation/test sets
+            test_adv_accs = []
+            for attack_name, attack in test_attacks.items():
+                test_adv_acc, loss, deltas = misc.adv_accuracy_loss_delta(algorithm, test_ldr, device, attack)
+                add_results_row([epoch, test_adv_acc, attack_name, 'Test'])
+                test_adv_accs.append(test_adv_acc)
+                if wandb_log and args.perturbation!="Linf":
+                    wandb.log({'test_acc_adv_'+attack_name: test_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'epoch': epoch, 'step':step})
+                    plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
                 
         if wandb_log and batch_idx % dataset.LOSS_LANDSCAPE_INTERVAL == 0:
         # log loss landscape
