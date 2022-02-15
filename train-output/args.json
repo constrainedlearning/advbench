@@ -2,10 +2,14 @@
   "data_dir": "./advbench/data",
   "output_dir": "train-output",
   "dataset": "MNIST",
-  "algorithm": "Gaussian_DALE_PD_Reverse",
-  "perturbation": "Rotation",
+  "algorithm": "Augmentation",
+  "perturbation": "SE",
   "test_attacks": [
-    "Worst_Of_K"
+    "Worst_Of_K",
+    "PGD_Linf",
+    "Grid_Search",
+    "MCMC",
+    "LMC_Laplacian_Linf"
   ],
   "hparams": null,
   "hparams_seed": 0,

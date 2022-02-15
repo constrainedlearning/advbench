@@ -2,6 +2,7 @@ import hashlib
 import sys
 from functools import wraps
 from time import time
+from tqdm import tqdm
 import numpy as np
 import pandas as pd
 import torch
@@ -32,13 +33,15 @@ def accuracy(algorithm, loader, device):
     correct, total = 0, 0
 
     algorithm.eval()
-    for imgs, labels in loader:
+    algorithm.export()
+    for imgs, labels in tqdm(loader):
         imgs, labels = imgs.to(device), labels.to(device)
         output = algorithm.predict(imgs)
         pred = output.argmax(dim=1, keepdim=True)
         correct += pred.eq(labels.view_as(pred)).sum().item()
         total += imgs.size(0)
     algorithm.train()
+    algorithm.unexport()
 
     return 100. * correct / total
 
@@ -46,6 +49,7 @@ def adv_accuracy(algorithm, loader, device, attack):
     correct, total = 0, 0
 
     algorithm.eval()
+    algorithm.export()
     for imgs, labels in loader:
         imgs, labels = imgs.to(device), labels.to(device)
         adv_imgs, _ = attack(imgs, labels)
@@ -57,6 +61,7 @@ def adv_accuracy(algorithm, loader, device, attack):
         correct += pred.eq(labels.view_as(pred)).sum().item()
         total += imgs.size(0)
     algorithm.train()
+    algorithm.unexport()
 
     return 100. * correct / total
 
@@ -65,8 +70,10 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
     losses, deltas = [], []
 
     algorithm.eval()
+    algorithm.export()
     with torch.no_grad():
-        for imgs, labels in loader:
+        for imgs, labels in tqdm(loader):
+            #print("test shape", imgs.shape)
             imgs, labels = imgs.to(device), labels.to(device)
             adv_imgs, delta = attack(imgs, labels)
             output = algorithm.predict(adv_imgs)
@@ -78,6 +85,7 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
         correct += pred.eq(labels.view_as(pred)).sum().item()
         total += imgs.size(0)
     algorithm.train()
+    algorithm.unexport()
     acc = 100. * correct / total
     return acc, np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0)
 

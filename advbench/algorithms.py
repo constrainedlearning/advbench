@@ -70,6 +70,10 @@ class Algorithm(nn.Module):
         values = [epoch] + metrics
         self.meters_df.loc[len(self.meters_df)] = values
         return self.meters_df
+    def export(self):
+        pass
+    def unexport(self):
+        pass
 
 class ERM(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
@@ -503,3 +507,14 @@ class NUTS_DALE(Algorithm):
         self.meters['loss'].update(total_loss.item(), n=imgs.size(0))
         self.meters['clean loss'].update(clean_loss.item(), n=imgs.size(0))
         self.meters['robust loss'].update(robust_loss.item(), n=imgs.size(0))
+
+class GConv(Augmentation):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
+        hparams['epsilon_rot'] = 0.0
+        super(GConv, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+    def export(self):
+        self.classifier.export()
+        self.classifier.to(self.device)
+    def unexport(self):
+        self.classifier.unexport()
+        self.classifier.to(self.device)

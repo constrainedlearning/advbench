@@ -1,9 +1,10 @@
 import torch
+from numpy import pi
 from einops import rearrange, reduce, repeat
 from kornia.geometry import warp_affine
 
 def deg2rad(angle):
-  return angle*torch.pi/180.0
+  return angle*pi/180.0
 
 def _compute_tensor_center(tensor: torch.Tensor) -> torch.Tensor:
     """Compute the center of tensor plane for (H, W), (C, H, W) and (B, C, H, W)."""

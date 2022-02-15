@@ -4,6 +4,7 @@ import torch
 from advbench import attacks
 from einops import repeat, rearrange
 import torch.nn.functional as F
+from tqdm import tqdm
 
 class PerturbationEval():
     def __init__(self, algorithm, loader, max_perturbations=None):
@@ -20,6 +21,7 @@ class PerturbationEval():
         self.grid = self.get_grid()
         self.grid_size = self.grid.shape[0]
         self.algorithm.classifier.eval()
+        self.algorithm.export()
         adv_losses = []
         with torch.no_grad():
             if single_img:
@@ -27,13 +29,14 @@ class PerturbationEval():
                     imgs, labels = imgs.unsqueeze(0).to(self.device), torch.tensor([labels]).to(self.device)
                     adv_losses = self.step(imgs, labels)[0]
             else:
-                for idx, batch in enumerate(self.loader):
+                for idx, batch in tqdm(enumerate(self.loader)):
                     if idx < batches:
                         imgs, labels = batch
                         imgs, labels = imgs.to(self.device), labels.to(self.device)
                         adv_losses.append(self.step(imgs, labels))
                     else:
                         break
+        self.algorithm.unexport()
         self.algorithm.classifier.train()
         self.loader.shuffle = True
         if batches>1 or not single_img:

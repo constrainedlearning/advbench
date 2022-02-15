@@ -109,21 +109,25 @@ def main(args, hparams, test_hparams):
             wandb.log({'test_clean_acc': test_clean_acc, 'epoch': epoch, 'step':step})
 
         add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
-        if  batch_idx % dataset.ATTACK_INTERVAL == 0:
+        if epoch % dataset.ATTACK_INTERVAL == 0 and epoch > 0:
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():
+                print(attack_name)
                 test_adv_acc, loss, deltas = misc.adv_accuracy_loss_delta(algorithm, test_ldr, device, attack)
+                print("Test Adv Acc:", test_adv_acc)
                 add_results_row([epoch, test_adv_acc, attack_name, 'Test'])
                 test_adv_accs.append(test_adv_acc)
                 if wandb_log and args.perturbation!="Linf":
+                    print(f"plotting and logging {attack_name}")
                     wandb.log({'test_acc_adv_'+attack_name: test_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'epoch': epoch, 'step':step})
                     plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
                 
-        if wandb_log and batch_idx % dataset.LOSS_LANDSCAPE_INTERVAL == 0:
+        if wandb_log and epoch % dataset.LOSS_LANDSCAPE_INTERVAL == 0 and epoch > 1:
         # log loss landscape
+            print(f"plotting and logging loss landscape")
             for eval, name in zip([train_eval, test_eval], ['train', 'test']):
-                for mode in ('single', 'batch'):     
+                for mode in ('single', 'batch'):    
                     deltas, loss = eval[mode].eval_perturbed(single_img=(mode=='single'))
                     tag = "sample" if mode=='single' else "mean"
                     plotting.plot_perturbed_wandb(deltas, loss, name=f"{name}_loss_landscape_{tag}", wandb_args = {'epoch': epoch, 'step':step}, plot_mode="surface")
@@ -141,8 +145,9 @@ def main(args, hparams, test_hparams):
             if meter.print:
                 print(f'Avg. train {name}: {meter.avg:.3f}\t', end='')
         print(f'\nClean val. accuracy: {test_clean_acc:.3f}\t', end='')
-        for attack_name, acc in zip(test_attacks.keys(), test_adv_accs):
-            print(f'{attack_name} val. accuracy: {acc:.3f}\t', end='')
+        if epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0:
+            for attack_name, acc in zip(test_attacks.keys(), test_adv_accs):
+                print(f'{attack_name} val. accuracy: {acc:.3f}\t', end='')
         print('\n')
 
         # save results dataframe to file

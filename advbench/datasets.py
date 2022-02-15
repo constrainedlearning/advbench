@@ -22,7 +22,7 @@ DATASETS = ['CIFAR10', 'MNIST']
 def to_loaders(all_datasets, hparams):
     if not all_datasets.ffcv:    
         def _to_loader(split, dataset):
-            batch_size = hparams['batch_size'] if split == 'train' else 100
+            batch_size = hparams['batch_size'] if split == 'train' else 10
             return DataLoader(
                 dataset=dataset, 
                 batch_size=batch_size,
@@ -37,7 +37,7 @@ def to_loaders(all_datasets, hparams):
         
             ordering = OrderOption.RANDOM if split == 'train' else OrderOption.SEQUENTIAL
             
-            batch_size = hparams['batch_size'] if split == 'train' else 100
+            batch_size = hparams['batch_size'] if split == 'train' else 48
 
             label_pipeline = [IntDecoder(), ToTensor(), ToDevice('cuda:0'), Squeeze()]
             
@@ -58,7 +58,7 @@ class AdvRobDataset(Dataset):
     CHECKPOINT_FREQ = None   # Subclasses should override
     LOG_INTERVAL = None      # Subclasses should override
     LOSS_LANDSCAPE_INTERVAL = None # Subclasses should override
-    ATTACK_INTERVAL = 1     # Default, subclass may override
+    ATTACK_INTERVAL = 5     # Default, subclass may override
     LOSS_LANDSCAPE_BATCHES = None # Subclasses should override
     HAS_LR_SCHEDULE = False  # Default, subclass may override
     HAS_LR_SCHEDULE_DUAL = False # Default, subclass may override
@@ -209,16 +209,16 @@ else:
             pd_optimizer.eta = lr   
 
 class MNIST(AdvRobDataset):
-
+    ATTACK_INTERVAL = 2
     INPUT_SHAPE = (1, 28, 28)
     NUM_CLASSES = 10
-    N_EPOCHS = 50
+    N_EPOCHS = 1#50
     CHECKPOINT_FREQ = 10
     LOG_INTERVAL = 100
-    LOSS_LANDSCAPE_INTERVAL = 1
+    LOSS_LANDSCAPE_INTERVAL = 4
     LOSS_LANDSCAPE_BATCHES = 40
     HAS_LR_SCHEDULE = False
-    LOSS_LANDSCAPE_GSIZE = 28000
+    LOSS_LANDSCAPE_GSIZE = 1000#28000
     LOSS_LANDSCAPE_BATCHES = 10
     HAS_LR_SCHEDULE_DUAL = True
 
