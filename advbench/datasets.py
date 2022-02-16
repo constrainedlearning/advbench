@@ -104,7 +104,7 @@ if FFCV_AVAILABLE:
                     ToTensor(),
                     ToDevice('cuda:0', non_blocking=True),
                     ToTorchImage(),
-                    Convert(torch.float32),
+                    Convert(torch.float16),
                     transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
                 ])
                 self.transforms[split] = image_pipeline
@@ -132,7 +132,19 @@ if FFCV_AVAILABLE:
                 lr = lr * 5
             if epoch == 200:
                 lr = lr * 5
-            pd_optimizer.eta = lr   
+            pd_optimizer.eta = lr
+
+        @staticmethod
+        def adjust_lr(optimizer, epoch, hparams):
+            lr = hparams['learning_rate']
+            if epoch >= 150:
+                lr = hparams['learning_rate'] * 0.1
+            if epoch >= 175:
+                lr = hparams['learning_rate'] * 0.01
+            if epoch >= 190:
+                lr = hparams['learning_rate'] * 0.001
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr
         
         
 

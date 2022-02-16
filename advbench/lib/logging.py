@@ -1,6 +1,7 @@
 from selectors import EpollSelector
 from scipy import ma
 import torch
+from torch.cuda.amp import autocast
 from advbench import attacks
 from einops import repeat, rearrange
 import torch.nn.functional as F
@@ -28,13 +29,15 @@ class PerturbationEval():
             if single_img:
                     imgs, labels = self.loader.dataset[0]
                     imgs, labels = imgs.unsqueeze(0).to(self.device), torch.tensor([labels]).to(self.device)
-                    adv_losses = self.step(imgs, labels)[0]
+                    with autocast():
+                        adv_losses = self.step(imgs, labels)[0]
             else:
                 for idx, batch in tqdm(enumerate(self.loader)):
                     if idx < batches:
                         imgs, labels = batch
                         imgs, labels = imgs.to(self.device), labels.to(self.device)
-                        adv_losses.append(self.step(imgs, labels))
+                        with autocast():
+                            adv_losses.append(self.step(imgs, labels))
                     else:
                         break
         self.algorithm.unexport()

@@ -79,8 +79,8 @@ class SE(Perturbation):
         return se_transform(imgs, delta)
 
     def delta_init(self, imgs):
-        delta_init = torch.empty(imgs.shape[0], self.dim, device=imgs.device)
+        delta_init = torch.empty(imgs.shape[0], self.dim, device=imgs.device, dtype=imgs.dtype)
         for i in range(self.dim):
             eps = self.eps[i]
-            delta_init[:,i] =   2*eps* torch.randn(imgs.shape[0], device = imgs.device)-eps
+            delta_init[:,i] =   2*eps* torch.randn(imgs.shape[0], device = imgs.device, dtype=imgs.dtype)-eps
         return delta_init

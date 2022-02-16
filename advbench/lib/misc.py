@@ -7,6 +7,12 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
+try:
+    import ffcv
+    from torch.cuda.amp import GradScaler, autocast
+    FFCV_AVAILABLE=True
+except ImportError:
+    FFCV_AVAILABLE=False
 
 def timing(f):
     @wraps(f)
@@ -36,7 +42,8 @@ def accuracy(algorithm, loader, device):
     algorithm.export()
     for imgs, labels in tqdm(loader):
         imgs, labels = imgs.to(device), labels.to(device)
-        output = algorithm.predict(imgs)
+        with autocast():
+            output = algorithm.predict(imgs)
         pred = output.argmax(dim=1, keepdim=True)
         correct += pred.eq(labels.view_as(pred)).sum().item()
         total += imgs.size(0)
@@ -55,7 +62,8 @@ def adv_accuracy(algorithm, loader, device, attack):
         adv_imgs, _ = attack(imgs, labels)
 
         with torch.no_grad():
-            output = algorithm.predict(adv_imgs)
+            with autocast():
+                output = algorithm.predict(adv_imgs)
             pred = output.argmax(dim=1, keepdim=True)
 
         correct += pred.eq(labels.view_as(pred)).sum().item()
@@ -75,10 +83,11 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
         for imgs, labels in tqdm(loader):
             #print("test shape", imgs.shape)
             imgs, labels = imgs.to(device), labels.to(device)
-            adv_imgs, delta = attack(imgs, labels)
-            output = algorithm.predict(adv_imgs)
-            loss = F.cross_entropy(output, labels, reduction='none')
-            pred = output.argmax(dim=1, keepdim=True)
+            with autocast():
+                adv_imgs, delta = attack(imgs, labels)
+                output = algorithm.predict(adv_imgs)
+                loss = F.cross_entropy(output, labels, reduction='none')
+                pred = output.argmax(dim=1, keepdim=True)
         losses.append(loss.cpu().numpy())
         deltas.append(delta.cpu().numpy())
 

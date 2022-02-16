@@ -3,9 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
 import pandas as pd
+from torch.cuda.amp import GradScaler, autocast
 try:
     import ffcv
-    from torch.cuda.amp import GradScaler, autocast
     FFCV_AVAILABLE=True
 except ImportError:
     FFCV_AVAILABLE=False
