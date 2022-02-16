@@ -3,6 +3,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
 import pandas as pd
+try:
+    import ffcv
+    from torch.cuda.amp import GradScaler, autocast
+    FFCV_AVAILABLE=True
+except ImportError:
+    FFCV_AVAILABLE=False
 
 from advbench import attacks, networks, optimizers, perturbations
 from advbench.lib import meters
@@ -44,6 +50,8 @@ class Algorithm(nn.Module):
         self.meters['loss'] = meters.AverageMeter()
         self.meters_df = None
         self.perturbation_name = perturbation
+        if FFCV_AVAILABLE:
+            self.scaler = GradScaler()
 
     def step(self, imgs, labels):
         raise NotImplementedError
@@ -78,11 +86,18 @@ class Algorithm(nn.Module):
 class ERM(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
         super(ERM, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
-
+        self.attack = attacks.Rand_Aug(self.classifier, self.hparams, device, perturbation=perturbation)
     def step(self, imgs, labels):
-        self.optimizer.zero_grad()
-        loss = F.cross_entropy(self.predict(imgs), labels)
-        loss.backward()
+        self.optimizer.zero_grad(set_to_none=True)
+        if FFCV_AVAILABLE:
+            with autocast():
+                loss = F.cross_entropy(self.predict(imgs), labels)
+                self.scaler.scale(loss).backward()
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+        else:
+            loss = F.cross_entropy(self.predict(imgs), labels)
+            loss.backward()
         self.optimizer.step()
         
         self.meters['loss'].update(loss.item(), n=imgs.size(0))

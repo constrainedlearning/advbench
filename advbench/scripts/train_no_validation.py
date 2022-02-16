@@ -1,4 +1,5 @@
 import argparse
+from itertools import combinations_with_replacement
 import torch
 import os
 import json
@@ -29,9 +30,9 @@ PD_ALGORITHMS = [
 ]
 
 def main(args, hparams, test_hparams):
-    
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"Using {device}")
+    hparams['model'] = args.model
     if args.perturbation=='SE':
         hparams['epsilon'] = torch.tensor([hparams[f'epsilon_{i}'] for i in ("rot","tx","ty")]).to(device)
         test_hparams['epsilon'] = torch.tensor([test_hparams[f'epsilon_{tfm}'] for tfm in ("rot","tx","ty")]).to(device)
@@ -64,17 +65,18 @@ def main(args, hparams, test_hparams):
         defaults = [args.algorithm, args.dataset, args.trial_seed, args.output_dir]
         results_df.loc[len(results_df)] = data + defaults
     if wandb_log:
-        name = f"{args.dataset} {args.perturbation} {args.algorithm} {args.test_attacks} {args.trial_seed} {args.seed}"
-        wandb.init(project="adversarial-constrained", name=name)
+        name = f"{args.perturbation} {args.algorithm} {args.test_attacks} {args.trial_seed} {args.seed}"
+        wandb.init(project=f"adversarial-constrained-{args.dataset}", name=name)
         wandb.config.update(args)
         wandb.config.update(hparams)
-        large_grid = dataset.LOSS_LANDSCAPE_GSIZE
-        small_grid = int(large_grid/100)
-        train_eval, test_eval = {}, {}
-        train_eval["single"]= logging.GridEval(algorithm, train_ldr, max_perturbations=large_grid)
-        test_eval["single"] = logging.GridEval(algorithm, test_ldr, max_perturbations=large_grid)
-        train_eval["batch"] = logging.GridEval(algorithm, train_ldr, max_perturbations=small_grid)
-        test_eval["batch"] = logging.GridEval(algorithm, test_ldr, max_perturbations=small_grid)
+        train_eval, test_eval = [], []
+        translations = list(combinations_with_replacement(dataset.TRANSLATIONS, r=2))
+        for tx, ty in translations:
+            eval_dict = {"tx": tx, "ty": ty}
+            eval_dict["grid"] = logging.AngleGrid(algorithm, train_ldr, max_perturbations=dataset.ANGLE_GSIZE, tx=tx, ty=ty)
+            train_eval.append(eval_dict.copy())
+            eval_dict["grid"] = logging.AngleGrid(algorithm, test_ldr, max_perturbations=dataset.ANGLE_GSIZE, tx=tx, ty=ty)
+            test_eval.append(eval_dict.copy())
     total_time = 0
     step = 0
     for epoch in range(0, dataset.N_EPOCHS):
@@ -102,6 +104,7 @@ def main(args, hparams, test_hparams):
                             wandb.log({name+"_avg": meter.avg, 'epoch': epoch, 'step':step})
                 print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
             timer.batch_end()
+            break
 
         # save clean accuracies on validation/test sets
         test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
@@ -126,11 +129,11 @@ def main(args, hparams, test_hparams):
         if wandb_log and epoch % dataset.LOSS_LANDSCAPE_INTERVAL == 0 and epoch > 1:
         # log loss landscape
             print(f"plotting and logging loss landscape")
-            for eval, name in zip([train_eval, test_eval], ['train', 'test']):
-                for mode in ('single', 'batch'):    
-                    deltas, loss = eval[mode].eval_perturbed(single_img=(mode=='single'))
-                    tag = "sample" if mode=='single' else "mean"
-                    plotting.plot_perturbed_wandb(deltas, loss, name=f"{name}_loss_landscape_{tag}", wandb_args = {'epoch': epoch, 'step':step}, plot_mode="surface")
+            for eval, split in zip([train_eval, test_eval], ['train', 'test']):
+                for eval_dict in eval:    
+                    deltas, loss = eval_dict["grid"].eval_perturbed(single_img=False)
+                    tx, ty = eval_dict["tx"], eval_dict["ty"]
+                    plotting.plot_perturbed_wandb(deltas[:, 0], loss, name=f"{split} angle vs loss ({tx},{ty})", wandb_args = {'epoch': epoch, 'step':step, 'tx':tx, 'ty':ty})
         epoch_end = time.time()
         total_time += epoch_end - epoch_start
 
@@ -178,6 +181,7 @@ if __name__ == '__main__':
     parser.add_argument('--hparams_seed', type=int, default=0, help='Seed for hyperparameters')
     parser.add_argument('--trial_seed', type=int, default=0, help='Trial number')
     parser.add_argument('--seed', type=int, default=0, help='Seed for everything else')
+    parser.add_argument('--model', type=str, default='resnet18', help='Model to use')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)

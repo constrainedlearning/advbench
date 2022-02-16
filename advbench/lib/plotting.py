@@ -38,13 +38,16 @@ def plot_perturbed_wandb(deltas, metric, name="loss", wandb_args = {}, plot_mode
     if isinstance(metric, torch.Tensor):
         metric = metric.cpu().numpy()
     if len(deltas.shape) == 1:
-        deltas = deltas[None, :]
+        deltas = deltas[:, None]
     if deltas.shape[1] == 1:
+        deltas = deltas[:, 0]
         data = [[x, y] for (x, y) in zip(deltas.tolist(), metric.tolist())]
-        table = wandb.Table(data=data, columns = ["delta", name])
-        wandb_dict = {name : wandb.plot.scatter(table, "delta", name)}
+        table = wandb.Table(data=data, columns = ["delta", "loss"])
+        print("plotting line")
+        wandb_dict = {name : wandb.plot.scatter(table, "delta", "loss", title=name)}
         wandb_dict.update(wandb_args)
         wandb.log(wandb_dict)
+
     elif deltas.shape[1] == 3: # plot using plotly
         if plot_mode == "scatter":
             fig = plot_3d_scatter(deltas, metric, axis_labels=DELTA_DIMS)
@@ -60,7 +63,7 @@ def plot_perturbed_wandb(deltas, metric, name="loss", wandb_args = {}, plot_mode
             metric = metric.reshape(num_points, num_points, num_points)
             for dim in range(1,3):
                 fig = plot_3d_surface(unmeshed_deltas[0], unmeshed_deltas[dim], np.squeeze(np.take(metric, [0], axis=dim)), axis_labels=(DELTA_DIMS[0],DELTA_DIMS[dim], "CE-Loss"))
-                wandb_dict = {f"{name} pertutbation landscape" : fig}
+                wandb_dict = {f"{name} perturbation landscape" : fig}
                 wandb_dict.update(wandb_args)
                 wandb.log(wandb_dict)
         else:

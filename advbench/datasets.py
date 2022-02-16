@@ -58,24 +58,26 @@ class AdvRobDataset(Dataset):
     CHECKPOINT_FREQ = None   # Subclasses should override
     LOG_INTERVAL = None      # Subclasses should override
     LOSS_LANDSCAPE_INTERVAL = None # Subclasses should override
-    ATTACK_INTERVAL = 5     # Default, subclass may override
+    ATTACK_INTERVAL = 10     # Default, subclass may override
+    ANGLE_GSIZE = 100     # Default, subclass may override
     LOSS_LANDSCAPE_BATCHES = None # Subclasses should override
     HAS_LR_SCHEDULE = False  # Default, subclass may override
     HAS_LR_SCHEDULE_DUAL = False # Default, subclass may override
+    TRANSLATIONS = [-3, 0, 3]
 
     def __init__(self):
         self.splits = dict.fromkeys(SPLITS)
 
 if FFCV_AVAILABLE:
     class CIFAR10(AdvRobDataset):
-    
         INPUT_SHAPE = (3, 32, 32)
         NUM_CLASSES = 10
         N_EPOCHS = 200
         CHECKPOINT_FREQ = 10
         LOG_INTERVAL = 100
         LOSS_LANDSCAPE_INTERVAL = 10
-        LOSS_LANDSCAPE_BATCHES = 20
+        LOSS_LANDSCAPE_BATCHES = 40
+        ANGLE_GSIZE = 100
         HAS_LR_SCHEDULE = True
         HAS_LR_SCHEDULE_DUAL = False
         HAS_LR_SCHEDULE = True
@@ -148,14 +150,14 @@ if FFCV_AVAILABLE:
                 self.splits[name] = path
 else:
     class CIFAR10(AdvRobDataset):
-        ATTACK_INTERVAL = 10
         INPUT_SHAPE = (3, 32, 32)
         NUM_CLASSES = 10
         N_EPOCHS = 200
         CHECKPOINT_FREQ = 10
         LOG_INTERVAL = 100
-        LOSS_LANDSCAPE_INTERVAL = 10
+        LOSS_LANDSCAPE_INTERVAL = 1
         LOSS_LANDSCAPE_GSIZE = 10000
+        ANGLE_GSIZE = 100
         LOSS_LANDSCAPE_BATCHES = 10
         HAS_LR_SCHEDULE = True
         HAS_LR_SCHEDULE_DUAL = True
@@ -209,16 +211,16 @@ else:
             pd_optimizer.eta = lr   
 
 class MNIST(AdvRobDataset):
-    ATTACK_INTERVAL = 2
     INPUT_SHAPE = (1, 28, 28)
     NUM_CLASSES = 10
-    N_EPOCHS = 1#50
+    N_EPOCHS = 10#50
     CHECKPOINT_FREQ = 10
     LOG_INTERVAL = 100
-    LOSS_LANDSCAPE_INTERVAL = 4
+    LOSS_LANDSCAPE_INTERVAL = 1
     LOSS_LANDSCAPE_BATCHES = 40
     HAS_LR_SCHEDULE = False
     LOSS_LANDSCAPE_GSIZE = 1000#28000
+    ANGLE_GSIZE = 100
     LOSS_LANDSCAPE_BATCHES = 10
     HAS_LR_SCHEDULE_DUAL = True
 

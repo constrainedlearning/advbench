@@ -1,20 +1,22 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision.models as models
-from collections import OrderedDict
 from e2cnn import gspaces
 from e2cnn import nn as enn
-from einops import rearrange
 from torch.nn.functional import pad
+from advbench.e2_networks import e2wrn28_10R
 
 def Classifier(input_shape, num_classes, hparams):
+
     if input_shape[0] == 1:
         # return SmallCNN()
-        return CnSteerableCNN(num_classes)#MNISTNet(input_shape, num_classes)
+        return MNISTNet(input_shape, num_classes)#CnSteerableCNN(num_classes)
     elif input_shape[0] == 3:
         # return models.resnet18(num_classes=num_classes)
-        return ResNet18()
+        if hparams["model"] == "resnet18":
+            return ResNet18()
+        elif hparams["model"] == "wrn-28-10-rot":
+            return e2wrn28_10R(num_classes=10)
     else:
         assert False
 
@@ -296,3 +298,4 @@ class CnSteerableCNN(torch.nn.Module):
     
     def unexport(self):
         self.exported=False
+
