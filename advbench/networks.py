@@ -147,7 +147,7 @@ class CnSteerableCNN(torch.nn.Module):
     def __init__(self, n_classes=10, n_rot = 8):
         
         super(CnSteerableCNN, self).__init__()
-        self.exported=False
+        self.e                                                                                                       xported=False
         
         # the model is equivariant under rotations by 360/n_rot degrees, modelled by Cn_rot
         self.r2_act = gspaces.Rot2dOnR2(N=n_rot)
@@ -299,3 +299,177 @@ class CnSteerableCNN(torch.nn.Module):
     def unexport(self):
         self.exported=False
 
+class SteerableResNet(nn.Module):
+    def __init__(self, block, num_blocks, restriction = 1, flip=False, N=8,  main_fiber: str = "regular",
+                 inner_fiber: str = "regular", num_classes=10):
+        super(ResNet, self).__init__()
+        nStages = [64, 128, 256, 512]
+        self.in_planes = 64
+        # level of [R]estriction:
+        #   restriction < 0 : never do restriction, i.e. initial group (either D8 or C8) preserved for the whole network
+        #   restriction = 0 : do restriction before first layer, i.e. initial group doesn't have rotation equivariance (C1 or D1)
+        #   restriction > 0 : restrict after every block, i.e. start with 8 rotations, then restrict to 4 and finally 1
+        self.r = restriction
+        if self.r < 0:
+            nStages = nStages//8
+        elif self.r == 0:
+            nStages[1:] = nStages[1:]//8
+        elif self.r > 0:
+            for i in range(len(nStages)):
+                nStages[i] = nStages[i]//(8/2**i)
+        self.f = flip
+        self.N = N
+        if self.f:
+            self.gspace = gspaces.FlipRot2dOnR2(N)
+        else:
+            self.gspace = gspaces.Rot2dOnR2(N)
+        if self.r == 0:
+            id = (0, 1) if self.f else 1
+            self.gspace, _, _ = self.gspace.restrict(id)
+        
+        r1 = enn.FieldType(self.gspace, [self.gspace.trivial_repr] * 3)
+        r2 = FIBERS[main_fiber](self.gspace, nStages[0], fixparams=True)
+        self._in_type = r2
+
+        self.conv1 = enn.RConv(r1, r2, nStages[0], 3, stride=1, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(nStages[0])
+        self.layer1 = self._make_layer_rot(block, nStages[0], num_blocks[0], stride=1, main_fiber=main_fiber, inner_fiber=inner_fiber)
+        self.restrict1 = lambda x: x
+        
+        self.layer2 = self._make_layer_rot(block, nStages[1], num_blocks[1], stride=2, main_fiber=main_fiber, inner_fiber=inner_fiber)
+        if self.r > 0:
+            id = (0, 4) if self._f else 4
+            self.restrict2 = self._restrict_layer(id)
+        else:
+            self.restrict2 = lambda x: x
+        
+        self.layer3 = self._make_layer_rot(block, nStages[2], num_blocks[2], stride=2, main_fiber=main_fiber, inner_fiber=inner_fiber)
+        if self._r > 0:
+            id = (0, 2) if self.f else 2
+            self.restrict3 = self._restrict_layer(id)
+        else:
+            self.restrict3 = lambda x: x
+        
+        self.layer4 = self._make_layer_rot(block, nStages[3], num_blocks[3], stride=2, main_fiber=main_fiber, inner_fiber=inner_fiber, out_fiber="trivial")
+        if self._r > 0:
+            id = (0, 1) if self.f else 1
+            self.restrict4 = self._restrict_layer(id)
+        else:
+            self.restrict4 = lambda x: x
+        self.bn4 = nn.InnerBatchNorm(self.layer4.out_type, momentum=0.9)
+        self.linear = nn.Linear(self.bn4.out_type.size, num_classes)
+        
+        for name, module in self.named_modules():
+            if isinstance(module, nn.R2Conv):
+                init.generalized_he_init(module.weights.data, module.basisexpansion)
+            elif isinstance(module, torch.nn.BatchNorm2d):
+                module.weight.data.fill_(1)
+                module.bias.data.zero_()
+            elif isinstance(module, torch.nn.Linear):
+                module.bias.data.zero_()
+
+    def _restrict_layer(self, subgroup_id):
+        layers = list()
+        layers.append(enn.RestrictionModule(self._in_type, subgroup_id))
+        layers.append(enn.DisentangleModule(layers[-1].out_type))
+        self._in_type = layers[-1].out_type
+        self.gspace = self._in_type.gspace
+        restrict_layer = enn.SequentialModule(*layers)
+        return restrict_layer
+
+    def _make_layer(self, block, planes, num_blocks, stride, main_fiber: str = "regular",
+                    inner_fiber: str = "regular",
+                    out_fiber: str = None):
+        strides = [stride] + [1] * (num_blocks - 1)
+        layers = []
+        main_type = FIBERS[main_fiber](self.gspace, planes, fixparams=self._fixparams)
+        inner_class = FIBERS[inner_fiber](self.gspace, planes, fixparams=self._fixparams)
+        if out_fiber is None:
+            out_fiber = main_fiber
+        out_type = FIBERS[out_fiber](self.gspace, planes, fixparams=self._fixparams)
+        for b, stride in enumerate(strides):
+            if b == num_blocks - 1:
+                out_f = out_type
+            else:
+                out_f = main_type
+            layers.append(block(self.in_planes, planes, stride, out_fiber=out_f))
+            print("built", self._layer)
+            self.in_planes = out_f
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.layer1(out)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = self.layer4(out)
+        out = F.avg_pool2d(out, 4)
+        out = out.view(out.size(0), -1)
+        out = self.linear(out)
+        return out
+
+class SteerableBasicBlock(nn.Module):
+    expansion = 1
+
+    def __init__(self, in_planes, planes, stride=1, out_fiber = None):
+        super(SteerableBasicBlock, self).__init__()
+        if out_fiber is None:
+            out_fiber = in_planes
+        self.in_type = in_planes
+        inner_class = planes
+        self.out_type = out_fiber
+        self.conv1 = enn.RConv(in_planes, planes, 3, stride=stride, padding=1, bias=False)
+        self.bn1 = enn.InnerBatchNorm(planes)
+        self.relu1 = enn.ReLU(planes,inplace=True)
+        self.conv2 = enn.RConv(planes, out_fiber, 3, stride=1, padding=1, bias=False)
+        self.bn2 = enn.InnerBatchNorm(out_fiber)
+        self.relu2 = enn.ReLU(out_fiber,inplace=True)
+
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_planes != self.expansion * planes:
+            self.shortcut = nn.Sequential(
+                enn.RConv(in_planes, self.expansion * planes, 1, stride=stride, bias=False),
+                enn.InnerBatchNorm(self.expansion * planes)
+            )
+
+    def forward(self, x):
+        out = self.relu1(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
+        out += self.shortcut(x)
+        out = self.relu2(out)
+        return out
+
+
+class SteerableBottleneck(nn.Module):
+    expansion = 4
+
+    def __init__(self, in_planes, planes, stride=1, out_fiber = None):
+        super(SteerableBottleneck, self).__init__()
+        if out_fiber is None:
+            out_fiber = in_planes
+        self.conv1 = enn.RConv(in_planes, planes, 1, bias=False)
+        self.bn1 = enn.InnerBatchNorm(planes)
+        self.relu1 = enn.ReLU(planes,inplace=True)
+        self.conv2 = enn.RConv(planes, planes, 3, stride=stride, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(planes)
+        self.conv2 = enn.RConv(planes, planes, 3, stride=1, padding=1, bias=False)
+        self.bn2 = enn.InnerBatchNorm(planes)
+        self.relu2 = enn.ReLU(planes,inplace=True)
+        self.conv3 = enn.RConv(planes, self.expansion * planes, 1, bias=False)
+        self.relu3 = enn.ReLU(self.expansion * planes,inplace=True)
+        self.bn3 = enn.InnerBatchNorm(self.expansion * planes)
+
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_planes != self.expansion * planes:
+            self.shortcut = nn.Sequential(
+                enn.RConv(in_planes, self.expansion * planes, 1, stride=stride, bias=False),
+                enn.InnerBatchNorm(self.expansion * planes)
+            )
+
+    def forward(self, x):
+        out = self.relu1(self.bn1(self.conv1(x)))
+        out = self.relu2(self.bn2(self.conv2(out)))
+        out = self.bn3(self.conv3(out))
+        out += self.shortcut(x)
+        out = self.relu3(out)
+        return out
