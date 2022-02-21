@@ -1,6 +1,7 @@
 import argparse
 from itertools import combinations_with_replacement
 import torch
+from torchinfo import summary
 import os
 import json
 import pandas as pd
@@ -50,8 +51,7 @@ def main(args, hparams, test_hparams):
         hparams,
         device,
         **kw_args).to(device)
-
-
+    summary(algorithm.classifier)
     adjust_lr = None if dataset.HAS_LR_SCHEDULE is False else dataset.adjust_lr
 
     adjust_lr_dual = None if dataset.HAS_LR_SCHEDULE_DUAL is False or not (args.algorithm in PD_ALGORITHMS) else dataset.adjust_lr_dual
