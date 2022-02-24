@@ -33,9 +33,9 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     _hparam('mcmc_proposal', 'Laplace', lambda r: 'Laplace')
 
     # optimization
-    _hparam('learning_rate', 0.1, lambda r: 10 ** r.uniform(-1.5, -0.5))
+    _hparam('learning_rate', 0.01, lambda r: 10 ** r.uniform(-1.5, -0.5))
     _hparam('sgd_momentum', 0.9, lambda r: r.uniform(0.8, 0.95))
-    _hparam('weight_decay', 3e-3, lambda r: 10 ** r.uniform(-6, -3))
+    _hparam('weight_decay', 5e-4, lambda r: 10 ** r.uniform(-6, -3))
     if perturbation == 'Linf':
         if dataset == 'MNIST':
             _hparam('epsilon', 0.3, lambda r: 0.3)

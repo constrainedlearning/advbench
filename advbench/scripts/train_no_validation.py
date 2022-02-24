@@ -1,7 +1,6 @@
 import argparse
 from itertools import combinations_with_replacement
 import torch
-from torchinfo import summary
 import os
 import json
 import pandas as pd
@@ -51,7 +50,6 @@ def main(args, hparams, test_hparams):
         hparams,
         device,
         **kw_args).to(device)
-    summary(algorithm.classifier)
     adjust_lr = None if dataset.HAS_LR_SCHEDULE is False else dataset.adjust_lr
 
     adjust_lr_dual = None if dataset.HAS_LR_SCHEDULE_DUAL is False or not (args.algorithm in PD_ALGORITHMS) else dataset.adjust_lr_dual
@@ -104,7 +102,6 @@ def main(args, hparams, test_hparams):
                             wandb.log({name+"_avg": meter.avg, 'epoch': epoch, 'step':step})
                 print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
             timer.batch_end()
-            break
 
         # save clean accuracies on validation/test sets
         test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
@@ -126,7 +123,7 @@ def main(args, hparams, test_hparams):
                     wandb.log({'test_acc_adv_'+attack_name: test_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'epoch': epoch, 'step':step})
                     plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
                 
-        if wandb_log and epoch % dataset.LOSS_LANDSCAPE_INTERVAL == 0 and epoch > 1:
+        if wandb_log and epoch % dataset.LOSS_LANDSCAPE_INTERVAL == 0 and epoch > 0:
         # log loss landscape
             print(f"plotting and logging loss landscape")
             for eval, split in zip([train_eval, test_eval], ['train', 'test']):

@@ -5,6 +5,7 @@ from collections import OrderedDict
 import pandas as pd
 from torch.cuda.amp import GradScaler, autocast
 try:
+    raise ImportError
     import ffcv
     FFCV_AVAILABLE=True
 except ImportError:

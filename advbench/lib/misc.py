@@ -7,9 +7,10 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
+from torch.cuda.amp import GradScaler, autocast
 try:
+    raise ImportError
     import ffcv
-    from torch.cuda.amp import GradScaler, autocast
     FFCV_AVAILABLE=True
 except ImportError:
     FFCV_AVAILABLE=False

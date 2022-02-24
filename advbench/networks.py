@@ -6,7 +6,7 @@ from e2cnn import gspaces
 from e2cnn import nn as enn
 from advbench.e2_utils import *
 from torch.nn.functional import pad
-from advbench.e2_networks import e2wrn28_10R
+from advbench.e2_networks import e2wrn28_10R, wrn28_10
 
 def Classifier(input_shape, num_classes, hparams):
 
@@ -20,7 +20,13 @@ def Classifier(input_shape, num_classes, hparams):
         elif hparams["model"] == "steerable_resnet18":
             return SteerableResNet18()
         elif hparams["model"] == "wrn-28-10-rot":
+            print("Using e2 invariant WRN-28-10")
             return e2wrn28_10R(num_classes=10)
+        elif hparams["model"] == "wrn-28-10":
+            print("Using WRN-28-10")
+            return wrn28_10(num_classes=10)
+        else:
+            raise Exception("Unknown model: {}".format(hparams["model"]))
     else:
         assert False
 
@@ -336,36 +342,35 @@ class SteerableResNet(nn.Module):
         self.in_type = r2
         self.in_planes = r2
         self.conv1 = enn.R2Conv(r1, r2, nStages[0], 3, stride=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(nStages[0])
-        self.layer1 = self._make_layer_rot(block, nStages[0], num_blocks[0], stride=1, main_fiber=main_fiber, inner_fiber=inner_fiber)
+        self.relu1 = enn.ReLU(self.in_type,inplace=True)
+        self.bn1 = enn.InnerBatchNorm(self.in_type)
         self.restrict1 = lambda x: x
-        self.layer2 = self._make_layer_rot(block, nStages[1], num_blocks[1], stride=2, main_fiber=main_fiber, inner_fiber=inner_fiber)
+        self.layer1 = self._make_layer_rot(block, nStages[0], num_blocks[0], stride=1, main_fiber=main_fiber, inner_fiber=inner_fiber)
         if self.r > 0:
             id = (0, 4) if self.f else 4
             self.restrict2 = self._restrict_layer(id)
         else:
             self.restrict2 = lambda x: x
-        
-        self.layer3 = self._make_layer_rot(block, nStages[2], num_blocks[2], stride=2, main_fiber=main_fiber, inner_fiber=inner_fiber)
+        self.layer2 = self._make_layer_rot(block, nStages[1], num_blocks[1], stride=2, main_fiber=main_fiber, inner_fiber=inner_fiber)
         if self.r > 0:
             id = (0, 2) if self.f else 2
             self.restrict3 = self._restrict_layer(id)
         else:
             self.restrict3 = lambda x: x
-        
-        self.layer4 = self._make_layer_rot(block, nStages[3], num_blocks[3], stride=2, main_fiber=main_fiber, inner_fiber=inner_fiber, out_fiber="trivial")
+        self.layer3 = self._make_layer_rot(block, nStages[2], num_blocks[2], stride=2, main_fiber=main_fiber, inner_fiber=inner_fiber)
         if self.r > 0:
             id = (0, 1) if self.f else 1
             self.restrict4 = self._restrict_layer(id)
         else:
             self.restrict4 = lambda x: x
+        self.layer4 = self._make_layer_rot(block, nStages[3], num_blocks[3], stride=2, main_fiber=main_fiber, inner_fiber=inner_fiber)
         self.bn4 = enn.InnerBatchNorm(self.in_type, momentum=0.9)
         self.linear = nn.Linear(self.in_type.size, num_classes)
 
         self.total_params = sum(p.numel() for p in self.parameters())
-        print("Total number of parameters: {}".format(self.total_params))
+        #print("Total number of parameters: {}".format(self.total_params))
         self.total_trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
-        print("Total number of trainable parameters: {}".format(self.total_trainable_params))
+        #print("Total number of trainable parameters: {}".format(self.total_trainable_params))
 
         for name, module in self.named_modules():
             if isinstance(module, enn.R2Conv):
@@ -395,17 +400,15 @@ class SteerableResNet(nn.Module):
         if out_fiber is None:
             out_fiber = main_fiber
         out_type = FIBERS[out_fiber](self.gspace, planes, fixparams=True)
-        self.in_type = out_type
+        
         for b, stride in enumerate(strides):
             if b == num_blocks - 1:
                 out_f = out_type
             else:
                 out_f = main_type
-            #print("in ", self.in_planes)
-            #print("main ", main_type)
-            #print("out ", out_f)
-            layers.append(block(self.in_type, main_type, stride, out_fiber=out_f))
-            self.in_planes = out_f
+            layers.append(block(self.in_type, out_type, stride, out_fiber=out_f))
+            self.in_type = layers[-1].out_type
+            #print("Layer {}: {} -> {} -> {}".format(len(layers), in_type, main_type, out_type))
         return nn.Sequential(*layers)
 
     def forward(self, x):
@@ -413,20 +416,22 @@ class SteerableResNet(nn.Module):
         # (associate it with the input type)
         if not self.exported:
             #x = pad(input, (0,1,0,1))
-            x = enn.GeometricTensor(input, self.input_type)
+            x = enn.GeometricTensor(x, self.input_type)
         else:
             x = input
-
-        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.relu1(self.bn1(self.conv1(x)))
         out = self.layer1(out)
+        out = self.restrict2(out)
         out = self.layer2(out)
+        out = self.restrict3(out)
         out = self.layer3(out)
+        out = self.restrict4(out)
         out = self.layer4(out)
+        if not self.exported:
+            out = out.tensor
         out = F.avg_pool2d(out, 4)
         out = out.view(out.size(0), -1)
         out = self.linear(out)
-        if not self.exported:
-            out = out.tensor
         return out
     
     def export(self):

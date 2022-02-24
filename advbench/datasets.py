@@ -5,6 +5,7 @@ import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10 as CIFAR10_
 from torchvision.datasets import MNIST as MNIST_
 try:
+    raise ImportError
     from ffcv.fields import IntField, RGBImageField
     from ffcv.fields.decoders import IntDecoder, SimpleRGBImageDecoder
     from ffcv.loader import Loader, OrderOption
@@ -70,6 +71,7 @@ class AdvRobDataset(Dataset):
 
 if FFCV_AVAILABLE:
     class CIFAR10(AdvRobDataset):
+        ATTACK_INTERVAL = 10
         INPUT_SHAPE = (3, 32, 32)
         NUM_CLASSES = 10
         N_EPOCHS = 200
@@ -123,26 +125,24 @@ if FFCV_AVAILABLE:
         def adjust_lr_dual(pd_optimizer, epoch):
             lr = pd_optimizer.eta
             if epoch == 20:
-                lr = lr * 5
+                lr = lr * 1.5
             if epoch == 40:
-                lr = lr * 5
+                lr = lr * 2
             if epoch == 80:
                 lr = lr * 2
             if epoch == 150:
                 lr = lr * 5
-            if epoch == 200:
-                lr = lr * 5
-            pd_optimizer.eta = lr
+            pd_optimizer.eta = lr 
 
         @staticmethod
         def adjust_lr(optimizer, epoch, hparams):
             lr = hparams['learning_rate']
-            if epoch >= 150:
-                lr = hparams['learning_rate'] * 0.1
-            if epoch >= 175:
-                lr = hparams['learning_rate'] * 0.01
-            if epoch >= 190:
-                lr = hparams['learning_rate'] * 0.001
+            if epoch >= 60:
+                lr = hparams['learning_rate'] * 0.2
+            if epoch >= 120:
+                lr = hparams['learning_rate'] * 0.2
+            if epoch >= 160:
+                lr = hparams['learning_rate'] * 0.2
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
         
@@ -201,12 +201,12 @@ else:
         @staticmethod
         def adjust_lr(optimizer, epoch, hparams):
             lr = hparams['learning_rate']
-            if epoch >= 150:
-                lr = hparams['learning_rate'] * 0.1
-            if epoch >= 175:
-                lr = hparams['learning_rate'] * 0.01
-            if epoch >= 190:
-                lr = hparams['learning_rate'] * 0.001
+            if epoch >= 60:
+                lr = hparams['learning_rate'] * 0.2
+            if epoch >= 120:
+                lr = hparams['learning_rate'] * 0.04
+            if epoch >= 160:
+                lr = hparams['learning_rate'] * 0.008
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
         @staticmethod

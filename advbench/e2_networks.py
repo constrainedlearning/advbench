@@ -1,3 +1,5 @@
+import sys
+sys.setrecursionlimit(2000) # to allow the e2wrn28_10R model to be exported as a torch.nn.Module
 import os.path
 from typing import Tuple
 
@@ -362,6 +364,7 @@ class Wide_ResNet(torch.nn.Module):
         #         print(f"\t{i: <3} - {name: <70} | {params: <8} |")
         tot_param = sum([p.numel() for p in self.parameters() if p.requires_grad])
         print("Total number of parameters:", tot_param)
+        self.exported=False
 
     def _restrict_layer(self, subgroup_id):
         layers = list()
@@ -421,10 +424,20 @@ class Wide_ResNet(torch.nn.Module):
         # out = self.relu(self.mp(self.bn1(out)))
         
         return x1, x2, x3
+
+    def export(self):
+        if not self.exported:
+            self.exported=True
+            self.export().eval()
+    
+    def unexport(self):
+        if self.exported:
+            self.exported=False
+            self.unexport().train()
     
     def forward(self, x):
-        
-        x = nn.GeometricTensor(x, self.in_type)
+        if not self.exported:
+            x = nn.GeometricTensor(x, self.in_type)
         
         out = self.conv1(x)
         out = self.layer1(out)
@@ -447,7 +460,8 @@ class Wide_ResNet(torch.nn.Module):
             out = self.mp(out)
         out = self.relu(out)
         
-        out = out.tensor
+        if not self.exported:
+            out = out.tensor
         
         b, c, w, h = out.shape
         out = F.avg_pool2d(out, (w, h))
@@ -456,29 +470,7 @@ class Wide_ResNet(torch.nn.Module):
         out = self.linear(out)
         
         return out
-    
-    def distribute(self):
-        
-        self.distributed = True
-        
-        self.conv1 = self.conv1.cuda(0)
-        self.layer1 = self.layer1.cuda(0)
-        
-        if self._r:
-            self.restrict1 = self.restrict1.cuda(1)
-        self.layer2 = self.layer2.cuda(1)
-        
-        if self._r:
-            self.restrict2 = self.restrict2.cuda(2)
-        self.layer3 = self.layer3.cuda(2)
-        
-        self.relu = self.relu.cuda(3)
-        self.bn1 = self.bn1.cuda(3)
-        # self.mp = self.mp.cuda(3)
-        self.avgpool = self.avgpool.cuda(3)
-        self.linear = self.linear.cuda(3)
-        
-        return self
+
 
 def e2wrn28_10R(**kwargs):
     """Constructs a Wide ResNet 28-10 model.
@@ -486,5 +478,15 @@ def e2wrn28_10R(**kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on Cifar100
     """
-    model = Wide_ResNet(28, 10, 0.3, f=False, initial_stride=1, **kwargs)
+    model = Wide_ResNet(28, 7, 0.3, f=False, initial_stride=1, **kwargs)
+    return model
+
+def wrn28_10(**kwargs):
+    """Constructs a Wide ResNet 28-10 model.
+    This model is only [R]otation equivariant (no flips equivariance)
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on Cifar100
+    """
+    model = Wide_ResNet(28, 7, 0.3, f=False, initial_stride=1, **kwargs)
+    model.export()
     return model
