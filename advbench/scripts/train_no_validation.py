@@ -123,7 +123,7 @@ def main(args, hparams, test_hparams):
                     wandb.log({'test_acc_adv_'+attack_name: test_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'epoch': epoch, 'step':step})
                     plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
                 
-        if wandb_log and epoch % dataset.LOSS_LANDSCAPE_INTERVAL == 0 and epoch > 0:
+        if wandb_log and ((epoch % dataset.LOSS_LANDSCAPE_INTERVAL == 0 and epoch > 0) or epoch == dataset.N_EPOCHS-1):
         # log loss landscape
             print(f"plotting and logging loss landscape")
             for eval, split in zip([train_eval, test_eval], ['train', 'test']):
@@ -145,7 +145,7 @@ def main(args, hparams, test_hparams):
             if meter.print:
                 print(f'Avg. train {name}: {meter.avg:.3f}\t', end='')
         print(f'\nClean val. accuracy: {test_clean_acc:.3f}\t', end='')
-        if epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0:
+        if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
             for attack_name, acc in zip(test_attacks.keys(), test_adv_accs):
                 print(f'{attack_name} val. accuracy: {acc:.3f}\t', end='')
         print('\n')
