@@ -25,6 +25,8 @@ def Classifier(input_shape, num_classes, hparams):
         elif hparams["model"] == "wrn-28-10":
             print("Using WRN-28-10")
             return wrn28_10(num_classes=10)
+        elif hparams["model"] == "CnSteerableCNN":
+            return CnSteerableCNN()
         else:
             raise Exception("Unknown model: {}".format(hparams["model"]))
     else:
@@ -158,11 +160,12 @@ class CnSteerableCNN(torch.nn.Module):
         
         super(CnSteerableCNN, self).__init__()
         self.exported=False
+        
         # the model is equivariant under rotations by 360/n_rot degrees, modelled by Cn_rot
         self.r2_act = gspaces.Rot2dOnR2(N=n_rot)
         
         # the input image is a scalars field, corresponding to the trivial representation
-        in_type = enn.FieldType(self.r2_act, [self.r2_act.trivial_repr])
+        in_type = enn.FieldType(self.r2_act, [self.r2_act.trivial_repr]*3)
         
         # we store the input type for wrapping the images into a geometric tensor during the forward pass
         self.input_type = in_type
