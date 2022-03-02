@@ -64,7 +64,7 @@ def main(args, hparams, test_hparams):
         results_df.loc[len(results_df)] = data + defaults
     if wandb_log:
         name = f"{args.perturbation} {args.algorithm} {args.test_attacks} {args.trial_seed} {args.seed}"
-        wandb.init(project=f"adversarial-constrained-{args.dataset}", name=name)
+        wandb.init(project=f"march-adversarial-constrained-{args.dataset}", name=name)
         wandb.config.update(args)
         wandb.config.update(hparams)
         train_eval, test_eval = [], []
@@ -109,7 +109,7 @@ def main(args, hparams, test_hparams):
             wandb.log({'test_clean_acc': test_clean_acc, 'epoch': epoch, 'step':step})
 
         add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
-        if epoch % dataset.ATTACK_INTERVAL == 0 and epoch > 0:
+        if epoch % dataset.ATTACK_INTERVAL == 0:
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():

@@ -137,12 +137,12 @@ if FFCV_AVAILABLE:
         @staticmethod
         def adjust_lr(optimizer, epoch, hparams):
             lr = hparams['learning_rate']
-            if epoch >= 60:
-                lr = hparams['learning_rate'] * 0.2
-            if epoch >= 120:
-                lr = hparams['learning_rate'] * 0.2
-            if epoch >= 160:
-                lr = hparams['learning_rate'] * 0.2
+            if epoch >= 150:
+                lr = hparams['learning_rate'] * 0.1
+            if epoch >= 175:
+                lr = hparams['learning_rate'] * 0.01
+            if epoch >= 190:
+                lr = hparams['learning_rate'] * 0.001
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
         
@@ -166,9 +166,9 @@ else:
         NUM_CLASSES = 10
         N_EPOCHS = 200
         CHECKPOINT_FREQ = 10
-        LOG_INTERVAL = 100
-        LOSS_LANDSCAPE_INTERVAL = 1
-        LOSS_LANDSCAPE_GSIZE = 10000
+        LOG_INTERVAL = 50
+        LOSS_LANDSCAPE_INTERVAL = 100
+        LOSS_LANDSCAPE_GSIZE = 1000
         ANGLE_GSIZE = 100
         LOSS_LANDSCAPE_BATCHES = 10
         HAS_LR_SCHEDULE = True

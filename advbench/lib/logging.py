@@ -40,6 +40,7 @@ class PerturbationEval():
                             adv_losses.append(self.step(imgs, labels))
                     else:
                         break
+                         
         self.algorithm.unexport()
         self.algorithm.classifier.train()
         self.loader.shuffle = True

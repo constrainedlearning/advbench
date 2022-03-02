@@ -255,6 +255,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
 
         assert(name not in hparams)
         hparams[name] = default_val
+    _hparam('perturbation_batch_size', 100)
     if perturbation == 'Linf':
         if dataset == 'MNIST':
             _hparam('epsilon', 0.3)
@@ -276,7 +277,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
             _hparam('pgd_n_steps', 10)
             _hparam('pgd_step_size', 0.1)
         elif dataset == 'CIFAR10':
-            _hparam('pgd_n_steps', 20)
+            _hparam('pgd_n_steps', 10)
             _hparam('pgd_step_size', 0.003)
 
         ##### TRADES #####
@@ -297,10 +298,10 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
 
         ##### PGD #####
         if dataset == 'MNIST':
-            _hparam('pgd_n_steps', 30)
+            _hparam('pgd_n_steps', 10)
             _hparam('pgd_step_size', 2)
         elif dataset == 'CIFAR10':
-            _hparam('pgd_n_steps', 20)
+            _hparam('pgd_n_steps', 10)
             _hparam('pgd_step_size', 2)
 
         ##### TRADES #####
@@ -317,7 +318,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
 
     elif perturbation=='SE':
         ##### Worst of K ######
-        _hparam('worst_of_k_steps', 100)
+        _hparam('worst_of_k_steps', 10)
 
         _hparam('epsilon_rot', 30)
         _hparam('epsilon_tx', 3)
@@ -331,10 +332,10 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
 
         ##### PGD #####
         if dataset == 'MNIST':
-            _hparam('pgd_n_steps', 30)
+            _hparam('pgd_n_steps', 10)
             _hparam('pgd_step_size', 0.1)
         elif dataset == 'CIFAR10':
-            _hparam('pgd_n_steps', 20)
+            _hparam('pgd_n_steps', 10)
             _hparam('pgd_step_size', 0.1)
 
         ##### TRADES #####

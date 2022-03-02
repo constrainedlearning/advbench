@@ -82,10 +82,13 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
     algorithm.export()
     with torch.no_grad():
         for imgs, labels in tqdm(loader):
-            #print("test shape", imgs.shape)
             imgs, labels = imgs.to(device), labels.to(device)
             with autocast():
-                adv_imgs, delta = attack(imgs, labels)
+                attacked = attack(imgs, labels)
+                if len(attacked) == 2:
+                    adv_imgs, delta = attacked
+                elif len(attacked) == 3:
+                    adv_imgs, delta, labels = attacked
                 output = algorithm.predict(adv_imgs)
                 loss = F.cross_entropy(output, labels, reduction='none')
                 pred = output.argmax(dim=1, keepdim=True)
@@ -93,7 +96,7 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
         deltas.append(delta.cpu().numpy())
 
         correct += pred.eq(labels.view_as(pred)).sum().item()
-        total += imgs.size(0)
+        total += adv_imgs.size(0)
     algorithm.train()
     algorithm.unexport()
     acc = 100. * correct / total
