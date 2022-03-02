@@ -27,6 +27,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     # Unconditional hparam definitions.
 
     _hparam('batch_size', 128, lambda r: int(2 ** r.uniform(3, 8)))
+    _hparam('augmentation_prob', 0.5, lambda r: 0.5)
     _hparam('perturbation_batch_size', 10, lambda r: 10)
     _hparam('mcmc_dale_scale', 0.2, lambda r: 0.2)
     _hparam('mcmc_dale_n_steps', 10, lambda r: 10)
@@ -333,10 +334,10 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         ##### PGD #####
         if dataset == 'MNIST':
             _hparam('pgd_n_steps', 10)
-            _hparam('pgd_step_size', 0.1)
+            _hparam('pgd_step_size', 1)
         elif dataset == 'CIFAR10':
             _hparam('pgd_n_steps', 10)
-            _hparam('pgd_step_size', 0.1)
+            _hparam('pgd_step_size', 0.5)
 
         ##### TRADES #####
         if dataset == 'MNIST':

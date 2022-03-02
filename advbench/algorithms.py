@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
 import pandas as pd
+from numpy.random import binomial
 from torch.cuda.amp import GradScaler, autocast
 try:
     raise ImportError
@@ -469,8 +470,12 @@ class Augmentation(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
         super(Augmentation, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
         self.attack = attacks.Rand_Aug(self.classifier, self.hparams, device, perturbation=perturbation)
+        self.p = hparams['augmentation_prob']
     def step(self, imgs, labels):
-        adv_imgs, deltas =   self.attack(imgs, labels)
+        if binomial(1, self.p):
+            adv_imgs, _ =   self.attack(imgs, labels)
+        else:
+            adv_imgs = imgs
         self.optimizer.zero_grad()
         loss = F.cross_entropy(self.predict(adv_imgs), labels)
         loss.backward()
