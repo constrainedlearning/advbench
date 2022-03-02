@@ -59,7 +59,7 @@ class AdvRobDataset(Dataset):
     CHECKPOINT_FREQ = None   # Subclasses should override
     LOG_INTERVAL = None      # Subclasses should override
     LOSS_LANDSCAPE_INTERVAL = None # Subclasses should override
-    ATTACK_INTERVAL = 10     # Default, subclass may override
+    ATTACK_INTERVAL = 100     # Default, subclass may override
     ANGLE_GSIZE = 100     # Default, subclass may override
     LOSS_LANDSCAPE_BATCHES = None # Subclasses should override
     HAS_LR_SCHEDULE = False  # Default, subclass may override
@@ -71,7 +71,7 @@ class AdvRobDataset(Dataset):
 
 if FFCV_AVAILABLE:
     class CIFAR10(AdvRobDataset):
-        ATTACK_INTERVAL = 10
+        ATTACK_INTERVAL = 100
         INPUT_SHAPE = (3, 32, 32)
         NUM_CLASSES = 10
         N_EPOCHS = 200
@@ -226,7 +226,7 @@ class MNIST(AdvRobDataset):
     INPUT_SHAPE = (1, 28, 28)
     NUM_CLASSES = 10
     N_EPOCHS = 10#50
-    CHECKPOINT_FREQ = 10
+    CHECKPOINT_FREQ = 50
     LOG_INTERVAL = 100
     LOSS_LANDSCAPE_INTERVAL = 1
     LOSS_LANDSCAPE_BATCHES = 40
