@@ -27,7 +27,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     # Unconditional hparam definitions.
 
     _hparam('batch_size', 128, lambda r: int(2 ** r.uniform(3, 8)))
-    _hparam('augmentation_prob', 0.5, lambda r: 0.5)
+    _hparam('augmentation_prob', 0.2, lambda r: 0.2)
     _hparam('perturbation_batch_size', 10, lambda r: 10)
     _hparam('mcmc_dale_scale', 0.2, lambda r: 0.2)
     _hparam('mcmc_dale_n_steps', 10, lambda r: 10)
