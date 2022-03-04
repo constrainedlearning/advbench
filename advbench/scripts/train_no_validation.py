@@ -109,7 +109,7 @@ def main(args, hparams, test_hparams):
             wandb.log({'test_clean_acc': test_clean_acc, 'epoch': epoch, 'step':step})
 
         add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
-        if epoch % dataset.ATTACK_INTERVAL == 0:
+        if epoch % dataset.ATTACK_INTERVAL == 0 or epoch == dataset.N_EPOCHS-1:
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():

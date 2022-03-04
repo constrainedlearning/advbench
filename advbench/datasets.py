@@ -20,6 +20,15 @@ except ImportError:
 
 SPLITS = ['train', 'val', 'test']
 DATASETS = ['CIFAR10', 'MNIST']
+MEAN = {
+    'CIFAR10': (0.4914, 0.4822, 0.4465),
+    'CIFAR100': (0.5071, 0.4867, 0.4408),
+}
+
+STD = {
+    'CIFAR10': (0.2023, 0.1994, 0.2010),
+    'CIFAR100': (0.2675, 0.2565, 0.2761),
+}
 
 def to_loaders(all_datasets, hparams):
     if not all_datasets.ffcv:    
@@ -306,12 +315,14 @@ class CIFAR100(AdvRobDataset):
         super(CIFAR100, self).__init__()
 
         self.ffcv=False
-
+        
         train_transforms = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
+            transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100']),
             transforms.ToTensor()])
-        test_transforms = transforms.ToTensor()
+        test_transforms = transforms.Compose([transforms.ToTensor(),
+                                                transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
 
         train_data = CIFAR100_(root, train=True, transform=train_transforms, download=True)
         self.splits['train'] = train_data
