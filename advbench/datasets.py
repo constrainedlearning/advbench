@@ -319,8 +319,8 @@ class CIFAR100(AdvRobDataset):
         train_transforms = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
-            transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100']),
-            transforms.ToTensor()])
+            transforms.ToTensor(),
+            transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
         test_transforms = transforms.Compose([transforms.ToTensor(),
                                                 transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
 
