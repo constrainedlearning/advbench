@@ -9,7 +9,6 @@ import torch
 import torch.nn.functional as F
 from torch.cuda.amp import GradScaler, autocast
 try:
-    raise ImportError
     import ffcv
     FFCV_AVAILABLE=True
 except ImportError:

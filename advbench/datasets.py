@@ -6,7 +6,6 @@ from torchvision.datasets import CIFAR10 as CIFAR10_
 from torchvision.datasets import CIFAR100 as CIFAR100_
 from torchvision.datasets import MNIST as MNIST_
 try:
-    raise ImportError
     from ffcv.fields import IntField, RGBImageField
     from ffcv.fields.decoders import IntDecoder, SimpleRGBImageDecoder
     from ffcv.loader import Loader, OrderOption
@@ -156,8 +155,6 @@ if FFCV_AVAILABLE:
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
         
-        
-
         def write(self):
             folder = os.path.join('data','ffcv', 'CIFAR')
             for (name, ds) in self.splits.items():
@@ -170,6 +167,97 @@ if FFCV_AVAILABLE:
                 writer = DatasetWriter(path, fields)
                 writer.from_indexed_dataset(ds)
                 self.splits[name] = path
+    
+    class CIFAR100(AdvRobDataset):
+        INPUT_SHAPE = (3, 32, 32)
+        NUM_CLASSES = 100
+        N_EPOCHS = 200
+        CHECKPOINT_FREQ = 10
+        LOG_INTERVAL = 50
+        LOSS_LANDSCAPE_INTERVAL = 100
+        LOSS_LANDSCAPE_GSIZE = 1000
+        ANGLE_GSIZE = 100
+        LOSS_LANDSCAPE_BATCHES = 10
+        HAS_LR_SCHEDULE = True
+        HAS_LR_SCHEDULE_DUAL = True
+
+        # test adversary parameters
+        ADV_STEP_SIZE = 2/255.
+        N_ADV_STEPS = 20
+
+        def __init__(self, root):
+            super(CIFAR100, self).__init__()
+
+            self.ffcv = True
+            self.transforms = {}
+            for split in ["train", "val", "test"]:
+                image_pipeline = [SimpleRGBImageDecoder()]
+                if split == 'train':
+                    image_pipeline.extend([
+                        RandomHorizontalFlip(),
+                        Cutout(4, tuple(map(int, MEAN['CIFAR100']))),
+                    ])
+                image_pipeline.extend([
+                    ToTensor(),
+                    ToDevice('cuda:0', non_blocking=True),
+                    ToTorchImage(),
+                    Convert(torch.float16),
+                    transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100']),
+                ])
+                self.transforms[split] = image_pipeline
+
+            train_data = CIFAR100_(root, train=True, download=True)
+            self.splits['train'] = train_data
+            # self.splits['train'] = Subset(train_data, range(5000))
+
+            train_data = CIFAR100_(root, train=True)
+            self.splits['val'] = Subset(train_data, range(45000, 50000))
+
+            self.splits['test'] = CIFAR100_(root, train=False)
+            self.write()
+
+        @staticmethod
+        def adjust_lr(optimizer, epoch, hparams):
+            """
+            Decay initial learning rate exponentially starting after epoch_start epochs
+            The learning rate is multiplied with base_factor every lr_decay_epoch epochs
+            """
+            lr = hparams['learning_rate']
+            if epoch > hparams['lr_decay_start']:
+                lr = hparams['learning_rate'] * (hparams['lr_decay_factor'] ** ((epoch - hparams['lr_decay_start']) // hparams['lr_decay_epoch']))
+            print('learning rate = {:6f}'.format(lr))
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr
+            return
+        
+        @staticmethod
+        def adjust_lr_dual(pd_optimizer, epoch):
+            lr = pd_optimizer.eta
+            if epoch == 20:
+                lr = lr * 1.5
+            if epoch == 40:
+                lr = lr * 2
+            if epoch == 80:
+                lr = lr * 2
+            if epoch == 130:
+                lr = lr / 10
+            if epoch == 180:
+                lr = lr / 10
+            pd_optimizer.eta = lr 
+
+        def write(self):
+                folder = os.path.join('data','ffcv', 'CIFAR')
+                for (name, ds) in self.splits.items():
+                    fields = {
+                        'image': RGBImageField(),
+                        'label': IntField(),
+                    }
+                    os.makedirs(folder, exist_ok=True)
+                    path = os.path.join(folder, name+'.beton')
+                    writer = DatasetWriter(path, fields)
+                    writer.from_indexed_dataset(ds)
+                    self.splits[name] = path  
+
 else:
     class CIFAR10(AdvRobDataset):
         INPUT_SHAPE = (3, 32, 32)
@@ -294,73 +382,73 @@ class MNIST(AdvRobDataset):
             lr = lr * 5
         pd_optimizer.eta = lr
 
-class CIFAR100(AdvRobDataset):
-    INPUT_SHAPE = (3, 32, 32)
-    NUM_CLASSES = 100
-    N_EPOCHS = 200
-    CHECKPOINT_FREQ = 10
-    LOG_INTERVAL = 50
-    LOSS_LANDSCAPE_INTERVAL = 100
-    LOSS_LANDSCAPE_GSIZE = 1000
-    ANGLE_GSIZE = 100
-    LOSS_LANDSCAPE_BATCHES = 10
-    HAS_LR_SCHEDULE = True
-    HAS_LR_SCHEDULE_DUAL = True
+    class CIFAR100(AdvRobDataset):
+        INPUT_SHAPE = (3, 32, 32)
+        NUM_CLASSES = 100
+        N_EPOCHS = 200
+        CHECKPOINT_FREQ = 10
+        LOG_INTERVAL = 50
+        LOSS_LANDSCAPE_INTERVAL = 100
+        LOSS_LANDSCAPE_GSIZE = 1000
+        ANGLE_GSIZE = 100
+        LOSS_LANDSCAPE_BATCHES = 10
+        HAS_LR_SCHEDULE = True
+        HAS_LR_SCHEDULE_DUAL = True
 
-    # test adversary parameters
-    ADV_STEP_SIZE = 2/255.
-    N_ADV_STEPS = 20
+        # test adversary parameters
+        ADV_STEP_SIZE = 2/255.
+        N_ADV_STEPS = 20
 
-    def __init__(self, root):
-        super(CIFAR100, self).__init__()
+        def __init__(self, root):
+            super(CIFAR100, self).__init__()
 
-        self.ffcv=False
+            self.ffcv=False
+            
+            train_transforms = transforms.Compose([
+                transforms.RandomCrop(32, padding=4),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
+            test_transforms = transforms.Compose([transforms.ToTensor(),
+                                                    transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
+
+            train_data = CIFAR100_(root, train=True, transform=train_transforms, download=True)
+            self.splits['train'] = train_data
+            # self.splits['train'] = Subset(train_data, range(5000))
+
+            train_data = CIFAR100_(root, train=True, transform=train_transforms)
+            self.splits['val'] = Subset(train_data, range(45000, 50000))
+
+            self.splits['test'] = CIFAR100_(root, train=False, transform=test_transforms)
+
+        @staticmethod
+        def adjust_lr(optimizer, epoch, hparams):
+            """
+            Decay initial learning rate exponentially starting after epoch_start epochs
+            The learning rate is multiplied with base_factor every lr_decay_epoch epochs
+            """
+            lr = hparams['learning_rate']
+            if epoch > hparams['lr_decay_start']:
+                lr = hparams['learning_rate'] * (hparams['lr_decay_factor'] ** ((epoch - hparams['lr_decay_start']) // hparams['lr_decay_epoch']))
+            print('learning rate = {:6f}'.format(lr))
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr
+            return
         
-        train_transforms = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
-        test_transforms = transforms.Compose([transforms.ToTensor(),
-                                                transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
-
-        train_data = CIFAR100_(root, train=True, transform=train_transforms, download=True)
-        self.splits['train'] = train_data
-        # self.splits['train'] = Subset(train_data, range(5000))
-
-        train_data = CIFAR100_(root, train=True, transform=train_transforms)
-        self.splits['val'] = Subset(train_data, range(45000, 50000))
-
-        self.splits['test'] = CIFAR100_(root, train=False, transform=test_transforms)
-
-    @staticmethod
-    def adjust_lr(optimizer, epoch, hparams):
-        """
-        Decay initial learning rate exponentially starting after epoch_start epochs
-        The learning rate is multiplied with base_factor every lr_decay_epoch epochs
-        """
-        lr = hparams['learning_rate']
-        if epoch > hparams['lr_decay_start']:
-            lr = hparams['learning_rate'] * (hparams['lr_decay_factor'] ** ((epoch - hparams['lr_decay_start']) // hparams['lr_decay_epoch']))
-        print('learning rate = {:6f}'.format(lr))
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
-        return
-    
-    @staticmethod
-    def adjust_lr_dual(pd_optimizer, epoch):
-        lr = pd_optimizer.eta
-        if epoch == 20:
-            lr = lr * 1.5
-        if epoch == 40:
-            lr = lr * 2
-        if epoch == 80:
-            lr = lr * 2
-        if epoch == 130:
-            lr = lr / 10
-        if epoch == 180:
-            lr = lr / 10
-        pd_optimizer.eta = lr   
+        @staticmethod
+        def adjust_lr_dual(pd_optimizer, epoch):
+            lr = pd_optimizer.eta
+            if epoch == 20:
+                lr = lr * 1.5
+            if epoch == 40:
+                lr = lr * 2
+            if epoch == 80:
+                lr = lr * 2
+            if epoch == 130:
+                lr = lr / 10
+            if epoch == 180:
+                lr = lr / 10
+            pd_optimizer.eta = lr   
 
 class MNIST(AdvRobDataset):
     INPUT_SHAPE = (1, 28, 28)
