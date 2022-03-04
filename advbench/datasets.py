@@ -3,6 +3,7 @@ import torch
 from torch.utils.data import Dataset, Subset, DataLoader
 import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10 as CIFAR10_
+from torchvision.datasets import CIFAR100 as CIFAR100_
 from torchvision.datasets import MNIST as MNIST_
 try:
     raise ImportError
@@ -282,4 +283,133 @@ class MNIST(AdvRobDataset):
             lr = lr * 5
         if epoch == 90:
             lr = lr * 5
+        pd_optimizer.eta = lr
+
+class CIFAR100(AdvRobDataset):
+    INPUT_SHAPE = (3, 32, 32)
+    NUM_CLASSES = 100
+    N_EPOCHS = 200
+    CHECKPOINT_FREQ = 10
+    LOG_INTERVAL = 50
+    LOSS_LANDSCAPE_INTERVAL = 100
+    LOSS_LANDSCAPE_GSIZE = 1000
+    ANGLE_GSIZE = 100
+    LOSS_LANDSCAPE_BATCHES = 10
+    HAS_LR_SCHEDULE = True
+    HAS_LR_SCHEDULE_DUAL = True
+
+    # test adversary parameters
+    ADV_STEP_SIZE = 2/255.
+    N_ADV_STEPS = 20
+
+    def __init__(self, root):
+        super(CIFAR100, self).__init__()
+
+        self.ffcv=False
+
+        train_transforms = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor()])
+        test_transforms = transforms.ToTensor()
+
+        train_data = CIFAR100_(root, train=True, transform=train_transforms, download=True)
+        self.splits['train'] = train_data
+        # self.splits['train'] = Subset(train_data, range(5000))
+
+        train_data = CIFAR100_(root, train=True, transform=train_transforms)
+        self.splits['val'] = Subset(train_data, range(45000, 50000))
+
+        self.splits['test'] = CIFAR100_(root, train=False, transform=test_transforms)
+
+    @staticmethod
+    def adjust_lr(optimizer, epoch, hparams):
+        """
+        Decay initial learning rate exponentially starting after epoch_start epochs
+        The learning rate is multiplied with base_factor every lr_decay_epoch epochs
+        """
+        lr = hparams['learning_rate']
+        if epoch > hparams['lr_decay_start']:
+            lr = hparams['learning_rate'] * (hparams['lr_decay_factor'] ** ((epoch - hparams['lr_decay_start']) // hparams['lr_decay_epoch']))
+        print('learning rate = {:6f}'.format(lr))
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+        return
+    
+    @staticmethod
+    def adjust_lr_dual(pd_optimizer, epoch):
+        lr = pd_optimizer.eta
+        if epoch == 20:
+            lr = lr * 1.5
+        if epoch == 40:
+            lr = lr * 2
+        if epoch == 80:
+            lr = lr * 2
+        if epoch == 130:
+            lr = lr / 10
+        if epoch == 180:
+            lr = lr / 10
+        pd_optimizer.eta = lr   
+
+class MNIST(AdvRobDataset):
+    INPUT_SHAPE = (1, 28, 28)
+    NUM_CLASSES = 10
+    N_EPOCHS = 100
+    CHECKPOINT_FREQ = 50
+    LOG_INTERVAL = 100
+    ATTACK_INTERVAL = 10
+    LOSS_LANDSCAPE_INTERVAL = 10
+    LOSS_LANDSCAPE_BATCHES = 40
+    HAS_LR_SCHEDULE = False
+    LOSS_LANDSCAPE_GSIZE = 1000#28000
+    ANGLE_GSIZE = 100
+    LOSS_LANDSCAPE_BATCHES = 10
+    HAS_LR_SCHEDULE_DUAL = True
+
+    # test adversary parameters
+    ADV_STEP_SIZE = 0.1
+    N_ADV_STEPS = 10
+
+    def __init__(self, root):
+        super(MNIST, self).__init__()
+        self.ffcv = False
+        
+        xforms = transforms.ToTensor()
+
+        train_data = MNIST_(root, train=True, transform=xforms,  download=True)
+        self.splits['train'] = train_data
+        # self.splits['train'] = Subset(train_data, range(60000))
+
+        train_data = MNIST_(root, train=True, transform=xforms)
+        self.splits['val'] = Subset(train_data, range(54000, 60000))
+
+        self.splits['test'] = MNIST_(root, train=False, transform=xforms)
+
+        self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.1)
+
+    @staticmethod
+    def adjust_lr(optimizer, epoch, hparams):
+        lr = hparams['learning_rate']
+        if epoch >= 55:
+            lr = hparams['learning_rate'] * 0.1
+        if epoch >= 75:
+            lr = hparams['learning_rate'] * 0.01
+        if epoch >= 90:
+            lr = hparams['learning_rate'] * 0.001
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+    
+    @staticmethod
+    def adjust_lr_dual(pd_optimizer, epoch):
+        lr = pd_optimizer.eta
+        if epoch == 10:
+            lr = lr * 2
+        if epoch == 20:
+            lr = lr * 2
+        if epoch == 25:
+            lr = lr * 2
+        if epoch == 90:
+            lr = lr / 10
+        if epoch == 120:
+            lr = lr / 10
         pd_optimizer.eta = lr

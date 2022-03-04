@@ -18,17 +18,17 @@ def Classifier(input_shape, num_classes, hparams):
     elif input_shape[0] == 3:
         # return models.resnet18(num_classes=num_classes)
         if hparams["model"] == "resnet18":
-            return ResNet18()
+            return ResNet18(num_classes = num_classes)
         elif hparams["model"] == "steerable_resnet18":
-            return SteerableResNet18()
+            return SteerableResNet18(num_classes = num_classes)
         elif hparams["model"] == "wrn-28-10-rot":
             print("Using e2 invariant WRN-28-10")
-            return e2wrn28_10R(num_classes=10)
+            return e2wrn28_10R(num_classes=num_classes)
         elif hparams["model"] == "wrn-28-10":
             print("Using WRN-28-10")
-            return wrn28_10(num_classes=10)
+            return wrn28_10(num_classes=num_classes)
         elif hparams["model"] == "CnSteerableCNN":
-            return CnSteerableCNN(num_channels=3)
+            return CnSteerableCNN(num_channels=3, num_classes = num_classes)
         else:
             raise Exception("Unknown model: {}".format(hparams["model"]))
     else:
@@ -149,11 +149,11 @@ class ResNet(nn.Module):
         return out
 
 
-def ResNet18():
-    return ResNet(BasicBlock, [2, 2, 2, 2])
+def ResNet18(num_classes=10):
+    return ResNet(BasicBlock, [2, 2, 2, 2], num_classes=num_classes)
 
-def ResNet50():
-    return ResNet(Bottleneck, [3, 4, 6, 3])
+def ResNet50(num_classes=10):
+    return ResNet(Bottleneck, [3, 4, 6, 3],num_classes=num_classes)
 
 
 class CnSteerableCNN(torch.nn.Module):
