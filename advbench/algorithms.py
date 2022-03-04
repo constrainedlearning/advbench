@@ -348,7 +348,7 @@ class Gaussian_DALE_PD_Reverse(PrimalDualBase):
         self.meters['delta hist'].update(deltas.cpu())
 
 class Laplacian_DALE_PD_Reverse(PrimalDualBase):
-    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=1.0):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):
         super(Laplacian_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
         self.attack = attacks.LMC_Laplacian_Linf(self.classifier, self.hparams, device, perturbation=perturbation)
         self.pd_optimizer = optimizers.PrimalDualOptimizer(
@@ -373,17 +373,17 @@ class Laplacian_DALE_PD_Reverse(PrimalDualBase):
         self.meters['delta hist'].update(deltas.cpu())
 
 class Worst_DALE_PD_Reverse(Laplacian_DALE_PD_Reverse):
-    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=1.0):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):
         super(Worst_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
         self.attack = attacks.Worst_Of_K(self.classifier, self.hparams, device, perturbation=perturbation)
 
 class PGD_DALE_PD_Reverse(Laplacian_DALE_PD_Reverse):
-    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=1.0):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):
         super(PGD_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
         self.attack = attacks.PGD_Linf(self.classifier, self.hparams, device, perturbation=perturbation)
 
 class MCMC_DALE_PD_Reverse(PrimalDualBase):
-    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=1.0):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):
         super(MCMC_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
         self.meters['acceptance rate'] = meters.AverageMeter()
         self.attack = attacks.MCMC(self.classifier, self.hparams, device, perturbation=perturbation, acceptance_meter=self.meters['acceptance rate'])
@@ -409,7 +409,7 @@ class MCMC_DALE_PD_Reverse(PrimalDualBase):
         self.meters['delta hist'].update(deltas.cpu())
 
 class KL_DALE_PD(PrimalDualBase):
-    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=1.0):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):
         super(KL_DALE_PD, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
         self.attack = attacks.TRADES_Linf(self.classifier, self.hparams, device, perturbation=perturbation)
         self.kl_loss_fn = nn.KLDivLoss(reduction='batchmean')
