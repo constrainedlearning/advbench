@@ -1,5 +1,5 @@
 import sys
-sys.setrecursionlimit(2000) # to allow the e2wrn28_10R model to be exported as a torch.nn.Module
+sys.setrecursionlimit(20000) # to allow the e2wrn28_10R model to be exported as a torch.nn.Module
 import os.path
 from typing import Tuple
 
@@ -362,7 +362,7 @@ class Wide_ResNet(torch.nn.Module):
         #         print(f"\t{i: <3} - {name: <70} | {params: <8} | {mod.in_type.size: <4}- {mod.out_type.size: <4}")
         #     else:
         #         print(f"\t{i: <3} - {name: <70} | {params: <8} |")
-        tot_param = sum([p.numel() for p in self.parameters() if p.requires_grad])
+        tot_param = sum([p.numel() for p in self.parameters()]) #if p.requires_grad])
         print("Total number of parameters:", tot_param)
         self.exported=False
 
@@ -426,14 +426,12 @@ class Wide_ResNet(torch.nn.Module):
         return x1, x2, x3
 
     def export(self):
-        if not self.exported:
-            self.exported=True
-            self.export().eval()
+        self.exported=True
+        self.export()
     
     def unexport(self):
-        if self.exported:
-            self.exported=False
-            self.unexport().train()
+        self.exported=False
+        self.unexport()
     
     def forward(self, x):
         if not self.exported:
@@ -478,15 +476,17 @@ def e2wrn28_10R(**kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on Cifar100
     """
-    model = Wide_ResNet(28, 7, 0.3, f=False, initial_stride=1, **kwargs)
+    model = Wide_ResNet(28, 10, 0.3, f=False, initial_stride=1, **kwargs)
     return model
 
+'''
 def wrn28_10(**kwargs):
     """Constructs a Wide ResNet 28-10 model.
     This model is only [R]otation equivariant (no flips equivariance)
     Args:
         pretrained (bool): If True, returns a model pre-trained on Cifar100
     """
-    model = Wide_ResNet(28, 7, 0.3, f=False, initial_stride=1, **kwargs)
+    model = Wide_ResNet(28, 10, 0.3, f=False, initial_stride=1, **kwargs)
     model.export()
     return model
+'''
