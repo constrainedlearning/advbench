@@ -321,7 +321,7 @@ class Laplacian_DALE(Algorithm):
         self.meters['robust loss'].update(robust_loss.item(), n=imgs.size(0))
 
 class PrimalDualBase(Algorithm):
-    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=1.0):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):
         super(PrimalDualBase, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
         self.dual_params = {'dual_var': torch.tensor(init).to(self.device)}
         self.meters['clean loss'] = meters.AverageMeter()

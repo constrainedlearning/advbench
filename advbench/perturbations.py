@@ -37,7 +37,7 @@ class Linf(Perturbation):
     def delta_init(self, imgs):
         if self.dim is None:
             self.dim = imgs.shape[1:]
-        return 0.001 * torch.randn(imgs.shape)
+        return 0.001 * torch.randn(imgs.shape, dtype=imgs.dtype, device=imgs.device)
         
 class Rotation(Perturbation):
     def __init__(self, epsilon):
@@ -59,7 +59,7 @@ class Rotation(Perturbation):
         
     def delta_init(self, imgs):
         eps = self.eps
-        delta_init =   2*eps* torch.rand(imgs.shape[0])-eps
+        delta_init =   2*eps* torch.rand(imgs.shape[0], dtype=imgs.dtype, device=imgs.device)-eps
         return delta_init
 
 class SE(Perturbation):

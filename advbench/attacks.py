@@ -174,7 +174,7 @@ class MCMC(Attack_Linf):
                     if self.log_acceptance:
                         self.acceptance_meter.update(acceptance_ratio.mean().item(), n=1)
                     accepted = torch.bernoulli(acceptance_ratio).bool()
-                    delta[accepted] = proposal[accepted]
+                    delta[accepted] = proposal[accepted].type(delta.dtype)
                     last_loss[accepted] = proposal_loss[accepted]
                 elif self.log_acceptance:
                     self.acceptance_meter.update(0, n=1)
