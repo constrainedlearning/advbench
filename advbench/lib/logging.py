@@ -25,19 +25,22 @@ class PerturbationEval():
         self.algorithm.classifier.eval()
         self.algorithm.export()
         adv_losses = []
+        adv_accs = []
         with torch.no_grad():
             if single_img:
                     imgs, labels = self.loader.dataset[0]
                     imgs, labels = imgs.unsqueeze(0).to(self.device), torch.tensor([labels]).to(self.device)
                     with autocast():
-                        adv_losses = self.step(imgs, labels)[0]
+                        adv_losses, adv_accs = self.step(imgs, labels)[0]
             else:
                 for idx, batch in tqdm(enumerate(self.loader)):
                     if idx < batches:
                         imgs, labels = batch
                         imgs, labels = imgs.to(self.device), labels.to(self.device)
                         with autocast():
-                            adv_losses.append(self.step(imgs, labels))
+                            adv_loss, adv_acc = self.step(imgs, labels)
+                            adv_losses.append(adv_loss)
+                            adv_accs.append(adv_acc)
                     else:
                         break
                          
@@ -46,7 +49,8 @@ class PerturbationEval():
         self.loader.shuffle = True
         if batches>1 or not single_img:
             adv_losses = torch.concat(adv_losses, dim=0).mean(dim=0)
-        return self.grid, adv_losses
+            adv_accs = torch.concat(adv_accs, dim=0).mean(dim=0)
+        return self.grid, adv_losses, adv_accs
     
     def step(self, imgs, labels):
         batch_size = imgs.shape[0]
@@ -54,15 +58,21 @@ class PerturbationEval():
             adv_imgs = self.perturbation.perturb_img(
                 repeat(imgs, 'B W H C -> (B S) W H C', B=batch_size, S=self.grid_size),
                 repeat(self.grid, 'S D -> (B S) D', B=batch_size, D=self.dim, S=self.grid_size))
-            adv_loss = F.cross_entropy(self.classifier(adv_imgs), repeat(labels, 'B -> (B S)', S=self.grid_size), reduction="none")
+            pred = self.classifier(adv_imgs)
+            adv_loss = F.cross_entropy(pred, repeat(labels, 'B -> (B S)', S=self.grid_size), reduction="none")
+            adv_acc = torch.eq(pred, repeat(labels, 'B -> (B S)', S=self.grid_size))
             adv_loss = rearrange(adv_loss, '(B S) -> B S', B=batch_size, S=self.grid_size)
+            adv_acc = rearrange(adv_acc, '(B S) -> B S', B=batch_size, S=self.grid_size)
         else:
             adv_loss = torch.empty((batch_size, self.grid_size), device=imgs.device)
+            adv_acc = torch.empty((batch_size, self.grid_size), device=imgs.device)
             for s in range(self.grid_size):
                 grid = repeat(self.grid[s], 'D -> B D', B=batch_size, D=self.dim)
                 adv_imgs = self.perturbation.perturb_img(imgs, grid)
-                angle_loss = F.cross_entropy(self.classifier(adv_imgs), labels, reduction="none")
+                pred = self.classifier(adv_imgs)
+                angle_loss = F.cross_entropy(pred, labels, reduction="none")
                 adv_loss[:, s] = angle_loss
+                adv_acc[:, s] = torch.eq(pred, labels)
         return adv_loss
 
     def get_grid(self):

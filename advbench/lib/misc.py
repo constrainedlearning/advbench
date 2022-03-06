@@ -3,12 +3,14 @@ import sys
 from functools import wraps
 from time import time
 from tqdm import tqdm
+from einops import reshape
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
 from torch.cuda.amp import GradScaler, autocast
 try:
+    raise ImportError
     import ffcv
     FFCV_AVAILABLE=True
 except ImportError:
@@ -100,6 +102,44 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
     algorithm.unexport()
     acc = 100. * correct / total
     return acc, np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0)
+
+def adv_accuracy_loss_delta_ensembleacc(algorithm, loader, device, attack):
+    correct, ensemble_correct, total = 0, 0
+    losses, deltas = [], []
+
+    algorithm.eval()
+    algorithm.export()
+    with torch.no_grad():
+        for imgs, labels in tqdm(loader):
+            imgs, labels = imgs.to(device), labels.to(device)
+            with autocast():
+                attacked = attack(imgs, labels)
+                if len(attacked) == 2:
+                    adv_imgs, delta = attacked
+                elif len(attacked) == 3:
+                    old_labels = labels
+                    adv_imgs, delta, labels = attacked
+                output = algorithm.predict(adv_imgs)
+                loss = F.cross_entropy(output, labels, reduction='none')
+                pred = output.argmax(dim=1, keepdim=True)
+                if len(attacked) == 3:
+                    ensemble_preds = np.zeros_like(output)
+                    ensemble_preds[pred] = 1
+                    ensemble_preds = reshape(ensemble_preds, '(B C S)-> B C S', B=imgs.shape[0], C=output.shape[1])
+                    ensemble_preds = ensemble_preds.mean(dim=1, keepdim=True)
+                    ensemble_preds = ensemble_preds.argmax(dim=1, keepdim=True)
+                else:
+                    ensemble_preds = pred
+        losses.append(loss.cpu().numpy())
+        deltas.append(delta.cpu().numpy())
+        ensemble_correct += pred.eq(labels.view_as(pred)).sum().item() 
+        correct += pred.eq(labels.view_as(pred)).sum().item()
+        total += adv_imgs.size(0)
+    algorithm.train()
+    algorithm.unexport()
+    acc = 100. * correct / total
+    ensemble_acc = 100. * ensemble_correct / totals
+    return acc, np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0), ensemble_acc
 
 class Tee:
     def __init__(self, fname, mode="a"):

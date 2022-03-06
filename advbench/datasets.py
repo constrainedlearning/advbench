@@ -6,6 +6,7 @@ from torchvision.datasets import CIFAR10 as CIFAR10_
 from torchvision.datasets import CIFAR100 as CIFAR100_
 from torchvision.datasets import MNIST as MNIST_
 try:
+    raise ImportError
     from ffcv.fields import IntField, RGBImageField
     from ffcv.fields.decoders import IntDecoder, SimpleRGBImageDecoder
     from ffcv.loader import Loader, OrderOption
@@ -318,70 +319,8 @@ else:
                 lr = lr * 2
             if epoch == 150:
                 lr = lr * 5
-            pd_optimizer.eta = lr   
-
-class MNIST(AdvRobDataset):
-    INPUT_SHAPE = (1, 28, 28)
-    NUM_CLASSES = 10
-    N_EPOCHS = 100
-    CHECKPOINT_FREQ = 50
-    LOG_INTERVAL = 100
-    ATTACK_INTERVAL = 10
-    LOSS_LANDSCAPE_INTERVAL = 10
-    LOSS_LANDSCAPE_BATCHES = 40
-    HAS_LR_SCHEDULE = False
-    LOSS_LANDSCAPE_GSIZE = 1000#28000
-    ANGLE_GSIZE = 100
-    LOSS_LANDSCAPE_BATCHES = 10
-    HAS_LR_SCHEDULE_DUAL = True
-
-    # test adversary parameters
-    ADV_STEP_SIZE = 0.1
-    N_ADV_STEPS = 10
-
-    def __init__(self, root):
-        super(MNIST, self).__init__()
-        self.ffcv = False
-        
-        xforms = transforms.ToTensor()
-
-        train_data = MNIST_(root, train=True, transform=xforms,  download=True)
-        self.splits['train'] = train_data
-        # self.splits['train'] = Subset(train_data, range(60000))
-
-        train_data = MNIST_(root, train=True, transform=xforms)
-        self.splits['val'] = Subset(train_data, range(54000, 60000))
-
-        self.splits['test'] = MNIST_(root, train=False, transform=xforms)
-
-    @staticmethod
-    def adjust_lr(optimizer, epoch, hparams):
-
-        lr = hparams['learning_rate']
-        if epoch >= 55:
-            lr = hparams['learning_rate'] * 0.1
-        if epoch >= 75:
-            lr = hparams['learning_rate'] * 0.01
-        if epoch >= 90:
-            lr = hparams['learning_rate'] * 0.001
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
+            pd_optimizer.eta = lr
     
-    @staticmethod
-    def adjust_lr_dual(pd_optimizer, epoch):
-        lr = pd_optimizer.eta
-        if epoch == 10:
-            lr = lr * 2
-        if epoch == 20:
-            lr = lr * 2
-        if epoch == 25:
-            lr = lr * 2
-        if epoch == 50:
-            lr = lr * 5
-        if epoch == 90:
-            lr = lr * 5
-        pd_optimizer.eta = lr
-
     class CIFAR100(AdvRobDataset):
         INPUT_SHAPE = (3, 32, 32)
         NUM_CLASSES = 100
@@ -448,7 +387,70 @@ class MNIST(AdvRobDataset):
                 lr = lr / 10
             if epoch == 180:
                 lr = lr / 10
-            pd_optimizer.eta = lr   
+            pd_optimizer.eta = lr    
+
+class MNIST(AdvRobDataset):
+    INPUT_SHAPE = (1, 28, 28)
+    NUM_CLASSES = 10
+    N_EPOCHS = 100
+    CHECKPOINT_FREQ = 50
+    LOG_INTERVAL = 100
+    ATTACK_INTERVAL = 10
+    LOSS_LANDSCAPE_INTERVAL = 10
+    LOSS_LANDSCAPE_BATCHES = 40
+    HAS_LR_SCHEDULE = False
+    LOSS_LANDSCAPE_GSIZE = 1000#28000
+    ANGLE_GSIZE = 100
+    LOSS_LANDSCAPE_BATCHES = 10
+    HAS_LR_SCHEDULE_DUAL = True
+
+    # test adversary parameters
+    ADV_STEP_SIZE = 0.1
+    N_ADV_STEPS = 10
+
+    def __init__(self, root):
+        super(MNIST, self).__init__()
+        self.ffcv = False
+        
+        xforms = transforms.ToTensor()
+
+        train_data = MNIST_(root, train=True, transform=xforms,  download=True)
+        self.splits['train'] = train_data
+        # self.splits['train'] = Subset(train_data, range(60000))
+
+        train_data = MNIST_(root, train=True, transform=xforms)
+        self.splits['val'] = Subset(train_data, range(54000, 60000))
+
+        self.splits['test'] = MNIST_(root, train=False, transform=xforms)
+
+    @staticmethod
+    def adjust_lr(optimizer, epoch, hparams):
+
+        lr = hparams['learning_rate']
+        if epoch >= 55:
+            lr = hparams['learning_rate'] * 0.1
+        if epoch >= 75:
+            lr = hparams['learning_rate'] * 0.01
+        if epoch >= 90:
+            lr = hparams['learning_rate'] * 0.001
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+    
+    @staticmethod
+    def adjust_lr_dual(pd_optimizer, epoch):
+        lr = pd_optimizer.eta
+        if epoch == 10:
+            lr = lr * 2
+        if epoch == 20:
+            lr = lr * 2
+        if epoch == 25:
+            lr = lr * 2
+        if epoch == 50:
+            lr = lr * 5
+        if epoch == 90:
+            lr = lr * 5
+        pd_optimizer.eta = lr
+  
 
 class MNIST(AdvRobDataset):
     INPUT_SHAPE = (1, 28, 28)

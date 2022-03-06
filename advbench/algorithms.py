@@ -10,6 +10,7 @@ from numpy.random import binomial
 from torch.cuda.amp import GradScaler, autocast
 try:
     import ffcv
+    raise ImportError
     FFCV_AVAILABLE=True
     print("*"*80)
     print('FFCV available. Using Low precision operations. May result in numerical instability.')

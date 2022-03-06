@@ -237,8 +237,8 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('l_dale_pd_inv_margin', 0.14, lambda r: 0.14)
         elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
             _hparam('l_dale_pd_inv_step_size', 1, lambda r: 1)
-            _hparam('l_dale_pd_inv_eta', 0.0001, lambda r: 0.0001)
-            _hparam('l_dale_pd_inv_margin', 0.2, lambda r: 0.2)
+            _hparam('l_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
+            _hparam('l_dale_pd_inv_margin', 0.3, lambda r: 0.3)
         
 
         # DALE NUTS

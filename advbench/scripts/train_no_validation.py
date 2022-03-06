@@ -114,13 +114,14 @@ def main(args, hparams, test_hparams):
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():
                 print(attack_name)
-                test_adv_acc, loss, deltas = misc.adv_accuracy_loss_delta(algorithm, test_ldr, device, attack)
+                test_adv_acc, loss, deltas, ensemble_acc = misc.adv_accuracy_loss_delta_ensembleacc(algorithm, test_ldr, device, attack)
                 print("Test Adv Acc:", test_adv_acc)
+                print("Ensemble Acc:", ensemble_acc)
                 add_results_row([epoch, test_adv_acc, attack_name, 'Test'])
                 test_adv_accs.append(test_adv_acc)
                 if wandb_log and args.perturbation!="Linf":
                     print(f"plotting and logging {attack_name}")
-                    wandb.log({'test_acc_adv_'+attack_name: test_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'epoch': epoch, 'step':step})
+                    wandb.log({'test_acc_adv_'+attack_name: test_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'test_acc_ensemble_'+attack_name: ensemble_acc, 'epoch': epoch, 'step':step})
                     plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
                 
         if wandb_log and ((epoch % dataset.LOSS_LANDSCAPE_INTERVAL == 0 and epoch > 0) or epoch == dataset.N_EPOCHS-1):
@@ -216,3 +217,4 @@ if __name__ == '__main__':
         json.dump(test_hparams, f, indent=2)
 
     main(args, hparams, test_hparams)
+    
