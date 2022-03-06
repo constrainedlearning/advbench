@@ -184,7 +184,6 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('n_burn', 3, lambda r: 3)
        
         # Grid Search
-        _hparam('grid_dims', 1, lambda r: 1)
         _hparam('grid_size', 10, lambda r: 10)
 
     elif perturbation=='SE':
@@ -247,7 +246,6 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('n_burn', 3, lambda r: 3)
        
         # Grid Search
-        _hparam('grid_dims', 3, lambda r: 3)
         _hparam('grid_size', 120, lambda r: 120)
     else:
         raise NotImplementedError
@@ -321,7 +319,6 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
             _hparam('trades_step_size', 5)
         
         # Grid Search
-        _hparam('grid_dims', 1)
         _hparam('grid_size', 120)
 
     elif perturbation=='SE':
@@ -340,8 +337,8 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
 
         ##### PGD #####
         if dataset == 'MNIST':
-            _hparam('pgd_n_steps', 10)
-            _hparam('pgd_step_size', 1)
+            _hparam('pgd_n_steps', 20)
+            _hparam('pgd_step_size', 0.5)
         elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
             _hparam('pgd_n_steps', 10)
             _hparam('pgd_step_size', 0.5)
@@ -355,7 +352,6 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
             _hparam('trades_step_size', 5)
         
         # Grid Search
-        _hparam('grid_dims', 1)
         _hparam('grid_size', 120)
         # DALE (Laplacian-HMC)
         _hparam('l_dale_n_steps', 15)
