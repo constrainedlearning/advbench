@@ -95,7 +95,6 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
                 pred = output.argmax(dim=1, keepdim=True)
             losses.append(loss.cpu().numpy())
             deltas.append(delta.cpu().numpy())
-
             correct += pred.eq(labels.view_as(pred)).sum().item()
             total += adv_imgs.size(0)
     algorithm.train()
@@ -125,7 +124,7 @@ def adv_accuracy_loss_delta_ensembleacc(algorithm, loader, device, attack):
             if len(attacked) == 3:
                 # get the models prediction for each transform
                 ensemble_preds = torch.zeros_like(output)
-                ensemble_preds[pred] = 1
+                ensemble_preds[torch.arange(ensemble_preds.shape[0]), pred.squeeze()] = 1
                 ensemble_preds = rearrange(ensemble_preds, '(B S) C -> B S C', B=imgs.shape[0], C=output.shape[1])
                 # Average over transforms (S)
                 ensemble_preds = ensemble_preds.mean(dim=1)

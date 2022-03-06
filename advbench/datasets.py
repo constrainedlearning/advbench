@@ -486,8 +486,6 @@ class MNIST(AdvRobDataset):
 
         self.splits['test'] = MNIST_(root, train=False, transform=xforms)
 
-        self.lr_scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.1)
-
     @staticmethod
     def adjust_lr(optimizer, epoch, hparams):
         lr = hparams['learning_rate']

@@ -102,7 +102,6 @@ def main(args, hparams, test_hparams):
                             wandb.log({name+"_avg": meter.avg, 'epoch': epoch, 'step':step})
                 print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
             timer.batch_end()
-
         # save clean accuracies on validation/test sets
         test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
         if wandb_log:
