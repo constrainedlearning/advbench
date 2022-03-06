@@ -31,7 +31,7 @@ class PerturbationEval():
                     imgs, labels = self.loader.dataset[0]
                     imgs, labels = imgs.unsqueeze(0).to(self.device), torch.tensor([labels]).to(self.device)
                     with autocast():
-                        adv_losses, adv_accs = self.step(imgs, labels)[0]
+                        adv_losses, adv_accs = self.step(imgs, labels)
             else:
                 for idx, batch in tqdm(enumerate(self.loader)):
                     if idx < batches:
@@ -39,8 +39,8 @@ class PerturbationEval():
                         imgs, labels = imgs.to(self.device), labels.to(self.device)
                         with autocast():
                             adv_loss, adv_acc = self.step(imgs, labels)
-                            adv_losses.append(adv_loss)
-                            adv_accs.append(adv_acc)
+                        adv_losses.append(adv_loss)
+                        adv_accs.append(adv_acc)
                     else:
                         break
                          
@@ -72,8 +72,8 @@ class PerturbationEval():
                 pred = self.classifier(adv_imgs)
                 angle_loss = F.cross_entropy(pred, labels, reduction="none")
                 adv_loss[:, s] = angle_loss
-                adv_acc[:, s] = torch.eq(pred, labels)
-        return adv_loss
+                adv_acc[:, s] = torch.eq(pred.argmax(dim=1), labels)
+        return adv_loss, adv_acc
 
     def get_grid(self):
         pass

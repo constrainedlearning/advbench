@@ -128,9 +128,10 @@ def main(args, hparams, test_hparams):
             print(f"plotting and logging loss landscape")
             for eval, split in zip([train_eval, test_eval], ['train', 'test']):
                 for eval_dict in eval:    
-                    deltas, loss = eval_dict["grid"].eval_perturbed(single_img=False)
+                    deltas, loss, acc = eval_dict["grid"].eval_perturbed(single_img=False)
                     tx, ty = eval_dict["tx"], eval_dict["ty"]
                     plotting.plot_perturbed_wandb(deltas[:, 0], loss, name=f"{split} angle vs loss ({tx},{ty})", wandb_args = {'epoch': epoch, 'step':step, 'tx':tx, 'ty':ty})
+                    plotting.plot_perturbed_wandb(deltas[:, 0], acc, name=f"{split} angle vs accuracy ({tx},{ty})", wandb_args = {'epoch': epoch, 'step':step, 'tx':tx, 'ty':ty})
         epoch_end = time.time()
         total_time += epoch_end - epoch_start
 
