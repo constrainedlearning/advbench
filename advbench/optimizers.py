@@ -1,5 +1,6 @@
 import torch.optim as optim
 import torch
+from torch.nn.functional import relu
 
 #TODO(AR): Need to write an optimizer for primal-dual
 
@@ -22,7 +23,7 @@ class PrimalDualOptimizer:
         self.eta = eta
 
     def step(self, cost):
-        self.parameters['dual_var'] = self.relu(self.parameters['dual_var'] + self.eta * (cost - self.margin))
+        self.parameters['dual_var'] = relu(self.parameters['dual_var'] + self.eta * (cost - self.margin))
 
     @staticmethod
     def relu(x):

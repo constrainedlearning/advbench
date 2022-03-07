@@ -132,6 +132,7 @@ def main(args, hparams, test_hparams):
                     tx, ty = eval_dict["tx"], eval_dict["ty"]
                     plotting.plot_perturbed_wandb(deltas[:, 0], loss, name=f"{split} angle vs loss ({tx},{ty})", wandb_args = {'epoch': epoch, 'step':step, 'tx':tx, 'ty':ty})
                     plotting.plot_perturbed_wandb(deltas[:, 0], acc, name=f"{split} angle vs accuracy ({tx},{ty})", wandb_args = {'epoch': epoch, 'step':step, 'tx':tx, 'ty':ty})
+                    plotting.plot_perturbed_wandb(deltas[:, 0], acc, name=f"{split} angle vs accuracy ({tx},{ty})", wandb_args = {'epoch': epoch, 'step':step, 'tx':tx, 'ty':ty})
         epoch_end = time.time()
         total_time += epoch_end - epoch_start
 

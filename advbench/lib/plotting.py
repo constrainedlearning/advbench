@@ -84,3 +84,4 @@ def plot_3d_surface(x,y, loss, axis_labels=None):
         fig.update_layout(scene = dict(xaxis_title=axis_labels[0], yaxis_title=axis_labels[1], zaxis_title=axis_labels[2]))
     return  fig
 
+

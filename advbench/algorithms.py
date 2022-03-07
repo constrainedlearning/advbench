@@ -1,6 +1,4 @@
-from enum import auto
-from re import A
-from tkinter import W
+from einops import rearrange
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -30,6 +28,7 @@ ALGORITHMS = [
     'CLP',
     'Gaussian_DALE',
     'Laplacian_DALE',
+    'Discrete_DALE',
     'Gaussian_DALE_PD',
     'Gaussian_DALE_PD_Reverse',
     'MCMC_DALE_PD_Reverse',
@@ -657,3 +656,63 @@ class GConv(Augmentation):
     def unexport(self):
         self.classifier.unexport()
         self.classifier.to(self.device)
+
+class Discrete_DALE(PrimalDualBase):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0, batched=False):
+        if perturbation != 'SE':
+            raise NotImplementedError
+        super(Discrete_DALE, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
+        self.attack = attacks.Grid_Search(classifier, hparams, device, perturbation="Rotation", grid_size=hparams['d_num_rotations'])
+        translations = []
+        for idx in (1, 2):
+            eps = hparams['epsilon'][idx]
+            step = 2*eps/hparams['d_num_translations']
+            translations.append(torch.arange(-eps, eps, step=step, device=self.device))
+        self.translations = translations
+        self.rotation = self.attack.grid
+        grids = translations + self.rotation
+        self.grid = torch.cartesian_prod(*grids)
+        self.dual_params = {'dual_var': torch.ones(self.attack.grid.size).to(self.device)*init}
+        self.pd_optimizer = optimizers.PrimalDualOptimizer(parameters=self.dual_params,
+                                                            margin=self.hparams['d_dale_pd_inv_margin'],
+                                                            eta=self.hparams['d_dale_pd_inv_eta'])
+        # calculate the coordinates of zero translation
+        print(self.attack.grid.shape)
+        loc0 = (int(self.attack.grid.shape[0]//2), int(self.attack.grid.shape[0]//2))
+        # Dual plot logger
+        self.meters['dual plot'] = meters.WBDualMeter(self.attack.grid, names = "Dual var vs angle",
+                                                         locs = [(0,0), loc0, (-1, -1)])
+        
+    def step(self, imgs, labels):
+        if FFCV_AVAILABLE:
+            with autocast():
+                adv_imgs, deltas, new_labels = self.attack(imgs, labels)
+                self.optimizer.zero_grad()
+                clean_loss = F.cross_entropy(self.predict(imgs), labels)
+                robust_loss = F.cross_entropy(self.predict(adv_imgs), new_labels)
+                total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
+                self.scaler.scale(total_loss).backward()
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+        else:
+            adv_imgs, deltas, new_labels =self.attack(imgs, labels)
+            self.optimizer.zero_grad()
+            clean_loss = F.cross_entropy(self.predict(imgs), labels)
+            robust_loss = F.cross_entropy(self.predict(adv_imgs), new_labels, reduction='none')
+            robust_loss = rearrange(robust_loss, '(B S) -> B S', B = imgs.shape[0])
+            total_loss = clean_loss +  torch.sum(robust_loss@self.dual_params['dual_var'].to(self.device))
+            total_loss.backward()
+            self.optimizer.step()
+        self.pd_optimizer.step(robust_loss.detach())
+        self.meters['loss'].update(total_loss.item(), n=imgs.size(0))
+        self.meters['clean loss'].update(clean_loss.item(), n=imgs.size(0))
+        self.meters['robust loss'].update(robust_loss.mean().item(), n=imgs.size(0))
+        self.meters['dual variable'].update(self.dual_params['dual_var'].mean().item(), n=1)
+        self.meters['dual plot'].update(self.dual_params['dual_var'])
+
+        
+    def get_grid(self, tx, ty):
+        angle_grid = self.attack.grid
+        ones = torch.ones_like(angle_grid)
+        grid = torch.column_stack([angle_grid, tx*ones, ty*ones])
+        return grid

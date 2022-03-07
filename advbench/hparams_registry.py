@@ -27,7 +27,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     # Unconditional hparam definitions.
 
     _hparam('batch_size', 128, lambda r: int(2 ** r.uniform(3, 8)))
-    _hparam('augmentation_prob', 0.2, lambda r: 0.2)
+    _hparam('augmentation_prob', 0.5, lambda r: 0.5)
     _hparam('perturbation_batch_size', 10, lambda r: 10)
     _hparam('mcmc_dale_scale', 0.2, lambda r: 0.2)
     _hparam('mcmc_dale_n_steps', 10, lambda r: 10)
@@ -165,6 +165,16 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('l_dale_nu', 0.1, lambda r: 0.1)
         _hparam('l_dale_eta', 0.1, lambda r: 0.1)
 
+        # Discrete Dale
+        if dataset == 'MNIST':
+            _hparam('l_dale_n_steps', 15, lambda r: 15)
+            _hparam('l_dale_step_size', 2, lambda r: 2)
+            _hparam('l_dale_noise_coeff', 1, lambda r: 10 ** r.uniform(-1.0, -1.0))
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+            _hparam('l_dale_n_steps', 10, lambda r: 10)
+            _hparam('l_dale_step_size', 0.007, lambda r: 0.007)
+            _hparam('l_dale_noise_coeff', 1e-2, lambda r: 1e-2)
+
         # DALE-PD (Gaussian-HMC)
         _hparam('g_dale_pd_step_size', 2, lambda r: 2)
         _hparam('g_dale_pd_eta', 0.01, lambda r: 0.01)
@@ -174,6 +184,8 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('g_dale_pd_inv_step_size', 2, lambda r: 2)
         _hparam('g_dale_pd_inv_eta', 0.01, lambda r: 0.01)
         _hparam('g_dale_pd_inv_margin', 0.1469, lambda r: 0.1469)
+
+
 
        # Worst of K
         _hparam('worst_of_k_steps', 10, lambda r: 10)
@@ -239,6 +251,15 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('l_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
             _hparam('l_dale_pd_inv_margin', 0.3, lambda r: 0.3)
         
+        # DALE-PD-INV (Laplacian-HMC)
+        if dataset == 'MNIST':
+            _hparam('d_dale_pd_inv_step_size', 0.05, lambda r: 0.05)
+            _hparam('d_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
+            _hparam('d_dale_pd_inv_margin', 0.14, lambda r: 0.14)
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+            _hparam('d_dale_pd_inv_step_size', 1, lambda r: 1)
+            _hparam('d_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
+            _hparam('d_dale_pd_inv_margin', 0.3, lambda r: 0.3)
 
         # DALE NUTS
         _hparam('n_dale_n_steps', 15, lambda r: 15)
