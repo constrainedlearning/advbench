@@ -251,7 +251,9 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('l_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
             _hparam('l_dale_pd_inv_margin', 0.3, lambda r: 0.3)
         
-        # DALE-PD-INV (Laplacian-HMC)
+        # Discrete DALE-PD-INV
+        _hparam('d_num_translations', 3, lambda r: 3)
+        _hparam('d_num_rotations', 10, lambda r: 10)
         if dataset == 'MNIST':
             _hparam('d_dale_pd_inv_step_size', 0.05, lambda r: 0.05)
             _hparam('d_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
@@ -268,6 +270,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
        
         # Grid Search
         _hparam('grid_size', 120, lambda r: 120)
+
     else:
         raise NotImplementedError
 

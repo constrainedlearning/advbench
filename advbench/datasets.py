@@ -6,7 +6,6 @@ from torchvision.datasets import CIFAR10 as CIFAR10_
 from torchvision.datasets import CIFAR100 as CIFAR100_
 from torchvision.datasets import MNIST as MNIST_
 try:
-    raise ImportError
     from ffcv.fields import IntField, RGBImageField
     from ffcv.fields.decoders import IntDecoder, SimpleRGBImageDecoder
     from ffcv.loader import Loader, OrderOption
@@ -394,7 +393,7 @@ class MNIST(AdvRobDataset):
     NUM_CLASSES = 10
     N_EPOCHS = 100
     CHECKPOINT_FREQ = 50
-    LOG_INTERVAL = 100
+    LOG_INTERVAL = 10
     ATTACK_INTERVAL = 10
     LOSS_LANDSCAPE_INTERVAL = 10
     LOSS_LANDSCAPE_BATCHES = 40

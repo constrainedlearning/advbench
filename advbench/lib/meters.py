@@ -82,13 +82,14 @@ if wandb:
     
     
     class WBDualMeter(WBHistogramMeter):
-        def __init__(self, grid, names = "dual vs angle", locs = [(0, 0), (-1,-1)], log_every=100):
+        def __init__(self, grid, translations, names = "dual vs angle", locs = [(0, 0), (-1,-1)], log_every=500):
             self.print = False
             self.locs = []
+            tx, ty = translations
             for loc in locs:
-                self.locs.append((grid[:,1]==loc[0])&(grid[:,2]==loc[1]))
+                self.locs.append((grid[:,1]==tx[loc[0]])&(grid[:,2]==ty[loc[1]]))
             if isinstance(names, str):
-                names = [f"{names} {grid[i[0], 1], grid[i[0], 2]}" for i in locs]
+                names = [f"{names} {grid[i[0], 1].detach().cpu().item(), grid[i[0], 2].detach().cpu().item()}" for i in locs]
             self.grid = grid
             self.meters = [WBLinePlotMeter(name) for name in names]
             self.log_every = log_every
@@ -99,8 +100,10 @@ if wandb:
 
         def update(self, vals):
             if self.counter%self.log_every == 0:
+                print("*"*10)
+                print("log")
                 for i in range(len(self.locs)):
-                    self.meters[i].update(self.grid[:, 0], vals[self.locs[i]])
+                    self.meters[i].update(self.grid[self.locs[i], 0].detach().cpu().numpy(), vals[self.locs[i]].detach().cpu().numpy())
             self.counter+=1
 
 else:
