@@ -273,15 +273,15 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
 
     elif perturbation=='CPAB':
         _hparam('tesselation', 10, lambda r:10)
-        _hparam('epsilon', 5, lambda r: 5)
+        _hparam('epsilon', 1, lambda r: 1)
 
         ##### Worst of K ######
         _hparam('worst_of_k_steps', 10, lambda r:10)
 
         
         ##### PGD #####
-        _hparam('pgd_n_steps', 30, lambda r: 30)
-        _hparam('pgd_step_size', 0.1, lambda r: 0.1)
+        _hparam('pgd_n_steps', 5, lambda r: 5)
+        _hparam('pgd_step_size', 0.2, lambda r: 0.2)
 
         ##### TRADES #####
         _hparam('trades_n_steps', 15, lambda r: 15)
@@ -459,7 +459,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
     
     elif perturbation == 'CPAB':
         _hparam('tesselation', 10)
-        _hparam('epsilon', 0.5)
+        _hparam('epsilon', 1)
 
         ##### Worst of K ######
         _hparam('worst_of_k_steps', 10)
