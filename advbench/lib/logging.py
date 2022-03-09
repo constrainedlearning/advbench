@@ -67,6 +67,8 @@ class PerturbationEval():
             adv_loss = torch.empty((batch_size, self.grid_size), device=imgs.device)
             adv_acc = torch.empty((batch_size, self.grid_size), device=imgs.device)
             for s in range(self.grid_size):
+                print("grid shape", self.grid.shape)
+                print("grid", self.grid)
                 grid = repeat(self.grid[s], 'D -> B D', B=batch_size, D=self.dim)
                 adv_imgs = self.perturbation.perturb_img(imgs, grid)
                 pred = self.classifier(adv_imgs)

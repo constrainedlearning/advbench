@@ -6,6 +6,7 @@ try:
 except ImportError:
     wandb_log=False
 
+import numpy as np
 from advbench.lib.plotting import plot_perturbed_wandb
 from einops import rearrange
 
@@ -59,15 +60,21 @@ if wandb:
             self.print = False
             self.dims = dims
             if isinstance(names, str):
-                names = [f"{names} {i}" for i in range(dims)]
-            self.meters = [WBHistogramMeter(name) for name in names]
+                if self.dims > 3:
+                    self.meters = WBHistogramMeter(names)
+                else:
+                    names = [f"{names} {i}" for i in range(dims)]
+                    self.meters = [WBHistogramMeter(name) for name in names]
 
         def reset(self):
             pass
 
         def update(self, vals):
-            for i in range(self.dims):
-                self.meters[i].update(vals[:,i])
+            if self.dims > 3:
+                self.meters.update(vals.mean(dim=1).detach())
+            else:
+                for i in range(self.dims):
+                    self.meters[i].update(vals[:,i])
 
     
     class WBLinePlotMeter():

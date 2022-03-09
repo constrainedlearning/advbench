@@ -63,4 +63,4 @@ def txs_to_translation_matrix(txs):
     return shift_m
 
 def se_transform(imgs, delta):
-    return warp_affine(imgs, se_matrix(delta, imgs).to(imgs.device).to(imgs.dtype), imgs.shape[2:])
+    return warp_affine(imgs, se_matrix(delta, imgs).to(imgs.device).to(imgs.dtype), imgs.shape[2:]) 

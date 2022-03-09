@@ -145,7 +145,9 @@ class MCMC(Attack_Linf):
     def __init__(self, classifier,  hparams, device, perturbation='Linf', acceptance_meter=None):
         super(MCMC, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
         if self.hparams['mcmc_proposal']=='Laplace':
-            self.noise_dist = Laplace(torch.zeros(self.perturbation.dim, device=device), self.hparams['mcmc_dale_scale']*self.perturbation.eps.to(device))
+            if isinstance(self.perturbation.eps, torch.Tensor):
+                self.perturbation.eps.to(device)
+            self.noise_dist = Laplace(torch.zeros(self.perturbation.dim, device=device), self.hparams['mcmc_dale_scale']*self.perturbation.eps)
         else:
             raise NotImplementedError
         self.get_proposal = lambda x: x + self.noise_dist.sample([x.shape[0]]).to(x.device)
@@ -188,6 +190,7 @@ class MCMC(Attack_Linf):
 class Grid_Search(Attack_Linf):
     def __init__(self, classifier,  hparams, device, perturbation='Linf', grid_size=None):
         super(Grid_Search, self).__init__(classifier,  hparams, device,  perturbation=perturbation)        
+        self.perturbation_name = perturbation
         self.dim = self.perturbation.dim
         if grid_size is None:
             self.grid_size = self.hparams['grid_size']
@@ -202,9 +205,16 @@ class Grid_Search(Attack_Linf):
     def make_grid(self):
         grids = []
         for idx in range(self.dim):
-            eps = self.epsilon[idx]
+            if isinstance(self.epsilon, float):
+                eps = self.epsilon
+            else:
+                eps = self.epsilon[idx]
+                
             step = 2*eps/self.grid_steps
-            grids.append(torch.arange(-eps, eps, step=step, device=self.device))
+            if self.perturbation_name == 'CPAB':
+                grids.append(torch.arange(0, eps, step=step, device=self.device))
+            else:   
+                grids.append(torch.arange(-eps, eps, step=step, device=self.device))
         self.grid = torch.cartesian_prod(*grids)
 
     def forward(self, imgs, labels):

@@ -68,13 +68,15 @@ def main(args, hparams, test_hparams):
         wandb.config.update(args)
         wandb.config.update(hparams)
         train_eval, test_eval = [], []
-        translations = list(combinations_with_replacement(dataset.TRANSLATIONS, r=2))
-        for tx, ty in translations:
-            eval_dict = {"tx": tx, "ty": ty}
-            eval_dict["grid"] = logging.AngleGrid(algorithm, train_ldr, max_perturbations=dataset.ANGLE_GSIZE, tx=tx, ty=ty)
-            train_eval.append(eval_dict.copy())
-            eval_dict["grid"] = logging.AngleGrid(algorithm, test_ldr, max_perturbations=dataset.ANGLE_GSIZE, tx=tx, ty=ty)
-            test_eval.append(eval_dict.copy())
+        if args.perturbation =="SE":
+            translations = list(combinations_with_replacement(dataset.TRANSLATIONS, r=2))
+            for tx, ty in translations:
+                eval_dict = {"tx": tx, "ty": ty}
+                eval_dict["grid"] = logging.AngleGrid(algorithm, train_ldr, max_perturbations=dataset.ANGLE_GSIZE, tx=tx, ty=ty)
+                train_eval.append(eval_dict.copy())
+                eval_dict["grid"] = logging.AngleGrid(algorithm, test_ldr, max_perturbations=dataset.ANGLE_GSIZE, tx=tx, ty=ty)
+                test_eval.append(eval_dict.copy())
+
     total_time = 0
     step = 0
     for epoch in range(0, dataset.N_EPOCHS):
@@ -123,7 +125,7 @@ def main(args, hparams, test_hparams):
                     wandb.log({'test_acc_adv_'+attack_name: test_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'test_acc_ensemble_'+attack_name: ensemble_acc, 'epoch': epoch, 'step':step})
                     plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
                 
-        if wandb_log and ((epoch % dataset.LOSS_LANDSCAPE_INTERVAL == 0 and epoch > 0) or epoch == dataset.N_EPOCHS-1):
+        if args.perturbation =="SE" and wandb_log and ((epoch % dataset.LOSS_LANDSCAPE_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1):
         # log loss landscape
             print(f"plotting and logging loss landscape")
             for eval, split in zip([train_eval, test_eval], ['train', 'test']):

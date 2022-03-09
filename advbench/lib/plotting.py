@@ -66,8 +66,17 @@ def plot_perturbed_wandb(deltas, metric, name="loss", wandb_args = {}, plot_mode
                 wandb_dict = {f"{name} perturbation landscape" : fig}
                 wandb_dict.update(wandb_args)
                 wandb.log(wandb_dict)
-        else:
-            raise NotImplementedError
+    
+    elif deltas.shape[1]>3:
+        deltas = np.linalg.norm(deltas, axis=1)
+        data = [[x, y] for (x, y) in zip(deltas.tolist(), metric.tolist())]
+        table = wandb.Table(data=data, columns = ["delta", "loss"])
+        print("plotting line")
+        wandb_dict = {name : wandb.plot.scatter(table, "delta", "loss", title=name)}
+        wandb_dict.update(wandb_args)
+        wandb.log(wandb_dict)
+
+            
     else:
         raise NotImplementedError
 

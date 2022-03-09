@@ -1,6 +1,7 @@
 from kornia.geometry import rotate
 import torch
 from advbench.lib.transformations import se_transform
+from libcpab import Cpab
 
 class Perturbation():
     def __init__(self, epsilon):
@@ -84,3 +85,27 @@ class SE(Perturbation):
             eps = self.eps[i]
             delta_init[:,i] =   2*eps* torch.randn(imgs.shape[0], device = imgs.device, dtype=imgs.dtype)-eps
         return delta_init
+
+
+class CPAB(Perturbation):
+    def __init__(self, epsilon, tesselation=10):
+        super(CPAB, self).__init__(epsilon)
+        self.names = "norm"
+        self.T = Cpab([tesselation, tesselation], backend="pytorch", device='gpu', zero_boundary=True)
+        self.dim = self.T.identity().shape[1]
+        self.norm = epsilon
+
+    def clamp_delta(self, delta, imgs):
+        """Clamp delta so that (1) the diffeomorphism has bounded derivative."""
+        norm = torch.linalg.norm(delta, dim=1)/self.dim
+        delta_norm = torch.div(delta.T, norm).T
+        return (norm>self.norm)[:, None] * self.norm * delta_norm + (norm<self.norm)[:, None]*delta
+        
+
+    def _perturb(self, imgs, delta):
+        return self.T.transform_data(imgs, delta, outsize = imgs.shape[2:])
+
+    def delta_init(self, imgs):
+        delta_init = self.T.sample_transformation(imgs.shape[0])
+        delta_init = [d*self.norm for d in delta_init]
+        return torch.stack(delta_init)
