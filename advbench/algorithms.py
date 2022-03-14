@@ -7,7 +7,6 @@ import pandas as pd
 from numpy.random import binomial
 from torch.cuda.amp import GradScaler, autocast
 try:
-    raise ImportError
     import ffcv
     FFCV_AVAILABLE=True
     print("*"*80)

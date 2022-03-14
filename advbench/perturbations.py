@@ -1,7 +1,12 @@
 from kornia.geometry import rotate
 import torch
+from torchvision.transforms import Pad
 from advbench.lib.transformations import se_transform
-from libcpab import Cpab
+try:
+    from libcpab import Cpab
+except:
+    print("CPAB not available")
+    CPAB_AVAILABLE = False
 
 class Perturbation():
     def __init__(self, epsilon):
@@ -131,7 +136,7 @@ class Crop(Perturbation):
         delta = delta.to(dtype=torch.int64)
         grid = self.crop_grid(imgs, delta)
         perturbed_imgs = torch.nn.functional.grid_sample(perturbed_imgs, grid)
-        return perturbed_imgs
+        return perturbed_imgs.to(dtype=imgs.dtype, device=imgs.device)
 
     def delta_init(self, imgs):
         dims = imgs.shape[2:]
@@ -147,7 +152,10 @@ class Crop(Perturbation):
         full = torch.cat([direct,direct.transpose(1,0)],dim=2).unsqueeze(0)
         return full
     def crop_grid(self, x, delta):
-        grid = self.grid.clone()
+        try:
+            grid = self.grid.clone()
+        except:
+            grid = self.build_grid(x.shape[2], x.shape[2]+self.eps[0]).repeat(x.size(0),1,1,1).to(device=x.device)
         #Add random shifts by x
         grid[:,:,:,0] = grid[:,:,:,0]+ delta[:, 0].unsqueeze(-1).unsqueeze(-1).expand(-1, grid.size(1), grid.size(2))/x.size(2)
         #Add random shifts by y
@@ -175,7 +183,7 @@ class Crop_and_Flip(Crop):
         delta[:, 0] = delta[:, 0]*delta[:, 2]
         grid = self.crop_grid(imgs, delta[:,:2])
         perturbed_imgs = torch.nn.functional.grid_sample(perturbed_imgs, grid)
-        return perturbed_imgs
+        return perturbed_imgs.to(dtype=imgs.dtype, device=imgs.device)
 
     def delta_init(self, imgs):
         dims = imgs.shape[2:]

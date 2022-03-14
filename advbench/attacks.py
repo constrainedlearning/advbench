@@ -290,12 +290,14 @@ class Grid_Batch(Grid_Search):
     def forward(self, imgs, labels):
         batch_size = imgs.size(0)
         rep_grid = repeat(self.grid, 'S D -> (B S) D', B=batch_size, D=self.dim, S=self.grid_size)
+        rep_imgs = repeat(imgs, 'B W H C -> (B S) W H C', B=batch_size, S=self.grid_size)
+        delta = self.perturbation.clamp_delta(rep_grid, rep_imgs)
         adv_imgs = self.perturbation.perturb_img(
-                repeat(imgs, 'B W H C -> (B S) W H C', B=batch_size, S=self.grid_size),
+                rep_imgs,
                 rep_grid)
         new_labels = repeat(labels, 'B -> (B S)', S=self.grid_size)
-    
-        return adv_imgs.detach(), rep_grid.detach(), new_labels.detach()
+        
+        return adv_imgs.detach(), delta, new_labels.detach()
 
 if HAMILTORCH_AVAILABLE:
     class NUTS(Attack_Linf):

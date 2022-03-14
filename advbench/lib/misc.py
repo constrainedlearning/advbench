@@ -10,7 +10,6 @@ import torch
 import torch.nn.functional as F
 from torch.cuda.amp import GradScaler, autocast
 try:
-    raise ImportError
     import ffcv
     FFCV_AVAILABLE=True
 except ImportError:
@@ -111,7 +110,8 @@ def adv_accuracy_loss_delta_ensembleacc(algorithm, loader, device, attack):
     with torch.no_grad():
         for imgs, labels in tqdm(loader):
             imgs, labels = imgs.to(device), labels.to(device)
-            attacked = attack(imgs, labels)
+            with autocast():
+                attacked = attack(imgs, labels)
             old_labels = labels
             if len(attacked) == 2:
                 adv_imgs, delta = attacked
@@ -126,9 +126,9 @@ def adv_accuracy_loss_delta_ensembleacc(algorithm, loader, device, attack):
                 ensemble_preds = torch.zeros_like(output)
                 ensemble_preds[torch.arange(ensemble_preds.shape[0]), pred.squeeze()] = 1
                 ensemble_preds = rearrange(ensemble_preds, '(B S) C -> B S C', B=imgs.shape[0], C=output.shape[1])
-                # Average over transforms (S)
+            # Average over transforms (S)
                 ensemble_preds = ensemble_preds.mean(dim=1)
-                # predict using average
+            # predict using average
                 ensemble_preds = ensemble_preds.argmax(dim=1, keepdim=True)
             else:
                 ensemble_preds = pred
