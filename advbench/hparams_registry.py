@@ -308,22 +308,22 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         # DALE-PD (Gaussian-HMC)
         _hparam('g_dale_pd_step_size', 2, lambda r: 2)
         _hparam('g_dale_pd_eta', 0.0001, lambda r: 0.0001)
-        _hparam('g_dale_pd_margin', 0.05, lambda r: 0.05)
+        _hparam('g_dale_pd_margin', 0.01, lambda r: 0.01)
 
         # DALE-PD-INV (Gaussian-HMC)
         _hparam('g_dale_pd_inv_step_size', 0.1, lambda r: 10 ** r.uniform(-2.0, -0.5))
         _hparam('g_dale_pd_inv_eta', 0.0001, lambda r: 0.0001)
-        _hparam('g_dale_pd_inv_margin', 0.05, lambda r: 0.05)
+        _hparam('g_dale_pd_inv_margin', 0.01, lambda r: 0.01)
 
         # DALE-PD-INV (Laplacian-HMC)
         if dataset == 'MNIST':
             _hparam('l_dale_pd_inv_step_size', 0.05, lambda r: 0.05)
             _hparam('l_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
-            _hparam('l_dale_pd_inv_margin',  0.05, lambda r: 0.05)
+            _hparam('l_dale_pd_inv_margin',  0.01, lambda r: 0.01)
         elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
             _hparam('l_dale_pd_inv_step_size', 0.1, lambda r: 0.1)
             _hparam('l_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
-            _hparam('l_dale_pd_inv_margin',  0.05, lambda r: 0.05)
+            _hparam('l_dale_pd_inv_margin',  0.01, lambda r: 0.01)
         
         # Discrete DALE-PD-INV
         _hparam('d_num_translations', 3, lambda r: 3)
@@ -331,11 +331,11 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         if dataset == 'MNIST':
             _hparam('d_dale_pd_inv_step_size', 0.05, lambda r: 0.05)
             _hparam('d_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
-            _hparam('d_dale_pd_inv_margin', 0.05, lambda r: 0.05)
+            _hparam('d_dale_pd_inv_margin', 0.01, lambda r: 0.01)
         elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
             _hparam('d_dale_pd_inv_step_size', 1, lambda r: 1)
             _hparam('d_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
-            _hparam('d_dale_pd_inv_margin', 0.1, lambda r: 0.1)
+            _hparam('d_dale_pd_inv_margin', 0.01, lambda r: 0.01)
 
         # DALE NUTS
         _hparam('n_dale_n_steps', 15, lambda r: 15)

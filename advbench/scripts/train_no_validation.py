@@ -36,7 +36,7 @@ def main(args, hparams, test_hparams):
     if args.perturbation=='SE':
         hparams['epsilon'] = torch.tensor([hparams[f'epsilon_{i}'] for i in ("rot","tx","ty")]).to(device)
         test_hparams['epsilon'] = torch.tensor([test_hparams[f'epsilon_{tfm}'] for tfm in ("rot","tx","ty")]).to(device)
-    dataset = vars(datasets)[args.dataset](args.data_dir)
+    dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= args.perturbation=='Crop_and_Flip')
     train_ldr, _, test_ldr = datasets.to_loaders(dataset, hparams)
     kw_args = {"perturbation": args.perturbation}
     if args.algorithm in PD_ALGORITHMS: 

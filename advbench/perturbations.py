@@ -109,3 +109,79 @@ class CPAB(Perturbation):
         delta_init = self.T.sample_transformation(imgs.shape[0])
         delta_init = [d*self.norm for d in delta_init]
         return torch.stack(delta_init)
+
+class Crop(Perturbation):
+    def __init__(self, epsilon):
+        # Epsilon stores padding
+        super(Crop, self).__init__([epsilon, epsilon])
+        self.dim = 2
+        self.names = ['Tx', 'Ty']
+        self.pad = Pad(self.eps, fill=0, padding_mode='constant')
+        self.indexes = []
+    
+    def clamp_delta(self, delta, imgs):
+        """Clamp delta."""
+        for i in range(self.dim):
+            delta[:, i] = torch.clamp(delta[:, i], 0, imgs.shape[-2+i]+self.eps[i])
+        return delta
+
+    def _perturb(self, imgs, delta):
+        h, w = imgs.shape[-2:]
+        perturbed_imgs = self.pad(imgs)
+        delta = delta.to(dtype=torch.int64)
+        grid = self.crop_grid(imgs, delta)
+        perturbed_imgs = torch.nn.functional.grid_sample(perturbed_imgs, grid)
+        return perturbed_imgs
+
+    def delta_init(self, imgs):
+        dims = imgs.shape[2:]
+        delta_init = torch.empty(imgs.shape[0], self.dim, device=imgs.device, dtype=imgs.dtype)
+        for i in range(self.dim):
+            delta_init[:,i] =  torch.round((dims[i]+self.eps[i])*torch.rand(imgs.shape[0], device = imgs.device, dtype=imgs.dtype))
+        self.grid = self.build_grid(imgs.shape[2], imgs.shape[2]+self.eps[0]).repeat(imgs.size(0),1,1,1).to(device=imgs.device)
+        return delta_init
+
+    def build_grid(self, source_size, target_size):
+        k = float(target_size)/float(source_size)
+        direct = torch.linspace(-k,k,target_size).unsqueeze(0).repeat(target_size,1).unsqueeze(-1)
+        full = torch.cat([direct,direct.transpose(1,0)],dim=2).unsqueeze(0)
+        return full
+    def crop_grid(self, x, delta):
+        grid = self.grid.clone()
+        #Add random shifts by x
+        grid[:,:,:,0] = grid[:,:,:,0]+ delta[:, 0].unsqueeze(-1).unsqueeze(-1).expand(-1, grid.size(1), grid.size(2))/x.size(2)
+        #Add random shifts by y
+        grid[:,:,:,1] = grid[:,:,:,1]+ delta[:, 1].unsqueeze(-1).unsqueeze(-1).expand(-1, grid.size(1), grid.size(2))/x.size(2)
+        return grid
+
+class Crop_and_Flip(Crop):
+    def __init__(self, epsilon):
+        super(Crop_and_Flip, self).__init__(epsilon)
+        self.dim = 3
+        self.names = ['Tx', 'Ty', 'Flip']
+        self.pad = Pad(self.eps, fill=0, padding_mode='constant')
+        self.indexes = []
+    
+    def clamp_delta(self, delta, imgs):
+        """Clamp delta."""
+        for i in range(2):
+            delta[:, i] = torch.clamp(delta[:, i], 0, imgs.shape[-2+i]+self.eps[i])
+        delta[:, 2] = torch.sign(delta[:, 2])
+        return delta
+
+    def _perturb(self, imgs, delta):
+        h, w = imgs.shape[-2:]
+        perturbed_imgs = self.pad(imgs)
+        delta[:, 0] = delta[:, 0]*delta[:, 2]
+        grid = self.crop_grid(imgs, delta[:,:2])
+        perturbed_imgs = torch.nn.functional.grid_sample(perturbed_imgs, grid)
+        return perturbed_imgs
+
+    def delta_init(self, imgs):
+        dims = imgs.shape[2:]
+        delta_init = torch.empty(imgs.shape[0], self.dim, device=imgs.device, dtype=imgs.dtype)
+        for i in range(2):
+            delta_init[:,i] =  torch.round((dims[i]+self.eps[i])*torch.rand(imgs.shape[0], device = imgs.device, dtype=imgs.dtype))
+        delta_init[:,2] = torch.sign(torch.randn(imgs.shape[0], device = imgs.device, dtype=imgs.dtype))
+        self.grid = self.build_grid(imgs.shape[2], imgs.shape[2]+self.eps[0]).repeat(imgs.size(0),1,1,1).to(device=imgs.device)
+        return delta_init

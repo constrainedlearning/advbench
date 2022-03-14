@@ -98,7 +98,7 @@ if FFCV_AVAILABLE:
         ADV_STEP_SIZE = 2/255.
         N_ADV_STEPS = 20
 
-        def __init__(self, root):
+        def __init__(self, root, augmentation=True):
             super(CIFAR10, self).__init__()
             CIFAR_MEAN = [125.307, 122.961, 113.8575]
             CIFAR_STD = [51.5865, 50.847, 51.255]
@@ -106,7 +106,7 @@ if FFCV_AVAILABLE:
             self.transforms = {}
             for split in ["train", "val", "test"]:
                 image_pipeline = [SimpleRGBImageDecoder()]
-                if split == 'train':
+                if split == 'train' and augmentation:
                     image_pipeline.extend([
                         RandomHorizontalFlip(),
                         Cutout(4, tuple(map(int, CIFAR_MEAN))),
@@ -185,14 +185,14 @@ if FFCV_AVAILABLE:
         ADV_STEP_SIZE = 2/255.
         N_ADV_STEPS = 20
 
-        def __init__(self, root):
+        def __init__(self, root, augmentation=True):
             super(CIFAR100, self).__init__()
 
             self.ffcv = True
             self.transforms = {}
             for split in ["train", "val", "test"]:
                 image_pipeline = [SimpleRGBImageDecoder()]
-                if split == 'train':
+                if split == 'train' and augmentation:
                     image_pipeline.extend([
                         RandomHorizontalFlip(),
                         Cutout(4, tuple(map(int, MEAN['CIFAR100']))),
@@ -276,15 +276,18 @@ else:
         ADV_STEP_SIZE = 2/255.
         N_ADV_STEPS = 20
 
-        def __init__(self, root):
+        def __init__(self, root, augmentation=True):
             super(CIFAR10, self).__init__()
 
             self.ffcv=False
-
-            train_transforms = transforms.Compose([
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor()])
+            if augmentation:
+                train_transforms = transforms.Compose([
+                    transforms.RandomCrop(32, padding=4),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor()])
+            else:
+                train_transforms = transforms.Compose([
+                    transforms.ToTensor()])
             test_transforms = transforms.ToTensor()
 
             train_data = CIFAR10_(root, train=True, transform=train_transforms, download=True)
@@ -337,16 +340,21 @@ else:
         ADV_STEP_SIZE = 2/255.
         N_ADV_STEPS = 20
 
-        def __init__(self, root):
+        def __init__(self, root, augmentation=True):
             super(CIFAR100, self).__init__()
 
             self.ffcv=False
             
-            train_transforms = transforms.Compose([
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
+            if augmentation:
+                train_transforms = transforms.Compose([
+                    transforms.RandomCrop(32, padding=4),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
+            else:
+                train_transforms = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
             test_transforms = transforms.Compose([transforms.ToTensor(),
                                                     transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
 
@@ -470,7 +478,7 @@ class MNIST(AdvRobDataset):
     ADV_STEP_SIZE = 0.1
     N_ADV_STEPS = 10
 
-    def __init__(self, root):
+    def __init__(self, root, augmentation=False):
         super(MNIST, self).__init__()
         self.ffcv = False
         
