@@ -1,4 +1,5 @@
 import hashlib
+from re import I
 import sys
 from functools import wraps
 from time import time
@@ -8,8 +9,9 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
-from torch.cuda.amp import GradScaler, autocast
+from torch.cuda.amp import autocast
 try:
+    raise ImportError
     import ffcv
     FFCV_AVAILABLE=True
 except ImportError:
@@ -43,7 +45,10 @@ def accuracy(algorithm, loader, device):
     algorithm.export()
     for imgs, labels in tqdm(loader):
         imgs, labels = imgs.to(device), labels.to(device)
-        with autocast():
+        if FFCV_AVAILABLE:
+            with autocast():
+                output = algorithm.predict(imgs)
+        else:
             output = algorithm.predict(imgs)
         pred = output.argmax(dim=1, keepdim=True)
         correct += pred.eq(labels.view_as(pred)).sum().item()
@@ -63,7 +68,10 @@ def adv_accuracy(algorithm, loader, device, attack):
         adv_imgs, _ = attack(imgs, labels)
 
         with torch.no_grad():
-            with autocast():
+            if FFCV_AVAILABLE:
+                with autocast():
+                    output = algorithm.predict(adv_imgs)
+            else:
                 output = algorithm.predict(adv_imgs)
             pred = output.argmax(dim=1, keepdim=True)
 
@@ -83,7 +91,15 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
     with torch.no_grad():
         for imgs, labels in tqdm(loader):
             imgs, labels = imgs.to(device), labels.to(device)
-            with autocast():
+            if FFCV_AVAILABLE:
+                with autocast():
+                    attacked = attack(imgs, labels)
+                    if len(attacked) == 2:
+                        adv_imgs, delta = attacked
+                    elif len(attacked) == 3:
+                        adv_imgs, delta, labels = attacked
+                    output = algorithm.predict(adv_imgs)
+            else:
                 attacked = attack(imgs, labels)
                 if len(attacked) == 2:
                     adv_imgs, delta = attacked
@@ -110,14 +126,20 @@ def adv_accuracy_loss_delta_ensembleacc(algorithm, loader, device, attack):
     with torch.no_grad():
         for imgs, labels in tqdm(loader):
             imgs, labels = imgs.to(device), labels.to(device)
-            with autocast():
+            if FFCV_AVAILABLE:
+                with autocast():
+                    attacked = attack(imgs, labels)
+            else:
                 attacked = attack(imgs, labels)
             old_labels = labels
             if len(attacked) == 2:
                 adv_imgs, delta = attacked
             elif len(attacked) == 3:
                 adv_imgs, delta, labels = attacked
-            with autocast():
+            if FFCV_AVAILABLE:
+                with autocast():
+                    output = algorithm.predict(adv_imgs)
+            else:
                 output = algorithm.predict(adv_imgs)
             loss = F.cross_entropy(output, labels, reduction='none')
             pred = output.argmax(dim=1, keepdim=True)

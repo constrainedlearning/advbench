@@ -6,6 +6,7 @@ from torchvision.datasets import CIFAR10 as CIFAR10_
 from torchvision.datasets import CIFAR100 as CIFAR100_
 from torchvision.datasets import MNIST as MNIST_
 try:
+    raise ImportError
     from ffcv.fields import IntField, RGBImageField
     from ffcv.fields.decoders import IntDecoder, SimpleRGBImageDecoder
     from ffcv.loader import Loader, OrderOption
@@ -519,3 +520,8 @@ class MNIST(AdvRobDataset):
         if epoch == 120:
             lr = lr / 10
         pd_optimizer.eta = lr
+
+class dataloader_attack(object):
+    def __init__(self, attack):
+        self.attack = attack
+        

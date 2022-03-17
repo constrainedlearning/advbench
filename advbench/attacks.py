@@ -1,4 +1,5 @@
 import os, sys
+from math import sqrt
 try:
     import hamiltorch
     HAMILTORCH_AVAILABLE = True
@@ -121,10 +122,14 @@ class LMC_Laplacian_Linf(Attack_Linf):
         super(LMC_Laplacian_Linf, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
         if isinstance(self.perturbation.eps, torch.Tensor):
                 self.perturbation.eps.to(device)
-        self.step = (self.perturbation.eps*self.hparams['l_dale_step_size'])
+        if isinstance(self.perturbation.eps, list):
+            eps = torch.tensor(self.perturbation.eps).to(device)
+        else:
+            eps = self.perturbation.eps
+        self.step = (eps*self.hparams['l_dale_step_size'])
         if isinstance(self.step, torch.Tensor):
                 self.step = self.step.to(device)
-        self.noise_coeff = (self.perturbation.eps*self.hparams['l_dale_noise_coeff'])
+        self.noise_coeff = (eps*self.hparams['l_dale_noise_coeff'])
     def forward(self, imgs, labels):
         self.classifier.eval()
         batch_size = imgs.size(0)
@@ -149,9 +154,13 @@ class MCMC(Attack_Linf):
     def __init__(self, classifier,  hparams, device, perturbation='Linf', acceptance_meter=None):
         super(MCMC, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
         if self.hparams['mcmc_proposal']=='Laplace':
-            if isinstance(self.perturbation.eps, torch.Tensor):
-                self.perturbation.eps.to(device)
-            self.noise_dist = Laplace(torch.zeros(self.perturbation.dim, device=device), self.hparams['mcmc_dale_scale']*self.perturbation.eps)
+            if isinstance(self.perturbation.eps, list):
+                eps = torch.tensor(self.perturbation.eps).to(device)
+            else:
+                eps = self.perturbation.eps
+            if isinstance(eps, torch.Tensor):
+                eps = eps.to(device)
+            self.noise_dist = Laplace(torch.zeros(self.perturbation.dim, device=device), self.hparams['mcmc_dale_scale']*eps)
         else:
             raise NotImplementedError
         self.get_proposal = lambda x: x + self.noise_dist.sample([x.shape[0]]).to(x.device)
@@ -282,6 +291,40 @@ class Rand_Aug_Batch(Attack_Linf):
         adv_imgs = self.perturbation.perturb_img(repeated_images, delta)
         new_labels = repeat(labels, 'B -> (B S)', S=self.hparams['perturbation_batch_size'])
         return adv_imgs.detach(), delta.detach(), new_labels.detach()
+
+class Dist_Batch(Attack_Linf):
+    def __init__(self, classifier,  hparams, device, perturbation='Linf'):
+        super(Dist_Batch, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+
+    def sample(self, delta):
+        raise NotImplementedError
+
+    def forward(self, imgs, labels):
+        batch_size = imgs.size(0)
+        repeated_images = repeat(imgs, 'B W H C -> (B S) W H C', B=batch_size, S=self.hparams['perturbation_batch_size'])
+        delta = self.perturbation.delta_init(repeated_images).to(imgs.device)
+        delta = self.sample(delta)
+        delta = self.perturbation.clamp_delta(delta, repeated_images)
+        adv_imgs = self.perturbation.perturb_img(repeated_images, delta)
+        new_labels = repeat(labels, 'B -> (B S)', S=self.hparams['perturbation_batch_size'])
+        return adv_imgs.detach(), delta.detach(), new_labels.detach()
+    
+class Gaussian_Batch(Dist_Batch):
+    def __init__(self, classifier,  hparams, device, perturbation='Linf'):
+        super(Gaussian_Batch, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+        self.sigma = hparams["gaussian_attack_std"]*self.perturbation.eps
+
+    def sample(self, delta):
+        return torch.randn_like(delta)*self.sigma
+
+class Laplacian_Batch(Dist_Batch):
+    def __init__(self, classifier,  hparams, device, perturbation='Linf'):
+        super(Laplacian_Batch, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+        self.scale = hparams["laplacian_attack_std"]*self.perturbation.eps/sqrt(2)
+
+    def sample(self, delta):
+        return torch.distributions.laplace.Laplace(torch.zeros_like(delta), self.scale).sample().to(device=delta.device, dtype=delta.dtype)
+    
 
 class Grid_Batch(Grid_Search):
     def __init__(self, classifier,  hparams, device, perturbation='Linf'):

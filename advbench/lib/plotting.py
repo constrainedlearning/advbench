@@ -74,11 +74,10 @@ def plot_perturbed_wandb(deltas, metric, name="loss", wandb_args = {}, plot_mode
         print("plotting line")
         wandb_dict = {name : wandb.plot.scatter(table, "delta", "loss", title=name)}
         wandb_dict.update(wandb_args)
-        wandb.log(wandb_dict)
-
-            
+        wandb.log(wandb_dict)           
     else:
-        raise NotImplementedError
+        print("plotting not implemented for given perturbation dimension")
+        pass
 
 
 def plot_3d_scatter(deltas, loss, axis_labels=None):

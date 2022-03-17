@@ -12,6 +12,7 @@ from advbench import algorithms
 from advbench import attacks
 from advbench import hparams_registry
 from advbench.lib import misc, meters, plotting, logging
+from torch.cuda.amp import autocast
 
 try:
     import wandb
@@ -36,7 +37,9 @@ def main(args, hparams, test_hparams):
     if args.perturbation=='SE':
         hparams['epsilon'] = torch.tensor([hparams[f'epsilon_{i}'] for i in ("rot","tx","ty")]).to(device)
         test_hparams['epsilon'] = torch.tensor([test_hparams[f'epsilon_{tfm}'] for tfm in ("rot","tx","ty")]).to(device)
-    dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= args.perturbation=='Crop_and_Flip')
+    aug = not((args.perturbation=='Crop_and_Flip' or args.perturbation=='Crop') and not args.algorithm=='ERM')
+    print("Augmentation:", aug)
+    dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug)
     train_ldr, _, test_ldr = datasets.to_loaders(dataset, hparams)
     kw_args = {"perturbation": args.perturbation}
     if args.algorithm in PD_ALGORITHMS: 
@@ -105,11 +108,12 @@ def main(args, hparams, test_hparams):
                 print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
             timer.batch_end()
         # save clean accuracies on validation/test sets
+        '''
         test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
         if wandb_log:
             wandb.log({'test_clean_acc': test_clean_acc, 'epoch': epoch, 'step':step})
-
         add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
+        '''
         if epoch % dataset.ATTACK_INTERVAL == 0 or epoch == dataset.N_EPOCHS-1:
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []
@@ -124,7 +128,21 @@ def main(args, hparams, test_hparams):
                     print(f"plotting and logging {attack_name}")
                     wandb.log({'test_acc_adv_'+attack_name: test_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'test_acc_ensemble_'+attack_name: ensemble_acc, 'epoch': epoch, 'step':step})
                     plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
-                
+                    if args.log_imgs:
+                        imgs, labels = next(iter(test_ldr))
+                        if algorithms.FFCV_AVAILABLE:
+                            with autocast():
+                                attacked = attack(imgs.to(device), labels.to(device))[0]
+                        else:
+                            attacked = attack(imgs.to(device), labels.to(device))[0]
+                        for i in range(10):
+                            if attacked.shape[0] > imgs.shape[0]:
+                                og = imgs[0].to(device)
+                            else:
+                                og = imgs[i].to(device)
+                            wb_pert = wandb.Image(torch.stack([attacked[i], og]), caption=f"Perturbed and original image {i} {attack_name}")
+                            wandb.log({'Test image '+attack_name: wb_pert,'epoch': epoch, 'step':step})
+
         if args.perturbation =="SE" and wandb_log and ((epoch % dataset.LOSS_LANDSCAPE_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1):
         # log loss landscape
             print(f"plotting and logging loss landscape")
@@ -183,6 +201,7 @@ if __name__ == '__main__':
     parser.add_argument('--trial_seed', type=int, default=0, help='Trial number')
     parser.add_argument('--seed', type=int, default=0, help='Seed for everything else')
     parser.add_argument('--model', type=str, default='resnet18', help='Model to use')
+    parser.add_argument('--log_imgs', action='store_true')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)

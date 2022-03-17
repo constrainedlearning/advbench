@@ -7,6 +7,8 @@ from einops import repeat, rearrange
 import torch.nn.functional as F
 from tqdm import tqdm
 
+from advbench.algorithms import FFCV_AVAILABLE
+
 class PerturbationEval():
     def __init__(self, algorithm, loader, max_perturbations=None, batched=True):
         self.algorithm = algorithm
@@ -30,14 +32,20 @@ class PerturbationEval():
             if single_img:
                     imgs, labels = self.loader.dataset[0]
                     imgs, labels = imgs.unsqueeze(0).to(self.device), torch.tensor([labels]).to(self.device)
-                    with autocast():
+                    if FFCV_AVAILABLE:
+                        with autocast():
+                            adv_losses, adv_accs = self.step(imgs, labels)
+                    else:
                         adv_losses, adv_accs = self.step(imgs, labels)
             else:
                 for idx, batch in tqdm(enumerate(self.loader)):
                     if idx < batches:
                         imgs, labels = batch
                         imgs, labels = imgs.to(self.device), labels.to(self.device)
-                        with autocast():
+                        if FFCV_AVAILABLE:
+                            with autocast():
+                                adv_loss, adv_acc = self.step(imgs, labels)
+                        else:
                             adv_loss, adv_acc = self.step(imgs, labels)
                         adv_losses.append(adv_loss)
                         adv_accs.append(adv_acc)

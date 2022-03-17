@@ -20,6 +20,7 @@ def Classifier(input_shape, num_classes, hparams):
         if hparams["model"] == "CnSteerableCNN":
             return CnSteerableCNN(num_channels=1)
         else:
+            print(f"input shape {input_shape}, num classes {num_classes}")
             return MNISTNet(input_shape, num_classes)#CnSteerableCNN(num_classes)
     elif input_shape[0] == 3:
         # return models.resnet18(num_classes=num_classes)

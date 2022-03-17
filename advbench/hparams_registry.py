@@ -27,11 +27,13 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     # Unconditional hparam definitions.
 
     _hparam('batch_size', 128, lambda r: int(2 ** r.uniform(3, 8)))
-    _hparam('augmentation_prob', 0.5, lambda r: 0.5)
+    _hparam('augmentation_prob', 1, lambda r: 1)
     _hparam('perturbation_batch_size', 10, lambda r: 10)
-    _hparam('mcmc_dale_scale', 0.2, lambda r: 0.2)
-    _hparam('mcmc_dale_n_steps', 10, lambda r: 10)
+    _hparam('mcmc_dale_scale', 0.05, lambda r: 0.05)
+    _hparam('mcmc_dale_n_steps', 5, lambda r: 5)
     _hparam('mcmc_proposal', 'Laplace', lambda r: 'Laplace')
+    _hparam('gaussian_attack_std', 1, lambda r: 1 )
+    _hparam('laplacian_attack_std', 1, lambda r: 1 )
 
     # optimization
     if dataset == 'MNIST':
@@ -261,7 +263,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
             _hparam('d_dale_pd_inv_step_size', 1, lambda r: 1)
             _hparam('d_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
-            _hparam('d_dale_pd_inv_margin', 0.3, lambda r: 0.3)
+            _hparam('d_dale_pd_inv_margin', 0.15, lambda r: 0.15)
 
         # DALE NUTS
         _hparam('n_dale_n_steps', 15, lambda r: 15)
@@ -272,16 +274,15 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('grid_size', 120, lambda r: 120)
 
     elif perturbation=='CPAB':
-        _hparam('tesselation', 10, lambda r:10)
-        _hparam('epsilon', 1, lambda r: 1)
+        _hparam('tesselation', 20, lambda r:20)
+        _hparam('epsilon', 1.2, lambda r: 1.2)
 
         ##### Worst of K ######
         _hparam('worst_of_k_steps', 10, lambda r:10)
-
         
         ##### PGD #####
-        _hparam('pgd_n_steps', 5, lambda r: 5)
-        _hparam('pgd_step_size', 0.2, lambda r: 0.2)
+        _hparam('pgd_n_steps', 10, lambda r: 10)
+        _hparam('pgd_step_size', 1, lambda r: 1)
 
         ##### TRADES #####
         _hparam('trades_n_steps', 15, lambda r: 15)
@@ -373,10 +374,10 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
 
         # DALE (Laplacian-HMC)
         _hparam('l_dale_n_steps', 10, lambda r: 10)
-        _hparam('l_dale_step_size', 0.05, lambda r: 10 ** r.uniform(-2.0, -0.5))
+        _hparam('l_dale_step_size', 0.5, lambda r: 10 ** r.uniform(-2.0, -0.5))
         _hparam('l_dale_noise_coeff', 0.02,lambda r: 10 ** r.uniform(-3.0, -1.5))
-        _hparam('l_dale_nu', 0.1, lambda r: 0.1)
-        _hparam('l_dale_eta', 0.001, lambda r: 0.001)
+        _hparam('l_dale_nu', 0.5, lambda r: 0.5)
+        _hparam('l_dale_eta', 0.00001, lambda r: 0.00001)
 
         # DALE-PD (Gaussian-HMC)
         _hparam('g_dale_pd_step_size', 2, lambda r: 2)
@@ -386,7 +387,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         # DALE-PD-INV (Gaussian-HMC)
         _hparam('g_dale_pd_inv_step_size', 0.1, lambda r: 10 ** r.uniform(-2.0, -0.5))
         _hparam('g_dale_pd_inv_eta', 0.0001, lambda r: 0.0001)
-        _hparam('g_dale_pd_inv_margin', 0.05, lambda r: 0.05)
+        _hparam('g_dale_pd_inv_margin', 0.2, lambda r: 0.2)
 
         # DALE-PD-INV (Laplacian-HMC)
         if dataset == 'MNIST':
@@ -395,8 +396,8 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('l_dale_pd_inv_margin',  0.1, lambda r: 0.1)
         elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
             _hparam('l_dale_pd_inv_step_size', 0.1, lambda r: 0.1)
-            _hparam('l_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
-            _hparam('l_dale_pd_inv_margin',  0.1, lambda r: 0.1)
+            _hparam('l_dale_pd_inv_eta', 0.000001, lambda r: 0.000001)
+            _hparam('l_dale_pd_inv_margin',  0.15, lambda r: 0.15)
         
         # Discrete DALE-PD-INV
         if dataset == 'MNIST':
@@ -406,7 +407,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
             _hparam('d_dale_pd_inv_step_size', 1, lambda r: 1)
             _hparam('d_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
-            _hparam('d_dale_pd_inv_margin', 0.1, lambda r: 0.1)
+            _hparam('d_dale_pd_inv_margin', 0.3, lambda r: 0.3)
 
         # DALE NUTS
         _hparam('n_dale_n_steps', 15, lambda r: 15)
@@ -431,6 +432,9 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         assert(name not in hparams)
         hparams[name] = default_val
     _hparam('perturbation_batch_size', 100)
+    _hparam('gaussian_attack_std', 0.5)
+    _hparam('laplacian_attack_std', 0.5)
+
     if perturbation == 'Linf':
         if dataset == 'MNIST':
             _hparam('epsilon', 0.3)
@@ -540,7 +544,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         _hparam('epsilon_ty', 3)
 
         ###### MCMC ###########
-        _hparam('mcmc_dale_scale', 0.1)
+        _hparam('mcmc_dale_scale', 1)
         _hparam('mcmc_dale_n_steps', 10)
         _hparam('mcmc_proposal', 'Laplace')
         
@@ -564,9 +568,9 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         # Grid Search
         _hparam('grid_size', 120)
         # DALE (Laplacian-HMC)
-        _hparam('l_dale_n_steps', 15)
-        _hparam('l_dale_step_size', 0.05)
-        _hparam('l_dale_noise_coeff', 0.05)
+        _hparam('l_dale_n_steps', 8)
+        _hparam('l_dale_step_size', 1)
+        _hparam('l_dale_noise_coeff', 0.2)
         _hparam('l_dale_nu', 0.1)
 
     elif perturbation == 'Crop' or perturbation == 'Crop_and_Flip':
@@ -576,8 +580,8 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         _hparam('worst_of_k_steps', 10)
 
         ###### MCMC ###########
-        _hparam('mcmc_dale_scale', 0.1)
-        _hparam('mcmc_dale_n_steps', 10)
+        _hparam('mcmc_dale_scale', 0.01)
+        _hparam('mcmc_dale_n_steps', 5)
         _hparam('mcmc_proposal', 'Laplace')
         
 
@@ -603,7 +607,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         _hparam('l_dale_n_steps', 15)
         _hparam('l_dale_step_size', 0.05)
         _hparam('l_dale_noise_coeff', 0.05)
-        _hparam('l_dale_nu', 0.1)
+        _hparam('l_dale_nu', 0.5)
     else:
         raise NotImplementedError
         

@@ -64,7 +64,7 @@ if wandb:
                     self.meters = WBHistogramMeter(names)
                 else:
                     names = [f"{names} {i}" for i in range(dims)]
-                    self.meters = [WBHistogramMeter(name) for name in names]
+            self.meters = [WBHistogramMeter(name) for name in names]
 
         def reset(self):
             pass

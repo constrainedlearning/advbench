@@ -476,7 +476,7 @@ def e2wrn28_10R(**kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on Cifar100
     """
-    model = Wide_ResNet(28, 10, 0.3, f=False, initial_stride=1, **kwargs)
+    model = Wide_ResNet(28, 7, 0.3, f=False, initial_stride=1, **kwargs)
     return model
 
 '''
