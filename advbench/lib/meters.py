@@ -60,21 +60,15 @@ if wandb:
             self.print = False
             self.dims = dims
             if isinstance(names, str):
-                if self.dims > 3:
-                    self.meters = WBHistogramMeter(names)
-                else:
-                    names = [f"{names} {i}" for i in range(dims)]
+                names = [f"{names} {i}" for i in range(dims)]
             self.meters = [WBHistogramMeter(name) for name in names]
 
         def reset(self):
             pass
 
         def update(self, vals):
-            if self.dims > 3:
-                self.meters.update(vals.mean(dim=1).detach())
-            else:
-                for i in range(self.dims):
-                    self.meters[i].update(vals[:,i])
+            for i in range(len(vals[0])):
+                self.meters[i].update(vals[:,i])
 
     
     class WBLinePlotMeter():

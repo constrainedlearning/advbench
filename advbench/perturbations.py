@@ -5,6 +5,7 @@ from advbench.lib.transformations import se_transform
 from kornia.geometry.transform import crop_by_boxes
 from kornia.geometry.bbox import bbox_generator
 from einops import repeat
+from advbench.algorithms import FFCV_AVAILABLE
 try:
     from libcpab import Cpab
 except:
@@ -111,7 +112,10 @@ class CPAB(Perturbation):
         return (norm>self.norm)[:, None] * self.norm * delta_norm + (norm<self.norm)[:, None]*delta
         
     def _perturb(self, imgs, delta):
-        return self.T.transform_data(imgs, delta, outsize = imgs.shape[2:])
+        if FFCV_AVAILABLE:
+            return self.T.transform_data(imgs.to(dtype=torch.float), delta.to(dtype=torch.float), outsize = imgs.shape[2:]).half()
+        else:
+            return self.T.transform_data(imgs, delta, outsize = imgs.shape[2:])
 
     def delta_init(self, imgs):
         delta_init = self.T.sample_transformation(imgs.shape[0])

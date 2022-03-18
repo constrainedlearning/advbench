@@ -150,6 +150,7 @@ class LMC_Laplacian_Linf(Attack_Linf):
 
         self.classifier.train()
         return adv_imgs.detach(), delta.detach()
+
 class MCMC(Attack_Linf):
     def __init__(self, classifier,  hparams, device, perturbation='Linf', acceptance_meter=None):
         super(MCMC, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
