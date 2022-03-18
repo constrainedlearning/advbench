@@ -6,7 +6,7 @@ from e2cnn import gspaces
 from e2cnn import nn as enn
 from advbench.e2_utils import *
 from torch.nn.functional import pad
-from advbench.e2_networks import e2wrn28_10R
+from advbench.e2_networks import e2wrn
 from advbench.wrn import Wide_ResNet
 import torch
 import torch.nn as nn
@@ -28,9 +28,12 @@ def Classifier(input_shape, num_classes, hparams):
             return ResNet18(num_classes = num_classes)
         elif hparams["model"] == "steerable_resnet18":
             return SteerableResNet18(num_classes = num_classes)
+        elif hparams["model"] == "wrn-28-7-rot":
+            print("Using e2 invariant WRN-28-7")
+            return e2wrn(depth=28, widen_factor = 7, num_classes=num_classes, r=3)
         elif hparams["model"] == "wrn-28-10-rot":
             print("Using e2 invariant WRN-28-10")
-            return e2wrn28_10R(num_classes=num_classes)
+            return e2wrn(depth=28, widen_factor = 10, num_classes=num_classes, r=3)
         elif hparams["model"] == "wrn-28-10":
             print("Using WRN-28-10")
             return wrn28_10(num_classes=num_classes)

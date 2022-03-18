@@ -470,23 +470,10 @@ class Wide_ResNet(torch.nn.Module):
         return out
 
 
-def e2wrn28_10R(**kwargs):
-    """Constructs a Wide ResNet 28-10 model.
-    This model is only [R]otation equivariant (no flips equivariance)
+def e2wrn(depth = 28, widen_factor = 7, dropout = 0.3, num_classes=100, r=3, flip=True):
+    """Constructs a Wide ResNet D8 D4 D1 invariant model.
     Args:
         pretrained (bool): If True, returns a model pre-trained on Cifar100
     """
-    model = Wide_ResNet(28, 7, 0.3, f=False, initial_stride=1, **kwargs)
+    model = Wide_ResNet(depth, widen_factor, dropout, f=flip, initial_stride=1)
     return model
-
-'''
-def wrn28_10(**kwargs):
-    """Constructs a Wide ResNet 28-10 model.
-    This model is only [R]otation equivariant (no flips equivariance)
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on Cifar100
-    """
-    model = Wide_ResNet(28, 10, 0.3, f=False, initial_stride=1, **kwargs)
-    model.export()
-    return model
-'''
