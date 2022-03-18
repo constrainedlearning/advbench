@@ -431,7 +431,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
 
         assert(name not in hparams)
         hparams[name] = default_val
-    _hparam('perturbation_batch_size', 100)
+    _hparam('perturbation_batch_size', 200)
     _hparam('gaussian_attack_std', 0.5)
     _hparam('laplacian_attack_std', 0.5)
 

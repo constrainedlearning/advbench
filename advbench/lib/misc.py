@@ -119,7 +119,7 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
 
 def adv_accuracy_loss_delta_ensembleacc(algorithm, loader, device, attack):
     correct, ensemble_correct, total, total_ens = 0, 0, 0, 0
-    losses, deltas = [], []
+    losses, accs, deltas = [], [], []
 
     algorithm.eval()
     algorithm.export()
@@ -156,15 +156,17 @@ def adv_accuracy_loss_delta_ensembleacc(algorithm, loader, device, attack):
                 ensemble_preds = pred
             losses.append(loss.cpu().numpy())
             deltas.append(delta.cpu().numpy())
+            corr = pred.eq(labels.view_as(pred))
+            accs.append(corr.cpu().numpy())
             ensemble_correct += ensemble_preds.eq(old_labels.view_as(ensemble_preds)).sum().item() 
-            correct += pred.eq(labels.view_as(pred)).sum().item()
+            correct += corr.sum().item()
             total += adv_imgs.size(0)
             total_ens += imgs.size(0)
     algorithm.train()
     algorithm.unexport()
     acc = 100. * correct / total
     ensemble_acc = 100. * ensemble_correct / total_ens
-    return acc, np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0), ensemble_acc
+    return acc, np.concatenate(accs, axis=0), np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0), ensemble_acc
 
 class Tee:
     def __init__(self, fname, mode="a"):

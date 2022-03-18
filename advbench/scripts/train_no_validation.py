@@ -1,11 +1,14 @@
 import argparse
 from itertools import combinations_with_replacement
 import torch
+import random
+import numpy as np
 import os
 import json
 import pandas as pd
 import time
 from humanfriendly import format_timespan
+
 
 from advbench import datasets
 from advbench import algorithms
@@ -117,7 +120,7 @@ def main(args, hparams, test_hparams):
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():
                 print(attack_name)
-                test_adv_acc, loss, deltas, ensemble_acc = misc.adv_accuracy_loss_delta_ensembleacc(algorithm, test_ldr, device, attack)
+                test_adv_acc, accs, loss, deltas, ensemble_acc = misc.adv_accuracy_loss_delta_ensembleacc(algorithm, test_ldr, device, attack)
                 print("Test Adv Acc:", test_adv_acc)
                 print("Ensemble Acc:", ensemble_acc)
                 add_results_row([epoch, test_adv_acc, attack_name, 'Test'])
@@ -126,6 +129,8 @@ def main(args, hparams, test_hparams):
                     print(f"plotting and logging {attack_name}")
                     wandb.log({'test_acc_adv_'+attack_name: test_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'test_acc_ensemble_'+attack_name: ensemble_acc, 'epoch': epoch, 'step':step})
                     plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
+                    plotting.plot_perturbed_wandb(deltas, accs, name="test_acc_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
+                    
                     if args.log_imgs:
                         imgs, labels = next(iter(test_ldr))
                         if algorithms.FFCV_AVAILABLE:
@@ -235,6 +240,10 @@ if __name__ == '__main__':
 
     with open(os.path.join(args.output_dir, 'test_hparams.json'), 'w') as f:
         json.dump(test_hparams, f, indent=2)
+    
+    torch.manual_seed(args.seed)
+    random.seed(args.seed)
+    np.random.seed(args.seed)
 
     main(args, hparams, test_hparams)
     
