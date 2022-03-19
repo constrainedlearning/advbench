@@ -101,6 +101,7 @@ class CPAB(Perturbation):
         super(CPAB, self).__init__(epsilon)
         self.names = "norm"
         self.T = Cpab([tesselation, tesselation], backend="pytorch", device='gpu', zero_boundary=True)
+        _verbose = True
         self.dim = self.T.identity().shape[1]
         self.norm = epsilon
 
@@ -113,7 +114,7 @@ class CPAB(Perturbation):
         
     def _perturb(self, imgs, delta):
         if FFCV_AVAILABLE:
-            return self.T.transform_data(imgs.to(dtype=torch.float), delta.to(dtype=torch.float), outsize = imgs.shape[2:]).half()
+            return self.T.transform_data(imgs.float().cuda(), delta.float().cuda(), outsize = tuple(imgs.shape[2:])).half()
         else:
             return self.T.transform_data(imgs, delta, outsize = imgs.shape[2:])
 

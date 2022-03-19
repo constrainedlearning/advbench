@@ -274,14 +274,14 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('grid_size', 120, lambda r: 120)
 
     elif perturbation=='CPAB':
-        _hparam('tesselation', 20, lambda r:20)
+        _hparam('tesselation', 10, lambda r:10)
         _hparam('epsilon', 1.2, lambda r: 1.2)
 
         ##### Worst of K ######
         _hparam('worst_of_k_steps', 10, lambda r:10)
         
         ##### PGD #####
-        _hparam('pgd_n_steps', 10, lambda r: 10)
+        _hparam('pgd_n_steps', 10, lambda r: 5)
         _hparam('pgd_step_size', 1, lambda r: 1)
 
         ##### TRADES #####
@@ -293,14 +293,14 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('mart_beta', 5.0, lambda r: r.uniform(0.1, 10.0))
 
         ##### Gaussian DALE #####
-        _hparam('g_dale_n_steps', 10, lambda r: 10)
+        _hparam('g_dale_n_steps', 10, lambda r: 5)
         _hparam('g_dale_step_size', 1, lambda r: 1)
         _hparam('g_dale_noise_coeff', 1, lambda r: 10 ** r.uniform(-1.0, 1.0))
         _hparam('g_dale_nu', 0.1, lambda r: 0.1)
         _hparam('g_dale_eta', 0.0001, lambda r: 0.0001)
 
         # DALE (Laplacian-HMC)
-        _hparam('l_dale_n_steps', 10, lambda r: 10)
+        _hparam('l_dale_n_steps', 10, lambda r: 5)
         _hparam('l_dale_step_size', 0.05, lambda r: 10 ** r.uniform(-2.0, -0.5))
         _hparam('l_dale_noise_coeff', 0.02,lambda r: 10 ** r.uniform(-3.0, -1.5))
         _hparam('l_dale_nu', 0.1, lambda r: 0.1)
@@ -431,7 +431,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
 
         assert(name not in hparams)
         hparams[name] = default_val
-    _hparam('perturbation_batch_size', 200)
+    _hparam('perturbation_batch_size', 100)
     _hparam('gaussian_attack_std', 0.5)
     _hparam('laplacian_attack_std', 0.5)
 

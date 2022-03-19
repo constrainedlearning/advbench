@@ -69,7 +69,7 @@ class AdvRobDataset(Dataset):
     CHECKPOINT_FREQ = None   # Subclasses should override
     LOG_INTERVAL = None      # Subclasses should override
     LOSS_LANDSCAPE_INTERVAL = None # Subclasses should override
-    ATTACK_INTERVAL = 100     # Default, subclass may override
+    ATTACK_INTERVAL = 200     # Default, subclass may override
     ANGLE_GSIZE = 100     # Default, subclass may override
     LOSS_LANDSCAPE_BATCHES = None # Subclasses should override
     HAS_LR_SCHEDULE = False  # Default, subclass may override
