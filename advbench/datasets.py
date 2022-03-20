@@ -137,9 +137,9 @@ if FFCV_AVAILABLE:
         @staticmethod
         def adjust_lr_dual(pd_optimizer, epoch):
             lr = pd_optimizer.eta
-            if epoch < = self.MAX_DUAL_LR_EPOCH:
+            if epoch <= self.MAX_DUAL_LR_EPOCH:
                 lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
-            elif epoch < = self.MIN_LR_EPOCH:
+            elif epoch <= self.MIN_LR_EPOCH:
                 lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
 
 
