@@ -67,8 +67,11 @@ if wandb:
             pass
 
         def update(self, vals):
-            for i in range(len(vals[0])):
-                self.meters[i].update(vals[:,i])
+            if len(vals[0])>3:
+                pass
+            else:
+                for i in range(len(vals[0])):
+                    self.meters[i].update(vals[:,i])
 
     
     class WBLinePlotMeter():
