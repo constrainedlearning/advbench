@@ -1,7 +1,7 @@
 from kornia.geometry import rotate
 import torch
 from torchvision.transforms import Pad
-from advbench.lib.transformations import se_transform
+from advbench.lib.transformations import se_transform, translation
 from kornia.geometry.transform import crop_by_boxes
 from kornia.geometry.bbox import bbox_generator
 from einops import repeat
@@ -351,3 +351,26 @@ class Crop_and_Flip(Crop):
         delta_init[:,2] = torch.sign(torch.randn(imgs.shape[0], device = imgs.device, dtype=imgs.dtype))
         return delta_init
 '''
+
+class Translation(Perturbation):
+    def __init__(self, epsilon):
+        super(Translation, self).__init__(epsilon)
+        self.dim = 2
+        self.names = [ 'Tx', 'Ty']
+    def clamp_delta(self, delta, imgs):
+        """Clamp delta so that (1) the perturbation is bounded
+        in the l_inf norm by self.hparams['epsilon'] and (2) so that the
+        perturbed image is in [0, 1]^d."""
+        for i in range(self.dim):
+            delta[:, i] = torch.clamp(delta[:, i], - self.eps[i], self.eps[i])
+        return delta
+
+    def _perturb(self, imgs, delta):
+        return translation(imgs, delta)
+
+    def delta_init(self, imgs):
+        delta_init = torch.empty(imgs.shape[0], self.dim, device=imgs.device, dtype=imgs.dtype)
+        for i in range(self.dim):
+            eps = self.eps[i]
+            delta_init[:,i] =   2*eps* torch.randn(imgs.shape[0], device = imgs.device, dtype=imgs.dtype)-eps
+        return delta_init

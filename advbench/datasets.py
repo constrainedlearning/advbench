@@ -6,7 +6,6 @@ from torchvision.datasets import CIFAR10 as CIFAR10_
 from torchvision.datasets import CIFAR100 as CIFAR100_
 from torchvision.datasets import MNIST as MNIST_
 try:
-    raise ImportError
     from ffcv.fields import IntField, RGBImageField
     from ffcv.fields.decoders import IntDecoder, SimpleRGBImageDecoder
     from ffcv.loader import Loader, OrderOption
@@ -181,6 +180,10 @@ if FFCV_AVAILABLE:
         LOSS_LANDSCAPE_BATCHES = 10
         HAS_LR_SCHEDULE = True
         HAS_LR_SCHEDULE_DUAL = True
+        MAX_DUAL_LR_FACTOR = 8
+        MAX_DUAL_LR_EPOCH = 120
+        MIN_DUAL_LR_EPOCH = 180
+        MIN_DUAL_LR_FACTOR = 0.01
 
         # test adversary parameters
         ADV_STEP_SIZE = 2/255.
@@ -196,7 +199,7 @@ if FFCV_AVAILABLE:
                 if split == 'train' and augmentation:
                     image_pipeline.extend([
                         RandomHorizontalFlip(),
-                        Cutout(4, tuple(map(int, MEAN['CIFAR100']))),
+                        #Cutout(4, tuple(map(int, MEAN['CIFAR100']))),
                     ])
                 image_pipeline.extend([
                     ToTensor(),
@@ -234,17 +237,10 @@ if FFCV_AVAILABLE:
         @staticmethod
         def adjust_lr_dual(pd_optimizer, epoch):
             lr = pd_optimizer.eta
-            if epoch == 20:
-                lr = lr * 1.5
-            if epoch == 40:
-                lr = lr * 2
-            if epoch == 80:
-                lr = lr * 2
-            if epoch == 130:
-                lr = lr / 10
-            if epoch == 180:
-                lr = lr / 10
-            pd_optimizer.eta = lr 
+            if epoch <= self.MAX_DUAL_LR_EPOCH:
+                lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
+            elif epoch <= self.MIN_LR_EPOCH:
+                lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
 
         def write(self):
                 folder = os.path.join('data','ffcv', 'CIFAR')
