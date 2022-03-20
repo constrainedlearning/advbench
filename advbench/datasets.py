@@ -69,7 +69,7 @@ class AdvRobDataset(Dataset):
     CHECKPOINT_FREQ = None   # Subclasses should override
     LOG_INTERVAL = None      # Subclasses should override
     LOSS_LANDSCAPE_INTERVAL = None # Subclasses should override
-    ATTACK_INTERVAL = 100     # Default, subclass may override
+    ATTACK_INTERVAL = 200     # Default, subclass may override
     ANGLE_GSIZE = 100     # Default, subclass may override
     LOSS_LANDSCAPE_BATCHES = None # Subclasses should override
     HAS_LR_SCHEDULE = False  # Default, subclass may override
@@ -81,7 +81,7 @@ class AdvRobDataset(Dataset):
 
 if FFCV_AVAILABLE:
     class CIFAR10(AdvRobDataset):
-        ATTACK_INTERVAL = 100
+        ATTACK_INTERVAL = 200
         INPUT_SHAPE = (3, 32, 32)
         NUM_CLASSES = 10
         N_EPOCHS = 200
@@ -94,6 +94,11 @@ if FFCV_AVAILABLE:
         HAS_LR_SCHEDULE_DUAL = False
         HAS_LR_SCHEDULE = True
         HAS_LR_SCHEDULE_DUAL = True
+        MAX_DUAL_LR_FACTOR = 8
+        MAX_DUAL_LR_EPOCH = 120
+        MIN_DUAL_LR_EPOCH = 180
+        MIN_DUAL_LR_FACTOR = 0.01
+
 
         # test adversary parameters
         ADV_STEP_SIZE = 2/255.
@@ -110,7 +115,6 @@ if FFCV_AVAILABLE:
                 if split == 'train' and augmentation:
                     image_pipeline.extend([
                         RandomHorizontalFlip(),
-                        Cutout(4, tuple(map(int, CIFAR_MEAN))),
                     ])
                 image_pipeline.extend([
                     ToTensor(),
@@ -134,15 +138,11 @@ if FFCV_AVAILABLE:
         @staticmethod
         def adjust_lr_dual(pd_optimizer, epoch):
             lr = pd_optimizer.eta
-            if epoch == 20:
-                lr = lr * 1.5
-            if epoch == 40:
-                lr = lr * 2
-            if epoch == 80:
-                lr = lr * 2
-            if epoch == 150:
-                lr = lr * 5
-            pd_optimizer.eta = lr 
+            if epoch < = self.MAX_DUAL_LR_EPOCH:
+                lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
+            elif epoch < = self.MIN_LR_EPOCH:
+                lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
+
 
         @staticmethod
         def adjust_lr(optimizer, epoch, hparams):
@@ -175,7 +175,7 @@ if FFCV_AVAILABLE:
         N_EPOCHS = 200
         CHECKPOINT_FREQ = 10
         LOG_INTERVAL = 50
-        LOSS_LANDSCAPE_INTERVAL = 100
+        LOSS_LANDSCAPE_INTERVAL = 200
         LOSS_LANDSCAPE_GSIZE = 1000
         ANGLE_GSIZE = 100
         LOSS_LANDSCAPE_BATCHES = 10

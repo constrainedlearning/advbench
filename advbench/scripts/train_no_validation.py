@@ -40,6 +40,9 @@ def main(args, hparams, test_hparams):
     if args.perturbation=='SE':
         hparams['epsilon'] = torch.tensor([hparams[f'epsilon_{i}'] for i in ("rot","tx","ty")]).to(device)
         test_hparams['epsilon'] = torch.tensor([test_hparams[f'epsilon_{tfm}'] for tfm in ("rot","tx","ty")]).to(device)
+    elif args.perturbation=='Translation':
+        hparams['epsilon'] = torch.tensor([hparams[f'epsilon_{i}'] for i in ("tx","ty")]).to(device)
+        test_hparams['epsilon'] = torch.tensor([test_hparams[f'epsilon_{tfm}'] for tfm in ("tx","ty")]).to(device)
     aug = not((args.perturbation=='Crop_and_Flip' or args.perturbation=='Crop') and not args.algorithm=='ERM')
     print("Augmentation:", aug)
     dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug)
@@ -115,7 +118,7 @@ def main(args, hparams, test_hparams):
         if wandb_log:
             wandb.log({'test_clean_acc': test_clean_acc, 'epoch': epoch, 'step':step})
         add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
-        if epoch % dataset.ATTACK_INTERVAL == 0 or epoch == dataset.N_EPOCHS-1:
+        if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():
@@ -129,7 +132,7 @@ def main(args, hparams, test_hparams):
                     print(f"plotting and logging {attack_name}")
                     wandb.log({'test_acc_adv_'+attack_name: test_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'test_acc_ensemble_'+attack_name: ensemble_acc, 'epoch': epoch, 'step':step})
                     plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
-                    plotting.plot_perturbed_wandb(deltas, accs, name="test_acc_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
+                    #plotting.plot_perturbed_wandb(deltas, accs, name="test_acc_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
                     
                     if args.log_imgs:
                         imgs, labels = next(iter(test_ldr))
