@@ -7,15 +7,7 @@ import pandas as pd
 from numpy.random import binomial
 from torch.cuda.amp import GradScaler, autocast
 #from torchsummary import summary
-try:
-    raise ImportError
-    import ffcv
-    FFCV_AVAILABLE=True
-    print("*"*80)
-    print('FFCV available. Using Low precision operations. May result in numerical instability.')
-    print("*"*80)
-except ImportError:
-    FFCV_AVAILABLE=False
+from advbench.datasets import FFCV_AVAILABLE
 
 from advbench import attacks, networks, optimizers, perturbations
 from advbench.lib import meters
@@ -102,7 +94,7 @@ class Algorithm(nn.Module):
 
 class ERM(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', label_smoothing=0):
-        super(ERM, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, label_smoothing=label_smoothing)
+        super(ERM, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
         self.attack = attacks.Rand_Aug(self.classifier, self.hparams, device, perturbation=perturbation)
     def step(self, imgs, labels):
         self.optimizer.zero_grad(set_to_none=True)

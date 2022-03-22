@@ -356,16 +356,15 @@ else:
             super(CIFAR100, self).__init__()
 
             self.ffcv=False
-            tfs = []
+            tfs = [transforms.RandomHorizontalFlip()]
 
-            if augmentation:
-                tfs+= [transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip()]
+            if augmentation and not exclude_translations:
+                tfs+= [transforms.RandomCrop(32, padding=4)]
             
             if auto_augment:
                 tfs += [CIFAR10Policy(exclude_translations = exclude_translations)]
             
-            tfs += [transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor(),
+            tfs += [transforms.ToTensor(),
                     transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])]
 
             if auto_augment or cutout:
@@ -558,9 +557,12 @@ class IMNET(AdvRobDataset):
             
             test_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize(MEAN['IMNET'], STD['IMNET'])])
             train_root = os.path.join(self.data_path, 'train' )
-            val_root = os.path.join(self.data_path, 'train' )
-            test_root = os.path.join(self.data_path, 'train' )
-            train_data = ImageFolder(train_root, transform=train_transforms)
+            val_root = os.path.join(self.data_path, 'val' )
+            test_root = os.path.join(self.data_path, 'val' )
+            train_data = ImageFolder(train_root, transform=test_transforms)
+            for i in range(len(train_data)):
+                img, label = train_data[i]
+                print(img.shape)
             self.splits['train'] = train_data
             self.splits['val'] = ImageFolder(val_root, transform=test_transforms)
             self.splits['test'] = ImageFolder(test_root, transform=test_transforms)

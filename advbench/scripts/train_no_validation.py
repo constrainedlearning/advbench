@@ -36,7 +36,8 @@ PD_ALGORITHMS = [
 
 def main(args, hparams, test_hparams):
     #if args.dataset=="IMNET" or args.dataset=="MNIST":
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    #device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = args.device
     print(f"Using {device}")
     hparams['model'] = args.model
     if args.perturbation=='SE':
@@ -51,6 +52,8 @@ def main(args, hparams, test_hparams):
         dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True)
     elif args.auto_augment_wo_translations:
         dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True, exclude_translations=True)
+    else:
+        dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug)
     train_ldr, _, test_ldr = datasets.to_loaders(dataset, hparams)
     kw_args = {"perturbation": args.perturbation}
     if args.algorithm in PD_ALGORITHMS: 
@@ -217,6 +220,7 @@ if __name__ == '__main__':
     parser.add_argument('--label_smoothing', type=float, default=0.0)
     parser.add_argument('--auto_augment', action='store_true')
     parser.add_argument('--auto_augment_wo_translations', action='store_true')
+    parser.add_argument('--device', type=str, default='cuda', help='Device to use')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
