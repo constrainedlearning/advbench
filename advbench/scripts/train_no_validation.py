@@ -8,6 +8,7 @@ import json
 import pandas as pd
 import time
 from humanfriendly import format_timespan
+torch.backends.cudnn.benchmark = True
 
 
 from advbench import datasets
@@ -114,10 +115,12 @@ def main(args, hparams, test_hparams):
                 print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
             timer.batch_end()
         # save clean accuracies on validation/test sets
+
         test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
         if wandb_log:
             wandb.log({'test_clean_acc': test_clean_acc, 'epoch': epoch, 'step':step})
         add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
+
         if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []

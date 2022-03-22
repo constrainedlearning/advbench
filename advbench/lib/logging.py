@@ -7,7 +7,7 @@ from einops import repeat, rearrange
 import torch.nn.functional as F
 from tqdm import tqdm
 
-from advbench.algorithms import FFCV_AVAILABLE
+from advbench.datasets import FFCV_AVAILABLE
 
 class PerturbationEval():
     def __init__(self, algorithm, loader, max_perturbations=None, batched=True):

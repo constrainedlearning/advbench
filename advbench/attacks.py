@@ -13,6 +13,10 @@ from torch.distributions.laplace import Laplace
 from einops import rearrange, reduce, repeat
 
 from advbench import perturbations
+#from advbench.lib.manifool.functions.algorithms.manifool import manifool
+from advbench.datasets import FFCV_AVAILABLE
+
+torch.backends.cudnn.benchmark = True
 
 class Attack(nn.Module):
     def __init__(self, classifier, hparams, device, perturbation='Linf'):
@@ -342,6 +346,24 @@ class Grid_Batch(Grid_Search):
         new_labels = repeat(labels, 'B -> (B S)', S=self.grid_size)
         
         return adv_imgs.detach(), delta, new_labels.detach()
+'''
+    class Manifool(Attack_Linf):
+        def __init__(self, classifier,  hparams, device, perturbation='SE'):
+            assert(perturbation=='SE')
+            super(Manifool, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+
+        def forward(self, imgs, labels):
+            batch_size = imgs.size(0)
+            if FFCV_AVAILABLE:
+                imgs = imgs.float()
+            adv_imgs = torch.empty_like(imgs)
+            delta = self.perturbation.delta_init(imgs).to(imgs.device)
+            for i in range(batch_size):
+                manifool_out = manifool(imgs[i], self.classifier, mode='rotation+translation')
+                adv_imgs[i] = manifool_out['output_image']
+            return adv_imgs.detach(), delta.detach()
+
+'''
 
 if HAMILTORCH_AVAILABLE:
     class NUTS(Attack_Linf):

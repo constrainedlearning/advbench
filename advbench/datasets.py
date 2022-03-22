@@ -13,6 +13,9 @@ try:
     from ffcv.transforms import RandomHorizontalFlip, Cutout, RandomTranslate, Convert, ToDevice, ToTensor, ToTorchImage
     from ffcv.transforms.common import Squeeze
     from ffcv.writer import DatasetWriter
+    print("*"*80)
+    print('FFCV available. Using Low precision operations. May result in numerical instability.')
+    print("*"*80)
     FFCV_AVAILABLE=True
 except ImportError:
     FFCV_AVAILABLE=False
@@ -241,6 +244,7 @@ if FFCV_AVAILABLE:
                 lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
             elif epoch <= self.MIN_LR_EPOCH:
                 lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
+            pd_optimizer.eta = lr
 
         def write(self):
                 folder = os.path.join('data','ffcv', 'CIFAR')
@@ -268,6 +272,10 @@ else:
         LOSS_LANDSCAPE_BATCHES = 10
         HAS_LR_SCHEDULE = True
         HAS_LR_SCHEDULE_DUAL = True
+        MAX_DUAL_LR_FACTOR = 8
+        MAX_DUAL_LR_EPOCH = 120
+        MIN_DUAL_LR_EPOCH = 180
+        MIN_DUAL_LR_FACTOR = 0.01
 
         # test adversary parameters
         ADV_STEP_SIZE = 2/255.
@@ -279,7 +287,6 @@ else:
             self.ffcv=False
             if augmentation:
                 train_transforms = transforms.Compose([
-                    transforms.RandomCrop(32, padding=4),
                     transforms.RandomHorizontalFlip(),
                     transforms.ToTensor()])
             else:
@@ -310,14 +317,10 @@ else:
         @staticmethod
         def adjust_lr_dual(pd_optimizer, epoch):
             lr = pd_optimizer.eta
-            if epoch == 20:
-                lr = lr * 1.5
-            if epoch == 40:
-                lr = lr * 2
-            if epoch == 80:
-                lr = lr * 2
-            if epoch == 150:
-                lr = lr * 5
+            if epoch <= self.MAX_DUAL_LR_EPOCH:
+                lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
+            elif epoch <= self.MIN_LR_EPOCH:
+                lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
             pd_optimizer.eta = lr
     
     class CIFAR100(AdvRobDataset):
