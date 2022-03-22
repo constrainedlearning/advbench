@@ -35,7 +35,9 @@ PD_ALGORITHMS = [
 ]
 
 def main(args, hparams, test_hparams):
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    #if args.dataset=="IMNET" or args.dataset=="MNIST":
+    #device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = args.device
     print(f"Using {device}")
     hparams['model'] = args.model
     if args.perturbation=='SE':
@@ -46,7 +48,12 @@ def main(args, hparams, test_hparams):
         test_hparams['epsilon'] = torch.tensor([test_hparams[f'epsilon_{tfm}'] for tfm in ("tx","ty")]).to(device)
     aug = not((args.perturbation=='Crop_and_Flip' or args.perturbation=='Crop') and not args.algorithm=='ERM')
     print("Augmentation:", aug)
-    dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug)
+    if args.auto_augment:
+        dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True)
+    elif args.auto_augment_wo_translations:
+        dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True, exclude_translations=True)
+    else:
+        dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug)
     train_ldr, _, test_ldr = datasets.to_loaders(dataset, hparams)
     kw_args = {"perturbation": args.perturbation}
     if args.algorithm in PD_ALGORITHMS: 
@@ -210,7 +217,12 @@ if __name__ == '__main__':
     parser.add_argument('--trial_seed', type=int, default=0, help='Trial number')
     parser.add_argument('--seed', type=int, default=0, help='Seed for everything else')
     parser.add_argument('--model', type=str, default='resnet18', help='Model to use')
+    parser.add_argument('--optimizer', type=str, default='SGD', help='Optimizer to use')
     parser.add_argument('--log_imgs', action='store_true')
+    parser.add_argument('--label_smoothing', type=float, default=0.0)
+    parser.add_argument('--auto_augment', action='store_true')
+    parser.add_argument('--auto_augment_wo_translations', action='store_true')
+    parser.add_argument('--device', type=str, default='cuda', help='Device to use')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
@@ -231,6 +243,8 @@ if __name__ == '__main__':
         seed = misc.seed_hash(args.hparams_seed, args.trial_seed)
         hparams = hparams_registry.random_hparams(args.algorithm, args.perturbation, args.dataset, seed)
 
+    hparams['optimizer'] = args.optimizer
+    hparams['label_smoothing'] = args.label_smoothing
     print ('Hparams:')
     for k, v in sorted(hparams.items()):
         print(f'\t{k}: {v}')
