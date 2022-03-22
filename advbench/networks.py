@@ -14,6 +14,7 @@ import torch.nn as nn
 import torch.nn.init as init
 import torch.nn.functional as F
 import numpy as np
+import timm
 
 def Classifier(input_shape, num_classes, hparams):
 
@@ -23,7 +24,7 @@ def Classifier(input_shape, num_classes, hparams):
         elif hparams["model"] == "SteerableCNN_C16_D16":
             return E2SFCNN(1, num_classes)
         elif hparams["model"] == "SteerableMNISTnet":
-            return E2SFCNN(1, num_classes)
+            return SteerableMNISTnet(1, num_classes)
         elif hparams["model"] == "CnSteerableCNN-exp":
             net = CnSteerableCNN(num_classes)
             net.export()
@@ -103,23 +104,24 @@ class SteerableMNISTnet(torch.nn.Module):
         # convolution 1
         # first specify the output type of the convolutional layer
         # we choose 32 feature fields, each transforming under the regular representation of C8
-        out_type_1 = enn.FieldType(self.r2_act, 32*[self.r2_act.regular_repr])
+        out_type_1 = enn.FieldType(self.r2_act, channels[0]*[self.r2_act.regular_repr])
         self.block1 = enn.SequentialModule(
             enn.R2Conv(in_type, out_type_1, kernel_size=3, padding=1, bias=False),
             enn.ReLU(out_type_1, inplace=True)
         )
         in_type_2 = self.block1.out_type
         # the output type of the second convolution layer are 64 regular feature fields of C8
-        out_type_2 = enn.FieldType(self.r2_act, 64*[self.r2_act.regular_repr])
+        out_type_2 = enn.FieldType(self.r2_act, channels[1]*[self.r2_act.regular_repr])
         self.block2 = enn.SequentialModule(
             enn.R2Conv(in_type_2, out_type_2, kernel_size=3, padding=1, bias=False),
             enn.ReLU(out_type_2, inplace=True)
         )
         self.pool1 = enn.PointwiseMaxPool(out_type_2, 2)
+        print(self.pool1.shape)
         
         dim_out = 9216
-        if not control_width:
-            dim_out = dim_out*n_rot
+        #dim_out = dim_out*n_rot
+        print(dim_out)
         self.fc1 =  torch.nn.Sequential(
             nn.Dropout(0.25),
             nn.Linear(dim_out, 128),
@@ -127,7 +129,7 @@ class SteerableMNISTnet(torch.nn.Module):
         )
         self.fc2 =  torch.nn.Sequential(
             nn.Dropout(0.5),
-            nn.Linear(128, num_classes)     
+            nn.Linear(128, n_classes)     
         )
 
         self.model = enn.SequentialModule(self.block1, self.block2, self.pool1)

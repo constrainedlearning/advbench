@@ -7,15 +7,7 @@ import pandas as pd
 from numpy.random import binomial
 from torch.cuda.amp import GradScaler, autocast
 #from torchsummary import summary
-try:
-    raise ImportError
-    import ffcv
-    FFCV_AVAILABLE=True
-    print("*"*80)
-    print('FFCV available. Using Low precision operations. May result in numerical instability.')
-    print("*"*80)
-except ImportError:
-    FFCV_AVAILABLE=False
+from advbench.datasets import FFCV_AVAILABLE
 
 from advbench import attacks, networks, optimizers, perturbations
 from advbench.lib import meters
@@ -45,7 +37,7 @@ ALGORITHMS = [
 ]
 
 class Algorithm(nn.Module):
-    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf',label_smoothing=0):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
         super(Algorithm, self).__init__()
         self.hparams = hparams
         self.classifier = networks.Classifier(
@@ -68,7 +60,7 @@ class Algorithm(nn.Module):
         if FFCV_AVAILABLE:
             self.scaler = GradScaler()
         
-        self.label_smoothing = label_smoothing
+        self.label_smoothing = hparams['label_smoothing']
 
     def step(self, imgs, labels):
         raise NotImplementedError
@@ -102,7 +94,7 @@ class Algorithm(nn.Module):
 
 class ERM(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', label_smoothing=0):
-        super(ERM, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, label_smoothing=label_smoothing)
+        super(ERM, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
         self.attack = attacks.Rand_Aug(self.classifier, self.hparams, device, perturbation=perturbation)
     def step(self, imgs, labels):
         self.optimizer.zero_grad(set_to_none=True)
@@ -419,8 +411,8 @@ class Laplacian_DALE_PD_Reverse(PrimalDualBase):
             with autocast():
                 adv_imgs, deltas = self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = F.cross_entropy(self.predict(imgs), labels)
-                robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
+                clean_loss = F.cross_entropy(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+                robust_loss = F.cross_entropy(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
                 total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
                 self.scaler.scale(total_loss).backward()
                 self.scaler.step(self.optimizer)
@@ -428,8 +420,8 @@ class Laplacian_DALE_PD_Reverse(PrimalDualBase):
         else:
             adv_imgs, deltas =self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            clean_loss = F.cross_entropy(self.predict(imgs), labels)
-            robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
+            clean_loss = F.cross_entropy(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+            robust_loss = F.cross_entropy(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
             total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
             total_loss.backward()
             self.optimizer.step()
@@ -467,7 +459,7 @@ class MCMC_DALE_PD_Reverse(PrimalDualBase):
                 adv_imgs, deltas = self.attack(imgs, labels)
                 self.optimizer.zero_grad()
                 clean_loss = F.cross_entropy(self.predict(imgs), labels)
-                robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
+                robust_loss = F.cross_entropy(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
                 total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
                 self.scaler.scale(total_loss).backward()
                 self.scaler.step(self.optimizer)
@@ -514,7 +506,7 @@ class KL_DALE_PD(PrimalDualBase):
         else:
             adv_imgs, deltas =self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            clean_loss = F.cross_entropy(self.predict(imgs), labels)
+            clean_loss = F.cross_entropy(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
             robust_loss = self.kl_loss_fn(
                 F.log_softmax(self.predict(adv_imgs), dim=1),
                 F.softmax(self.predict(imgs), dim=1))
@@ -541,7 +533,7 @@ class Worst_Of_K(Algorithm):
                     adv_imgs, deltas =   self.attack(imgs, labels)
                 self.optimizer.zero_grad()
                 clean_loss = F.cross_entropy(self.predict(imgs), labels)
-                robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
+                robust_loss = F.cross_entropy(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
                 total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
                 self.scaler.scale(total_loss).backward()
                 self.scaler.step(self.optimizer)
@@ -594,7 +586,7 @@ class Augmentation(Algorithm):
                 else:
                     adv_imgs = imgs
                 self.optimizer.zero_grad()
-                loss = F.cross_entropy(self.predict(adv_imgs), labels)
+                loss = F.cross_entropy(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
                 self.scaler.scale(loss).backward()
                 self.scaler.step(self.optimizer)
                 self.scaler.update()

@@ -35,10 +35,9 @@ PD_ALGORITHMS = [
 ]
 
 def main(args, hparams, test_hparams):
-    if args.dataset=="IMNET" or args.dataset=="MNIST":
-        device = 'cuda:1'
-    else:
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    #if args.dataset=="IMNET" or args.dataset=="MNIST":
+    #device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = args.device
     print(f"Using {device}")
     hparams['model'] = args.model
     if args.perturbation=='SE':
@@ -54,7 +53,7 @@ def main(args, hparams, test_hparams):
     elif args.auto_augment_wo_translations:
         dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True, exclude_translations=True)
     else:
-        dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True)    
+        dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug)
     train_ldr, _, test_ldr = datasets.to_loaders(dataset, hparams)
     kw_args = {"perturbation": args.perturbation}
     if args.algorithm in PD_ALGORITHMS: 
@@ -123,10 +122,12 @@ def main(args, hparams, test_hparams):
                 print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
             timer.batch_end()
         # save clean accuracies on validation/test sets
+
         test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
         if wandb_log:
             wandb.log({'test_clean_acc': test_clean_acc, 'epoch': epoch, 'step':step})
         add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
+
         if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []
@@ -221,6 +222,7 @@ if __name__ == '__main__':
     parser.add_argument('--label_smoothing', type=float, default=0.0)
     parser.add_argument('--auto_augment', action='store_true')
     parser.add_argument('--auto_augment_wo_translations', action='store_true')
+    parser.add_argument('--device', type=str, default='cuda', help='Device to use')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)

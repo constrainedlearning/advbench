@@ -5,7 +5,7 @@ from advbench.lib.transformations import se_transform, translation
 from kornia.geometry.transform import crop_by_boxes
 from kornia.geometry.bbox import bbox_generator
 from einops import repeat
-from advbench.algorithms import FFCV_AVAILABLE
+from advbench.datasets import FFCV_AVAILABLE
 try:
     from libcpab import Cpab
 except:

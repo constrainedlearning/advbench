@@ -5,6 +5,7 @@ import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10 as CIFAR10_
 from torchvision.datasets import CIFAR100 as CIFAR100_
 from torchvision.datasets import MNIST as MNIST_
+from torchvision.datasets import ImageFolder
 try:
     raise ImportError
     from ffcv.fields import IntField, RGBImageField
@@ -14,6 +15,9 @@ try:
     from ffcv.transforms import RandomHorizontalFlip, Cutout, RandomTranslate, Convert, ToDevice, ToTensor, ToTorchImage
     from ffcv.transforms.common import Squeeze
     from ffcv.writer import DatasetWriter
+    print("*"*80)
+    print('FFCV available. Using Low precision operations. May result in numerical instability.')
+    print("*"*80)
     FFCV_AVAILABLE=True
 except ImportError:
     FFCV_AVAILABLE=False
@@ -293,7 +297,6 @@ else:
             self.ffcv=False
             if augmentation:
                 train_transforms = transforms.Compose([
-                    transforms.RandomCrop(32, padding=4),
                     transforms.RandomHorizontalFlip(),
                     transforms.ToTensor()])
             else:
@@ -538,7 +541,7 @@ class IMNET(AdvRobDataset):
 
         def __init__(self, root, augmentation=True):
             super(IMNET, self).__init__()
-
+            self.data_path = "~/chiche/imagenet1k/ILSVRC/Data/CLS-LOC/"
             self.ffcv=False
             train_transforms = create_transform(
             input_size=224,
@@ -556,11 +559,15 @@ class IMNET(AdvRobDataset):
             
             test_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize(MEAN['IMNET'], STD['IMNET'])])
             train_root = os.path.join(self.data_path, 'train' )
-            eval_root = os.path.join(self.data_path, 'val' )
-            train_data = datasets.ImageFolder(train_root, transform=train_transforms)
+            val_root = os.path.join(self.data_path, 'val' )
+            test_root = os.path.join(self.data_path, 'val' )
+            train_data = ImageFolder(train_root, transform=test_transforms)
+            for i in range(len(train_data)):
+                img, label = train_data[i]
+                print(img.shape)
             self.splits['train'] = train_data
-            self.splits['val'] = []
-            self.splits['test'] = datasets.ImageFolder(test_root, transform=test_transforms)
+            self.splits['val'] = ImageFolder(val_root, transform=test_transforms)
+            self.splits['test'] = ImageFolder(test_root, transform=test_transforms)
 
         @staticmethod
         def adjust_lr(optimizer, epoch, hparams):
