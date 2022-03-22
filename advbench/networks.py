@@ -7,6 +7,7 @@ from e2cnn import nn as enn
 from advbench.e2_utils import *
 from torch.nn.functional import pad
 from advbench.e2_networks import e2wrn
+from advbench.e2_mnist import E2SFCNN, E2SFCNN_QUOT
 from advbench.wrn import Wide_ResNet
 import torch
 import torch.nn as nn
@@ -19,11 +20,18 @@ def Classifier(input_shape, num_classes, hparams):
     if input_shape[0] == 1:
         if hparams["model"] == "CnSteerableCNN":
             return CnSteerableCNN(num_channels=1)
+        elif hparams["model"] == "SteerableCNN_C16_D16":
+            return E2SFCNN(1, num_classes)
+        elif hparams["model"] == "SteerableMNISTnet":
+            return E2SFCNN(1, num_classes)
+        elif hparams["model"] == "CnSteerableCNN-exp":
+            net = CnSteerableCNN(num_classes)
+            net.export()
+            return net
         else:
             print(f"input shape {input_shape}, num classes {num_classes}")
-            return MNISTNet(input_shape, num_classes)#CnSteerableCNN(num_classes)
+            return MNISTNet(input_shape, num_classes)
     elif input_shape[0] == 3:
-        # return models.resnet18(num_classes=num_classes)
         if hparams["model"] == "resnet18":
             return ResNet18(num_classes = num_classes)
         elif hparams["model"] == "steerable_resnet18":
@@ -37,6 +45,8 @@ def Classifier(input_shape, num_classes, hparams):
         elif hparams["model"] == "wrn-28-10":
             print("Using WRN-28-10")
             return wrn28_10(num_classes=num_classes)
+        elif hparams["model"] == "convnext-T":
+            return timm.create_model('convnext_tiny', pretrained=True)
         elif hparams["model"] == "CnSteerableCNN":
             return CnSteerableCNN(num_channels=3, num_classes = num_classes)
         else:
@@ -67,7 +77,88 @@ class MNISTNet(nn.Module):
         x = F.relu(x)
         x = self.dropout2(x)
         x = self.fc2(x)
-        return F.log_softmax(x, dim=1)    #TODO(AR): might need to remove softmax for KL div in TRADES
+        return x #F.log_softmax(x, dim=1)    
+
+class SteerableMNISTnet(torch.nn.Module):
+    
+    def __init__(self, n_classes=10, n_rot = 16, num_channels = 1, control_width = True):
+        
+        super(SteerableMNISTnet, self).__init__()
+        self.exported=False
+        channels = [32, 64]
+        if control_width:
+            channels = [int(c//n_rot) for c in channels]
+        # the model is equivariant under rotations by 360/n_rot degrees, modelled by Cn_rot
+        self.r2_act = gspaces.Rot2dOnR2(N=n_rot)
+        
+        # the input image is a scalars field, corresponding to the trivial representation
+        in_type = enn.FieldType(self.r2_act, [self.r2_act.trivial_repr]*num_channels)
+        
+        # we store the input type for wrapping the images into a geometric tensor during the forward pass
+        self.input_type = in_type
+        
+        # convolution 1
+        # first specify the output type of the convolutional layer
+        # we choose 32 feature fields, each transforming under the regular representation of C8
+        out_type_1 = enn.FieldType(self.r2_act, 32*[self.r2_act.regular_repr])
+        self.block1 = enn.SequentialModule(
+            enn.R2Conv(in_type, out_type_1, kernel_size=3, padding=1, bias=False),
+            enn.ReLU(out_type_1, inplace=True)
+        )
+        in_type_2 = self.block1.out_type
+        # the output type of the second convolution layer are 64 regular feature fields of C8
+        out_type_2 = enn.FieldType(self.r2_act, 64*[self.r2_act.regular_repr])
+        self.block2 = enn.SequentialModule(
+            enn.R2Conv(in_type_2, out_type_2, kernel_size=3, padding=1, bias=False),
+            enn.ReLU(out_type_2, inplace=True)
+        )
+        self.pool1 = enn.PointwiseMaxPool(out_type_2, 2)
+        
+        dim_out = 9216
+        if not control_width:
+            dim_out = dim_out*n_rot
+        self.fc1 =  torch.nn.Sequential(
+            nn.Dropout(0.25),
+            nn.Linear(dim_out, 128),
+            nn.ReLU(inplace=True),
+        )
+        self.fc2 =  torch.nn.Sequential(
+            nn.Dropout(0.5),
+            nn.Linear(128, num_classes)     
+        )
+
+        self.model = enn.SequentialModule(self.block1, self.block2, self.pool1)
+    
+    def forward(self, input: torch.Tensor):
+        # wrap the input tensor in a GeometricTensor
+        # (associate it with the input type)
+        if not self.exported:
+            #x = pad(input, (0,1,0,1))
+            x = enn.GeometricTensor(input, self.input_type)
+        else:
+            x = input
+
+        if not self.exported:
+            x = self.model(x)
+            # unwrap the output GeometricTensor
+            # (take the Pytorch tensor and discard the associated representation)
+            x = x.tensor
+        else:
+            x = self.exported_model(x)
+        
+        x = torch.flatten(x, 1)
+        x = self.fc1(x)
+        x = self.fc2(x)
+
+        return x
+
+    def export(self):
+        self.exported=True
+        self.exported_model = self.model.export().eval()
+    
+    def unexport(self):
+        self.exported=False
+
 
 """Resnet implementation is based on the implementation found in:
 https://github.com/YisenWang/MART/blob/master/resnet.py

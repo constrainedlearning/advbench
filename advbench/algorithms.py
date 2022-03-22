@@ -6,7 +6,9 @@ from collections import OrderedDict
 import pandas as pd
 from numpy.random import binomial
 from torch.cuda.amp import GradScaler, autocast
+#from torchsummary import summary
 try:
+    raise ImportError
     import ffcv
     FFCV_AVAILABLE=True
     print("*"*80)
@@ -43,13 +45,20 @@ ALGORITHMS = [
 ]
 
 class Algorithm(nn.Module):
-    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf',label_smoothing=0):
         super(Algorithm, self).__init__()
         self.hparams = hparams
         self.classifier = networks.Classifier(
             input_shape, num_classes, hparams)
-        self.optimizer = optimizers.Optimizer(
-            self.classifier, hparams)
+        #summary(self.classifier.to(device), input_size=input_shape)
+        if hparams['optimizer']=="SGD":
+            self.optimizer = optimizers.Optimizer(
+             self.classifier, hparams)
+        elif hparams['optimizer']=="SFCNN":
+            self.optimizer = optimizers.SFCNN_Optimizer(self.classifier, hparams)
+        else:
+            print("Optimizer not suported")
+            raise NotImplementedError
         self.device = device
         
         self.meters = OrderedDict()
@@ -58,6 +67,8 @@ class Algorithm(nn.Module):
         self.perturbation_name = perturbation
         if FFCV_AVAILABLE:
             self.scaler = GradScaler()
+        
+        self.label_smoothing = label_smoothing
 
     def step(self, imgs, labels):
         raise NotImplementedError
@@ -90,19 +101,19 @@ class Algorithm(nn.Module):
         pass
 
 class ERM(Algorithm):
-    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
-        super(ERM, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', label_smoothing=0):
+        super(ERM, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, label_smoothing=label_smoothing)
         self.attack = attacks.Rand_Aug(self.classifier, self.hparams, device, perturbation=perturbation)
     def step(self, imgs, labels):
         self.optimizer.zero_grad(set_to_none=True)
         if FFCV_AVAILABLE:
             with autocast():
-                loss = F.cross_entropy(self.predict(imgs), labels)
+                loss = F.cross_entropy(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
                 self.scaler.scale(loss).backward()
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
         else:
-            loss = F.cross_entropy(self.predict(imgs), labels)
+            loss = F.cross_entropy(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
             loss.backward()
         self.optimizer.step()
         

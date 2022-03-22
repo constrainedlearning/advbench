@@ -11,6 +11,7 @@ import torch
 import torch.nn.functional as F
 from torch.cuda.amp import autocast
 try:
+    raise ImportError
     import ffcv
     FFCV_AVAILABLE=True
 except ImportError:
