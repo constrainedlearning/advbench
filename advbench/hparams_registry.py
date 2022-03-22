@@ -25,8 +25,10 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         hparams[name] = (default_val, random_val_fn(random_state))
 
     # Unconditional hparam definitions.
-
-    _hparam('batch_size', 128, lambda r: int(2 ** r.uniform(3, 8)))
+    if dataset == 'IMNET' or dataset == 'MNIST':
+        _hparam('batch_size', 64, lambda r: int(2 ** r.uniform(3, 8)))
+    else:
+        _hparam('batch_size', 128, lambda r: int(2 ** r.uniform(3, 8)))
     _hparam('augmentation_prob', 1, lambda r: 1)
     _hparam('perturbation_batch_size', 10, lambda r: 10)
     _hparam('mcmc_dale_scale', 0.05, lambda r: 0.05)
@@ -38,6 +40,9 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     # optimization
     if dataset == 'MNIST':
         _hparam('learning_rate', 0.01, lambda r: 10 ** r.uniform(-1.5, -0.5))
+        _hparam('lr_decay_start', 15, lambda r: 15)
+        _hparam('lr_decay_factor', 0.8, lambda r: r.uniform(0.1, 0.3))
+        _hparam('lr_decay_epoch', 1, lambda r: 1)
     elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
         _hparam('learning_rate', 0.1, lambda r: 10 ** r.uniform(-2, -1))
     if dataset == 'CIFAR100':
@@ -272,16 +277,86 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
        
         # Grid Search
         _hparam('grid_size', 120, lambda r: 120)
+    elif perturbation=='Translation':
+        ##### Worst of K ######
+        _hparam('worst_of_k_steps', 10, lambda r:10)
+        _hparam('epsilon_tx', 3, lambda r:3)
+        _hparam('epsilon_ty', 3, lambda r:3)
+        ##### PGD #####
+        _hparam('pgd_n_steps', 20, lambda r: 20)
+        _hparam('pgd_step_size', 0.1, lambda r: 0.1)
+
+        ##### TRADES #####
+        _hparam('trades_n_steps', 15, lambda r: 15)
+        _hparam('trades_step_size', 2, lambda r: r.uniform(0.2, 2))
+        _hparam('trades_beta', 1.0, lambda r: r.uniform(0.1, 10.0))
+
+        ##### MART #####
+        _hparam('mart_beta', 5.0, lambda r: r.uniform(0.1, 10.0))
+
+        ##### Gaussian DALE #####
+        _hparam('g_dale_n_steps', 10, lambda r: 10)
+        _hparam('g_dale_step_size', 1, lambda r: 1)
+        _hparam('g_dale_noise_coeff', 1, lambda r: 10 ** r.uniform(-1.0, 1.0))
+        _hparam('g_dale_nu', 0.1, lambda r: 0.1)
+        _hparam('g_dale_eta', 0.0001, lambda r: 0.0001)
+
+        # DALE (Laplacian-HMC)
+        _hparam('l_dale_n_steps', 10, lambda r: 10)
+        _hparam('l_dale_step_size', 0.4, lambda r: 10 ** r.uniform(-2.0, -0.5))
+        _hparam('l_dale_noise_coeff', 0.02,lambda r: 10 ** r.uniform(-3.0, -1.5))
+        _hparam('l_dale_nu', 0.1, lambda r: 0.1)
+        _hparam('l_dale_eta', 0.001, lambda r: 0.001)
+
+        # DALE-PD (Gaussian-HMC)
+        _hparam('g_dale_pd_step_size', 2, lambda r: 2)
+        _hparam('g_dale_pd_eta', 0.0001, lambda r: 0.0001)
+        _hparam('g_dale_pd_margin', 0.16, lambda r: 0.16)
+
+        # DALE-PD-INV (Gaussian-HMC)
+        _hparam('g_dale_pd_inv_step_size', 0.4, lambda r: 10 ** r.uniform(-2.0, -0.5))
+        _hparam('g_dale_pd_inv_eta', 0.0001, lambda r: 0.0001)
+        _hparam('g_dale_pd_inv_margin', 0.2, lambda r: 0.2)
+
+        # DALE-PD-INV (Laplacian-HMC)
+        if dataset == 'MNIST':
+            _hparam('l_dale_pd_inv_step_size', 0.4, lambda r: 0.4)
+            _hparam('l_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
+            _hparam('l_dale_pd_inv_margin', 0.14, lambda r: 0.14)
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+            _hparam('l_dale_pd_inv_step_size', 0.4, lambda r: 0.4)
+            _hparam('l_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
+            _hparam('l_dale_pd_inv_margin', 0.08, lambda r: 0.08)
+        
+        # Discrete DALE-PD-INV
+        _hparam('d_num_translations', 3, lambda r: 3)
+        _hparam('d_num_rotations', 20, lambda r: 20)
+        if dataset == 'MNIST':
+            _hparam('d_dale_pd_inv_step_size', 0.05, lambda r: 0.05)
+            _hparam('d_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
+            _hparam('d_dale_pd_inv_margin', 0.14, lambda r: 0.14)
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+            _hparam('d_dale_pd_inv_step_size', 0.2, lambda r: 0.2)
+            _hparam('d_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
+            _hparam('d_dale_pd_inv_margin', 0.08, lambda r: 0.08)
+
+        # DALE NUTS
+        _hparam('n_dale_n_steps', 15, lambda r: 15)
+        _hparam('n_dale_step_size', 2, lambda r: 2)
+        _hparam('n_burn', 3, lambda r: 3)
+       
+        # Grid Search
+        _hparam('grid_size', 120, lambda r: 120)
 
     elif perturbation=='CPAB':
-        _hparam('tesselation', 10, lambda r:10)
+        _hparam('tesselation', 20, lambda r:20)
         _hparam('epsilon', 1.2, lambda r: 1.2)
 
         ##### Worst of K ######
         _hparam('worst_of_k_steps', 10, lambda r:10)
         
         ##### PGD #####
-        _hparam('pgd_n_steps', 10, lambda r: 5)
+        _hparam('pgd_n_steps', 10, lambda r: 10)
         _hparam('pgd_step_size', 1, lambda r: 1)
 
         ##### TRADES #####
@@ -293,14 +368,14 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('mart_beta', 5.0, lambda r: r.uniform(0.1, 10.0))
 
         ##### Gaussian DALE #####
-        _hparam('g_dale_n_steps', 10, lambda r: 5)
+        _hparam('g_dale_n_steps', 10, lambda r: 10)
         _hparam('g_dale_step_size', 1, lambda r: 1)
         _hparam('g_dale_noise_coeff', 1, lambda r: 10 ** r.uniform(-1.0, 1.0))
         _hparam('g_dale_nu', 0.1, lambda r: 0.1)
         _hparam('g_dale_eta', 0.0001, lambda r: 0.0001)
 
         # DALE (Laplacian-HMC)
-        _hparam('l_dale_n_steps', 10, lambda r: 5)
+        _hparam('l_dale_n_steps', 10, lambda r: 10)
         _hparam('l_dale_step_size', 0.05, lambda r: 10 ** r.uniform(-2.0, -0.5))
         _hparam('l_dale_noise_coeff', 0.02,lambda r: 10 ** r.uniform(-3.0, -1.5))
         _hparam('l_dale_nu', 0.1, lambda r: 0.1)
@@ -431,7 +506,12 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
 
         assert(name not in hparams)
         hparams[name] = default_val
-    _hparam('perturbation_batch_size', 100)
+    if dataset=="MNIST":
+        _hparam('perturbation_batch_size', 500)
+    if dataset=="CIFAR10" or dataset=="CIFAR100":
+        _hparam('perturbation_batch_size', 500)
+    if dataset=="IMNET":
+        _hparam('perturbation_batch_size', 20)
     _hparam('gaussian_attack_std', 0.5)
     _hparam('laplacian_attack_std', 0.5)
 
@@ -493,6 +573,42 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         
         # Grid Search
         _hparam('grid_size', 120)
+    
+    elif perturbation=='Translation':
+        ##### Worst of K ######
+        _hparam('worst_of_k_steps', 10)
+        _hparam('epsilon_tx', 4)
+        _hparam('epsilon_ty', 4)
+
+        ###### MCMC ###########
+        _hparam('mcmc_dale_scale', 0.2)
+        _hparam('mcmc_dale_n_steps', 10)
+        _hparam('mcmc_proposal', 'Laplace')
+        
+
+        ##### PGD #####
+        if dataset == 'MNIST':
+            _hparam('pgd_n_steps', 30)
+            _hparam('pgd_step_size', 0.5)
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+            _hparam('pgd_n_steps', 20)
+            _hparam('pgd_step_size', 0.2)
+
+        ##### TRADES #####
+        if dataset == 'MNIST':
+            _hparam('trades_n_steps', 40)
+            _hparam('trades_step_size', 5)
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+            _hparam('trades_n_steps', 40)
+            _hparam('trades_step_size', 5)
+        
+        # Grid Search
+        _hparam('grid_size', 120)
+        # DALE (Laplacian-HMC)
+        _hparam('l_dale_n_steps', 20)
+        _hparam('l_dale_step_size', 0.2)
+        _hparam('l_dale_noise_coeff', 0.2)
+        _hparam('l_dale_nu', 0.1)
 
     elif perturbation=='SE':
         ##### Worst of K ######
@@ -503,14 +619,14 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         _hparam('epsilon_ty', 3)
 
         ###### MCMC ###########
-        _hparam('mcmc_dale_scale', 0.2)
-        _hparam('mcmc_dale_n_steps', 10)
+        _hparam('mcmc_dale_scale', 0.5)
+        _hparam('mcmc_dale_n_steps', 40)
         _hparam('mcmc_proposal', 'Laplace')
         
 
         ##### PGD #####
         if dataset == 'MNIST':
-            _hparam('pgd_n_steps', 20)
+            _hparam('pgd_n_steps', 40)
             _hparam('pgd_step_size', 0.5)
         elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
             _hparam('pgd_n_steps', 10)
@@ -527,8 +643,8 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         # Grid Search
         _hparam('grid_size', 120)
         # DALE (Laplacian-HMC)
-        _hparam('l_dale_n_steps', 15)
-        _hparam('l_dale_step_size', 0.05)
+        _hparam('l_dale_n_steps', 40)
+        _hparam('l_dale_step_size', 0.5)
         _hparam('l_dale_noise_coeff', 0.05)
         _hparam('l_dale_nu', 0.1)
     
@@ -572,6 +688,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         _hparam('l_dale_step_size', 1)
         _hparam('l_dale_noise_coeff', 0.2)
         _hparam('l_dale_nu', 0.1)
+    
 
     elif perturbation == 'Crop' or perturbation == 'Crop_and_Flip':
         _hparam('epsilon', 4)

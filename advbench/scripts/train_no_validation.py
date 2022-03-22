@@ -8,6 +8,7 @@ import json
 import pandas as pd
 import time
 from humanfriendly import format_timespan
+torch.backends.cudnn.benchmark = True
 
 
 from advbench import datasets
@@ -34,12 +35,18 @@ PD_ALGORITHMS = [
 ]
 
 def main(args, hparams, test_hparams):
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    if args.dataset=="IMNET" or args.dataset=="MNIST":
+        device = 'cuda:1'
+    else:
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"Using {device}")
     hparams['model'] = args.model
     if args.perturbation=='SE':
         hparams['epsilon'] = torch.tensor([hparams[f'epsilon_{i}'] for i in ("rot","tx","ty")]).to(device)
         test_hparams['epsilon'] = torch.tensor([test_hparams[f'epsilon_{tfm}'] for tfm in ("rot","tx","ty")]).to(device)
+    elif args.perturbation=='Translation':
+        hparams['epsilon'] = torch.tensor([hparams[f'epsilon_{i}'] for i in ("tx","ty")]).to(device)
+        test_hparams['epsilon'] = torch.tensor([test_hparams[f'epsilon_{tfm}'] for tfm in ("tx","ty")]).to(device)
     aug = not((args.perturbation=='Crop_and_Flip' or args.perturbation=='Crop') and not args.algorithm=='ERM')
     print("Augmentation:", aug)
     dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug)
@@ -115,7 +122,7 @@ def main(args, hparams, test_hparams):
         if wandb_log:
             wandb.log({'test_clean_acc': test_clean_acc, 'epoch': epoch, 'step':step})
         add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
-        if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch >0) or epoch == dataset.N_EPOCHS-1:
+        if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():
@@ -204,7 +211,9 @@ if __name__ == '__main__':
     parser.add_argument('--trial_seed', type=int, default=0, help='Trial number')
     parser.add_argument('--seed', type=int, default=0, help='Seed for everything else')
     parser.add_argument('--model', type=str, default='resnet18', help='Model to use')
+    parser.add_argument('--optimizer', type=str, default='SGD', help='Optimizer to use')
     parser.add_argument('--log_imgs', action='store_true')
+    parser.add_argument('--label_smoothing', type=float, default=0.0)
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
@@ -225,6 +234,8 @@ if __name__ == '__main__':
         seed = misc.seed_hash(args.hparams_seed, args.trial_seed)
         hparams = hparams_registry.random_hparams(args.algorithm, args.perturbation, args.dataset, seed)
 
+    hparams['optimizer'] = args.optimizer
+    hparams['label_smoothing'] = args.label_smoothing
     print ('Hparams:')
     for k, v in sorted(hparams.items()):
         print(f'\t{k}: {v}')

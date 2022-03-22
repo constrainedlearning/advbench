@@ -18,16 +18,22 @@ try:
 except ImportError:
     FFCV_AVAILABLE=False
 
+from timm.data.constants import \
+    IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
+from timm.data import create_transform
+
 SPLITS = ['train', 'val', 'test']
 DATASETS = ['CIFAR10', 'MNIST']
 MEAN = {
     'CIFAR10': (0.4914, 0.4822, 0.4465),
     'CIFAR100': (0.5071, 0.4867, 0.4408),
+    'IMNET': IMAGENET_DEFAULT_MEAN,
 }
 
 STD = {
     'CIFAR10': (0.2023, 0.1994, 0.2010),
     'CIFAR100': (0.2675, 0.2565, 0.2761),
+    'IMNET': IMAGENET_DEFAULT_STD,
 }
 
 def to_loaders(all_datasets, hparams):
@@ -81,7 +87,7 @@ class AdvRobDataset(Dataset):
 
 if FFCV_AVAILABLE:
     class CIFAR10(AdvRobDataset):
-        ATTACK_INTERVAL = 100
+        ATTACK_INTERVAL = 200
         INPUT_SHAPE = (3, 32, 32)
         NUM_CLASSES = 10
         N_EPOCHS = 200
@@ -94,6 +100,11 @@ if FFCV_AVAILABLE:
         HAS_LR_SCHEDULE_DUAL = False
         HAS_LR_SCHEDULE = True
         HAS_LR_SCHEDULE_DUAL = True
+        MAX_DUAL_LR_FACTOR = 8
+        MAX_DUAL_LR_EPOCH = 120
+        MIN_DUAL_LR_EPOCH = 180
+        MIN_DUAL_LR_FACTOR = 0.01
+
 
         # test adversary parameters
         ADV_STEP_SIZE = 2/255.
@@ -110,7 +121,6 @@ if FFCV_AVAILABLE:
                 if split == 'train' and augmentation:
                     image_pipeline.extend([
                         RandomHorizontalFlip(),
-                        Cutout(4, tuple(map(int, CIFAR_MEAN))),
                     ])
                 image_pipeline.extend([
                     ToTensor(),
@@ -134,15 +144,11 @@ if FFCV_AVAILABLE:
         @staticmethod
         def adjust_lr_dual(pd_optimizer, epoch):
             lr = pd_optimizer.eta
-            if epoch == 20:
-                lr = lr * 1.5
-            if epoch == 40:
-                lr = lr * 2
-            if epoch == 80:
-                lr = lr * 2
-            if epoch == 150:
-                lr = lr * 5
-            pd_optimizer.eta = lr 
+            if epoch <= self.MAX_DUAL_LR_EPOCH:
+                lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
+            elif epoch <= self.MIN_LR_EPOCH:
+                lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
+
 
         @staticmethod
         def adjust_lr(optimizer, epoch, hparams):
@@ -174,13 +180,17 @@ if FFCV_AVAILABLE:
         NUM_CLASSES = 100
         N_EPOCHS = 200
         CHECKPOINT_FREQ = 10
-        LOG_INTERVAL = 50
-        LOSS_LANDSCAPE_INTERVAL = 100
+        LOG_INTERVAL = 100
+        LOSS_LANDSCAPE_INTERVAL = 200
         LOSS_LANDSCAPE_GSIZE = 1000
         ANGLE_GSIZE = 100
         LOSS_LANDSCAPE_BATCHES = 10
         HAS_LR_SCHEDULE = True
         HAS_LR_SCHEDULE_DUAL = True
+        MAX_DUAL_LR_FACTOR = 8
+        MAX_DUAL_LR_EPOCH = 120
+        MIN_DUAL_LR_EPOCH = 180
+        MIN_DUAL_LR_FACTOR = 0.01
 
         # test adversary parameters
         ADV_STEP_SIZE = 2/255.
@@ -196,7 +206,7 @@ if FFCV_AVAILABLE:
                 if split == 'train' and augmentation:
                     image_pipeline.extend([
                         RandomHorizontalFlip(),
-                        Cutout(4, tuple(map(int, MEAN['CIFAR100']))),
+                        #Cutout(4, tuple(map(int, MEAN['CIFAR100']))),
                     ])
                 image_pipeline.extend([
                     ToTensor(),
@@ -232,19 +242,13 @@ if FFCV_AVAILABLE:
             return
         
         @staticmethod
-        def adjust_lr_dual(pd_optimizer, epoch):
+        def adjust_lr_dual(self, pd_optimizer, epoch):
             lr = pd_optimizer.eta
-            if epoch == 20:
-                lr = lr * 1.5
-            if epoch == 40:
-                lr = lr * 2
-            if epoch == 80:
-                lr = lr * 2
-            if epoch == 130:
-                lr = lr / 10
-            if epoch == 180:
-                lr = lr / 10
-            pd_optimizer.eta = lr 
+            if epoch <= self.MAX_DUAL_LR_EPOCH:
+                lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
+            elif epoch <= self.MIN_LR_EPOCH:
+                lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
+            pd_optimizer.eta = lr
 
         def write(self):
                 folder = os.path.join('data','ffcv', 'CIFAR')
@@ -272,6 +276,10 @@ else:
         LOSS_LANDSCAPE_BATCHES = 10
         HAS_LR_SCHEDULE = True
         HAS_LR_SCHEDULE_DUAL = True
+        MAX_DUAL_LR_FACTOR = 8
+        MAX_DUAL_LR_EPOCH = 120
+        MIN_DUAL_LR_EPOCH = 180
+        MIN_DUAL_LR_FACTOR = 0.01
 
         # test adversary parameters
         ADV_STEP_SIZE = 2/255.
@@ -312,16 +320,12 @@ else:
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
         @staticmethod
-        def adjust_lr_dual(pd_optimizer, epoch):
+        def adjust_lr_dual(self, pd_optimizer, epoch):
             lr = pd_optimizer.eta
-            if epoch == 20:
-                lr = lr * 1.5
-            if epoch == 40:
-                lr = lr * 2
-            if epoch == 80:
-                lr = lr * 2
-            if epoch == 150:
-                lr = lr * 5
+            if epoch <= self.MAX_DUAL_LR_EPOCH:
+                lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
+            elif epoch <= self.MIN_LR_EPOCH:
+                lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
             pd_optimizer.eta = lr
     
     class CIFAR100(AdvRobDataset):
@@ -336,6 +340,10 @@ else:
         LOSS_LANDSCAPE_BATCHES = 10
         HAS_LR_SCHEDULE = True
         HAS_LR_SCHEDULE_DUAL = True
+        MAX_DUAL_LR_FACTOR = 8
+        MAX_DUAL_LR_EPOCH = 120
+        MIN_DUAL_LR_EPOCH = 180
+        MIN_DUAL_LR_FACTOR = 0.01
 
         # test adversary parameters
         ADV_STEP_SIZE = 2/255.
@@ -354,6 +362,7 @@ else:
                     transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
             else:
                 train_transforms = transforms.Compose([
+                    transforms.RandomHorizontalFlip(),
                     transforms.ToTensor(),
                     transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
             test_transforms = transforms.Compose([transforms.ToTensor(),
@@ -383,90 +392,20 @@ else:
             return
         
         @staticmethod
-        def adjust_lr_dual(pd_optimizer, epoch):
+        def adjust_lr_dual(self, pd_optimizer, epoch):
             lr = pd_optimizer.eta
-            if epoch == 20:
-                lr = lr * 1.5
-            if epoch == 40:
-                lr = lr * 2
-            if epoch == 80:
-                lr = lr * 2
-            if epoch == 130:
-                lr = lr / 10
-            if epoch == 180:
-                lr = lr / 10
-            pd_optimizer.eta = lr    
-
-class MNIST(AdvRobDataset):
-    INPUT_SHAPE = (1, 28, 28)
-    NUM_CLASSES = 10
-    N_EPOCHS = 100
-    CHECKPOINT_FREQ = 50
-    LOG_INTERVAL = 25
-    ATTACK_INTERVAL = 25
-    LOSS_LANDSCAPE_INTERVAL = 10
-    LOSS_LANDSCAPE_BATCHES = 40
-    HAS_LR_SCHEDULE = False
-    LOSS_LANDSCAPE_GSIZE = 1000#28000
-    ANGLE_GSIZE = 100
-    LOSS_LANDSCAPE_BATCHES = 10
-    HAS_LR_SCHEDULE_DUAL = True
-
-    # test adversary parameters
-    ADV_STEP_SIZE = 0.1
-    N_ADV_STEPS = 10
-
-    def __init__(self, root):
-        super(MNIST, self).__init__()
-        self.ffcv = False
-        
-        xforms = transforms.ToTensor()
-
-        train_data = MNIST_(root, train=True, transform=xforms,  download=True)
-        self.splits['train'] = train_data
-        # self.splits['train'] = Subset(train_data, range(60000))
-
-        train_data = MNIST_(root, train=True, transform=xforms)
-        self.splits['val'] = Subset(train_data, range(54000, 60000))
-
-        self.splits['test'] = MNIST_(root, train=False, transform=xforms)
-
-    @staticmethod
-    def adjust_lr(optimizer, epoch, hparams):
-
-        lr = hparams['learning_rate']
-        if epoch >= 55:
-            lr = hparams['learning_rate'] * 0.1
-        if epoch >= 75:
-            lr = hparams['learning_rate'] * 0.01
-        if epoch >= 90:
-            lr = hparams['learning_rate'] * 0.001
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
-    
-    @staticmethod
-    def adjust_lr_dual(pd_optimizer, epoch):
-        lr = pd_optimizer.eta
-        if epoch == 10:
-            lr = lr * 2
-        if epoch == 20:
-            lr = lr * 2
-        if epoch == 25:
-            lr = lr * 2
-        if epoch == 50:
-            lr = lr * 5
-        if epoch == 90:
-            lr = lr * 5
-        pd_optimizer.eta = lr
-  
-
+            if epoch <= self.MAX_DUAL_LR_EPOCH:
+                lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
+            elif epoch <= self.MIN_LR_EPOCH:
+                lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
+            pd_optimizer.eta = lr  
 class MNIST(AdvRobDataset):
     INPUT_SHAPE = (1, 28, 28)
     NUM_CLASSES = 10
     N_EPOCHS = 100
     CHECKPOINT_FREQ = 50
     LOG_INTERVAL = 100
-    ATTACK_INTERVAL = 10
+    ATTACK_INTERVAL = 100
     LOSS_LANDSCAPE_INTERVAL = 10
     LOSS_LANDSCAPE_BATCHES = 40
     HAS_LR_SCHEDULE = False
@@ -521,7 +460,124 @@ class MNIST(AdvRobDataset):
             lr = lr / 10
         pd_optimizer.eta = lr
 
+class MNISTe2(AdvRobDataset):
+    INPUT_SHAPE = (1, 28, 28)
+    NUM_CLASSES = 10
+    N_EPOCHS = 40
+    CHECKPOINT_FREQ = 50
+    LOG_INTERVAL = 100
+    ATTACK_INTERVAL = 40
+    LOSS_LANDSCAPE_INTERVAL = 40
+    LOSS_LANDSCAPE_BATCHES = 50
+    HAS_LR_SCHEDULE = False
+    LOSS_LANDSCAPE_GSIZE = 1000#28000
+    ANGLE_GSIZE = 100
+    LOSS_LANDSCAPE_BATCHES = 20
+    HAS_LR_SCHEDULE_DUAL = False
+
+    # test adversary parameters
+    ADV_STEP_SIZE = 0.1
+    N_ADV_STEPS = 10
+
+    def __init__(self, root, augmentation=False):
+        super(MNIST, self).__init__()
+        self.ffcv = False
+        
+        xforms = transforms.ToTensor()
+
+        train_data = MNIST_(root, train=True, transform=xforms,  download=True)
+        self.splits['train'] = train_data
+        # self.splits['train'] = Subset(train_data, range(60000))
+
+        train_data = MNIST_(root, train=True, transform=xforms)
+        self.splits['val'] = Subset(train_data, range(54000, 60000))
+
+        self.splits['test'] = MNIST_(root, train=False, transform=xforms)
+
+    @staticmethod
+    def adjust_lr(optimizer, epoch, hparams):
+        """
+        Decay initial learning rate exponentially starting after epoch_start epochs
+        The learning rate is multiplied with base_factor every lr_decay_epoch epochs
+        """
+        lr = hparams['learning_rate']
+        if epoch > hparams['lr_decay_start']:
+            lr = hparams['learning_rate'] * (hparams['lr_decay_factor'] ** ((epoch - hparams['lr_decay_start']) // hparams['lr_decay_epoch']))
+        print('learning rate = {:6f}'.format(lr))
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+        return
+
 class dataloader_attack(object):
     def __init__(self, attack):
         self.attack = attack
+
+class IMNET(AdvRobDataset):
+        INPUT_SHAPE = (3, 224, 224)
+        NUM_CLASSES = 1000
+        N_EPOCHS = 20
+        CHECKPOINT_FREQ = 10
+        LOG_INTERVAL = 50
+        LOSS_LANDSCAPE_INTERVAL = 100
+        LOSS_LANDSCAPE_GSIZE = 1000
+        ANGLE_GSIZE = 100
+        LOSS_LANDSCAPE_BATCHES = 10
+        HAS_LR_SCHEDULE = True
+        HAS_LR_SCHEDULE_DUAL = True
+        MAX_DUAL_LR_FACTOR = 8
+        MAX_DUAL_LR_EPOCH = 120
+        MIN_DUAL_LR_EPOCH = 180
+        MIN_DUAL_LR_FACTOR = 0.01
+
+        # test adversary parameters
+        ADV_STEP_SIZE = 2/255.
+        N_ADV_STEPS = 10
+
+        def __init__(self, root, augmentation=True):
+            super(CIFAR100, self).__init__()
+
+            self.ffcv=False
+            train_transforms = create_transform(
+            input_size=224,
+            is_training=True,
+            color_jitter=0.4,
+            auto_augment='rand-m9-mstd0.5-inc1',
+            interpolation=args.train_interpolation,
+            re_prob=0.25,
+            re_mode='pixel',
+            re_count=1,
+            mean=MEAN['IMNET'],
+            std=STD['IMNET'])
+            if augmentation:
+                train_transforms.transforms[0] = transforms.RandomCrop(224, padding=4)
+            
+            test_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize(MEAN['IMNET'], STD['IMNET'])])
+            train_root = os.path.join(self.data_path, 'train' )
+            eval_root = os.path.join(self.data_path, 'val' )
+            train_data = datasets.ImageFolder(train_root, transform=train_transforms)
+            self.splits['train'] = train_data
+            self.splits['val'] = []
+            self.splits['test'] = datasets.ImageFolder(test_root, transform=test_transforms)
+
+        @staticmethod
+        def adjust_lr(optimizer, epoch, hparams):
+            """
+            Decay initial learning rate exponentially starting after epoch_start epochs
+            The learning rate is multiplied with base_factor every lr_decay_epoch epochs
+            """
+            lr = hparams['learning_rate']
+            if epoch > hparams['lr_decay_start']:
+                lr = hparams['learning_rate'] * (hparams['lr_decay_factor'] ** ((epoch - hparams['lr_decay_start']) // hparams['lr_decay_epoch']))
+            print('learning rate = {:6f}'.format(lr))
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr
+            return
         
+        @staticmethod
+        def adjust_lr_dual(self, pd_optimizer, epoch):
+            lr = pd_optimizer.eta
+            if epoch <= self.MAX_DUAL_LR_EPOCH:
+                lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
+            elif epoch <= self.MIN_LR_EPOCH:
+                lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
+            pd_optimizer.eta = lr

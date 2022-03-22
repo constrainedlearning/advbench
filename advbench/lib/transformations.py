@@ -1,7 +1,8 @@
 import torch
 from numpy import pi
 from einops import rearrange, reduce, repeat
-from kornia.geometry import warp_affine
+from kornia.geometry import warp_affine 
+from kornia.geometry.transform import Affine
 import functools
 import math
 
@@ -53,7 +54,7 @@ def se_matrix(delta, imgs):
   return (rotat_m@trans_m)[:,:2,:]
 
 def txs_to_translation_matrix(txs):
-    """Create a translation matrix out of angles in pixels.
+    """Create a translation matrix out of translations in pixels.
 
     Args:
         txs: tensor of  translations in pixels,  shape Bx2
@@ -66,6 +67,13 @@ def txs_to_translation_matrix(txs):
 
 def se_transform(imgs, delta):
     return warp_affine(imgs, se_matrix(delta, imgs).to(imgs.device).to(imgs.dtype), imgs.shape[2:]) 
+
+def translation(imgs, delta):
+  """
+  delta: Bx3 ( flip, w translation, h traslation)
+  returns se: Bx2x3
+  """
+  return Affine(translation = delta.to(imgs.device).to(imgs.dtype))(imgs)
 
 ######### DIFFEO FREQUENCY ##############
 # From https://github.com/pcsl-epfl/diffeomorphism/blob/main/diff.py
