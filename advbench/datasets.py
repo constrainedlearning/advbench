@@ -5,6 +5,7 @@ import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10 as CIFAR10_
 from torchvision.datasets import CIFAR100 as CIFAR100_
 from torchvision.datasets import MNIST as MNIST_
+from torchvision.datasets import ImageFolder
 try:
     raise ImportError
     from ffcv.fields import IntField, RGBImageField
@@ -534,15 +535,15 @@ class IMNET(AdvRobDataset):
         N_ADV_STEPS = 10
 
         def __init__(self, root, augmentation=True):
-            super(CIFAR100, self).__init__()
-
+            super(IMNET, self).__init__()
+            self.data_path = "~/chiche/imagenet1k/ILSVRC/Data/CLS-LOC/"
             self.ffcv=False
             train_transforms = create_transform(
             input_size=224,
             is_training=True,
             color_jitter=0.4,
             auto_augment='rand-m9-mstd0.5-inc1',
-            interpolation=args.train_interpolation,
+            interpolation="bicubic",
             re_prob=0.25,
             re_mode='pixel',
             re_count=1,
@@ -553,11 +554,12 @@ class IMNET(AdvRobDataset):
             
             test_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize(MEAN['IMNET'], STD['IMNET'])])
             train_root = os.path.join(self.data_path, 'train' )
-            eval_root = os.path.join(self.data_path, 'val' )
-            train_data = datasets.ImageFolder(train_root, transform=train_transforms)
+            val_root = os.path.join(self.data_path, 'train' )
+            test_root = os.path.join(self.data_path, 'train' )
+            train_data = ImageFolder(train_root, transform=train_transforms)
             self.splits['train'] = train_data
-            self.splits['val'] = []
-            self.splits['test'] = datasets.ImageFolder(test_root, transform=test_transforms)
+            self.splits['val'] = ImageFolder(val_root, transform=test_transforms)
+            self.splits['test'] = ImageFolder(test_root, transform=test_transforms)
 
         @staticmethod
         def adjust_lr(optimizer, epoch, hparams):

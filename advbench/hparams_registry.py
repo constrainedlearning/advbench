@@ -25,7 +25,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         hparams[name] = (default_val, random_val_fn(random_state))
 
     # Unconditional hparam definitions.
-    if dataset == 'IMNET' or dataset == 'MNIST':
+    if dataset == 'IMNET':
         _hparam('batch_size', 64, lambda r: int(2 ** r.uniform(3, 8)))
     else:
         _hparam('batch_size', 128, lambda r: int(2 ** r.uniform(3, 8)))
@@ -36,6 +36,12 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     _hparam('mcmc_proposal', 'Laplace', lambda r: 'Laplace')
     _hparam('gaussian_attack_std', 1, lambda r: 1 )
     _hparam('laplacian_attack_std', 1, lambda r: 1 )
+
+    if dataset == 'IMNET':
+        _hparam('label_smoothing', 0.1, lambda r: 0.1 )
+    else:
+        _hparam('label_smoothing', 0.0, lambda r: 0.0)
+
 
     # optimization
     if dataset == 'MNIST':
@@ -49,6 +55,11 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('lr_decay_start', 0, lambda r: 0)
         _hparam('lr_decay_factor', 0.2, lambda r: r.uniform(0.1, 0.3))
         _hparam('lr_decay_epoch', 60, lambda r: 60)
+    if dataset == 'IMNET':
+        _hparam('learning_rate', 0.01, lambda r: 10 ** r.uniform(-1.5, -0.5))
+        _hparam('lr_decay_start', 0, lambda r: 0)
+        _hparam('lr_decay_factor', 0.8, lambda r: r.uniform(0.1, 0.3))
+        _hparam('lr_decay_epoch', 1, lambda r: 1)
     _hparam('sgd_momentum', 0.9, lambda r: r.uniform(0.8, 0.95))
     _hparam('weight_decay', 5e-4, lambda r: 10 ** r.uniform(-6, -3))
     if perturbation == 'Linf':

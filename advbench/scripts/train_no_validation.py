@@ -35,10 +35,8 @@ PD_ALGORITHMS = [
 ]
 
 def main(args, hparams, test_hparams):
-    if args.dataset=="IMNET" or args.dataset=="MNIST":
-        device = 'cuda:1'
-    else:
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    #if args.dataset=="IMNET" or args.dataset=="MNIST":
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"Using {device}")
     hparams['model'] = args.model
     if args.perturbation=='SE':

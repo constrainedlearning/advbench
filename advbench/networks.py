@@ -14,6 +14,7 @@ import torch.nn as nn
 import torch.nn.init as init
 import torch.nn.functional as F
 import numpy as np
+import timm
 
 def Classifier(input_shape, num_classes, hparams):
 
