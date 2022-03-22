@@ -49,7 +49,10 @@ def main(args, hparams, test_hparams):
         test_hparams['epsilon'] = torch.tensor([test_hparams[f'epsilon_{tfm}'] for tfm in ("tx","ty")]).to(device)
     aug = not((args.perturbation=='Crop_and_Flip' or args.perturbation=='Crop') and not args.algorithm=='ERM')
     print("Augmentation:", aug)
-    dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug)
+    if args.auto_augment:
+        dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True)
+    elif args.auto_augment_wo_translations:
+        dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True, exclude_translations=True)
     train_ldr, _, test_ldr = datasets.to_loaders(dataset, hparams)
     kw_args = {"perturbation": args.perturbation}
     if args.algorithm in PD_ALGORITHMS: 
@@ -214,6 +217,8 @@ if __name__ == '__main__':
     parser.add_argument('--optimizer', type=str, default='SGD', help='Optimizer to use')
     parser.add_argument('--log_imgs', action='store_true')
     parser.add_argument('--label_smoothing', type=float, default=0.0)
+    parser.add_argument('--auto_augment', action='store_true')
+    parser.add_argument('--auto_augment_wo_translations', action='store_true')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)

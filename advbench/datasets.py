@@ -22,6 +22,8 @@ from timm.data.constants import \
     IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.data import create_transform
 
+from advbench.lib.AutoAugment.autoaugment import CIFAR10Policy
+
 SPLITS = ['train', 'val', 'test']
 DATASETS = ['CIFAR10', 'MNIST']
 MEAN = {
@@ -80,7 +82,7 @@ class AdvRobDataset(Dataset):
     LOSS_LANDSCAPE_BATCHES = None # Subclasses should override
     HAS_LR_SCHEDULE = False  # Default, subclass may override
     HAS_LR_SCHEDULE_DUAL = False # Default, subclass may override
-    TRANSLATIONS = [-3, 0, 3]
+    TRANSLATIONS = [-3, 0, 3] # Default, for plotting purposes only, subclass may override
 
     def __init__(self):
         self.splits = dict.fromkeys(SPLITS)
@@ -349,22 +351,26 @@ else:
         ADV_STEP_SIZE = 2/255.
         N_ADV_STEPS = 20
 
-        def __init__(self, root, augmentation=True):
+        def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=False):
             super(CIFAR100, self).__init__()
 
             self.ffcv=False
-            
+            tfs = []
+
             if augmentation:
-                train_transforms = transforms.Compose([
-                    transforms.RandomCrop(32, padding=4),
-                    transforms.RandomHorizontalFlip(),
+                tfs+= [transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip()]
+            
+            if auto_augment:
+                tfs += [CIFAR10Policy(exclude_translations = exclude_translations)]
+            
+            tfs += [transforms.RandomHorizontalFlip(),
                     transforms.ToTensor(),
-                    transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
-            else:
-                train_transforms = transforms.Compose([
-                    transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor(),
-                    transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
+                    transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])]
+
+            if auto_augment or cutout:
+                tfs += [transforms.RandomErasing(p=0.5, scale=(0.5, 0.5), ratio=(1, 1))]
+
+            train_transforms = transforms.Compose(tfs)
             test_transforms = transforms.Compose([transforms.ToTensor(),
                                                     transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
 
@@ -398,7 +404,8 @@ else:
                 lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
             elif epoch <= self.MIN_LR_EPOCH:
                 lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
-            pd_optimizer.eta = lr  
+            pd_optimizer.eta = lr 
+
 class MNIST(AdvRobDataset):
     INPUT_SHAPE = (1, 28, 28)
     NUM_CLASSES = 10
@@ -508,9 +515,6 @@ class MNISTe2(AdvRobDataset):
             param_group['lr'] = lr
         return
 
-class dataloader_attack(object):
-    def __init__(self, attack):
-        self.attack = attack
 
 class IMNET(AdvRobDataset):
         INPUT_SHAPE = (3, 224, 224)
@@ -534,7 +538,7 @@ class IMNET(AdvRobDataset):
         N_ADV_STEPS = 10
 
         def __init__(self, root, augmentation=True):
-            super(CIFAR100, self).__init__()
+            super(IMNET, self).__init__()
 
             self.ffcv=False
             train_transforms = create_transform(
