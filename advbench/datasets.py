@@ -355,16 +355,15 @@ else:
             super(CIFAR100, self).__init__()
 
             self.ffcv=False
-            tfs = []
+            tfs = [transforms.RandomHorizontalFlip()]
 
-            if augmentation:
-                tfs+= [transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip()]
+            if augmentation and not exclude_translations:
+                tfs+= [transforms.RandomCrop(32, padding=4)]
             
             if auto_augment:
                 tfs += [CIFAR10Policy(exclude_translations = exclude_translations)]
             
-            tfs += [transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor(),
+            tfs += [transforms.ToTensor(),
                     transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])]
 
             if auto_augment or cutout:
@@ -546,7 +545,7 @@ class IMNET(AdvRobDataset):
             is_training=True,
             color_jitter=0.4,
             auto_augment='rand-m9-mstd0.5-inc1',
-            interpolation=args.train_interpolation,
+            interpolation="bicubic",
             re_prob=0.25,
             re_mode='pixel',
             re_count=1,
