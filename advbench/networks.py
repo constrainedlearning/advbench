@@ -40,6 +40,9 @@ def Classifier(input_shape, num_classes, hparams):
         elif hparams["model"] == "wrn-28-7-rot":
             print("Using e2 invariant WRN-28-7")
             return e2wrn(depth=28, widen_factor = 7, num_classes=num_classes, r=3)
+        elif hparams["model"] == "wrn-28-7-rot-d8":
+            print("Using e2 invariant WRN-28-7")
+            return e2wrn(depth=28, widen_factor = 7, num_classes=num_classes, r=-1)
         elif hparams["model"] == "wrn-28-10-rot":
             print("Using e2 invariant WRN-28-10")
             return e2wrn(depth=28, widen_factor = 10, num_classes=num_classes, r=3)
