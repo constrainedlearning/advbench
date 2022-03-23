@@ -29,7 +29,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('batch_size', 64, lambda r: int(2 ** r.uniform(3, 8)))
     else:
         _hparam('batch_size', 128, lambda r: int(2 ** r.uniform(3, 8)))
-    _hparam('augmentation_prob', 1, lambda r: 1)
+    _hparam('augmentation_prob', 0.5, lambda r: 0.5)
     _hparam('perturbation_batch_size', 10, lambda r: 10)
     _hparam('mcmc_dale_scale', 0.05, lambda r: 0.05)
     _hparam('mcmc_dale_n_steps', 5, lambda r: 5)
@@ -333,7 +333,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         if dataset == 'MNIST':
             _hparam('l_dale_pd_inv_step_size', 0.4, lambda r: 0.4)
             _hparam('l_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
-            _hparam('l_dale_pd_inv_margin', 0.14, lambda r: 0.14)
+            _hparam('l_dale_pd_inv_margin', 0.03, lambda r: 0.03)
         elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
             _hparam('l_dale_pd_inv_step_size', 0.4, lambda r: 0.4)
             _hparam('l_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
@@ -518,9 +518,9 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         assert(name not in hparams)
         hparams[name] = default_val
     if dataset=="MNIST":
-        _hparam('perturbation_batch_size', 500)
+        _hparam('perturbation_batch_size', 10)
     if dataset=="CIFAR10" or dataset=="CIFAR100":
-        _hparam('perturbation_batch_size', 500)
+        _hparam('perturbation_batch_size', 10)
     if dataset=="IMNET":
         _hparam('perturbation_batch_size', 20)
     _hparam('gaussian_attack_std', 0.5)
