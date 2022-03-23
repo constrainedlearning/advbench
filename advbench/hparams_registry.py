@@ -291,8 +291,8 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     elif perturbation=='Translation':
         ##### Worst of K ######
         _hparam('worst_of_k_steps', 10, lambda r:10)
-        _hparam('epsilon_tx', 3, lambda r:3)
-        _hparam('epsilon_ty', 3, lambda r:3)
+        _hparam('epsilon_tx', 3, lambda r:4)
+        _hparam('epsilon_ty', 3, lambda r:4)
         ##### PGD #####
         _hparam('pgd_n_steps', 20, lambda r: 20)
         _hparam('pgd_step_size', 0.1, lambda r: 0.1)

@@ -17,7 +17,7 @@ import numpy as np
 import timm
 
 def Classifier(input_shape, num_classes, hparams):
-
+    print("model", hparams["model"])
     if input_shape[0] == 1:
         if hparams["model"] == "CnSteerableCNN":
             return CnSteerableCNN(num_channels=1)
@@ -25,13 +25,19 @@ def Classifier(input_shape, num_classes, hparams):
             return E2SFCNN(1, num_classes)
         elif hparams["model"] == "SteerableMNISTnet":
             return SteerableMNISTnet(1, num_classes)
+        elif hparams["model"] == "SteerableMNISTnet-exp":
+            net =  SteerableMNISTnet(1, num_classes)
+            net.export()
+            return net
         elif hparams["model"] == "CnSteerableCNN-exp":
             net = CnSteerableCNN(num_classes)
             net.export()
             return net
-        else:
+        elif hparams["model"] == "MNISTnet":
             print(f"input shape {input_shape}, num classes {num_classes}")
             return MNISTNet(input_shape, num_classes)
+        else:
+            raise NotImplementedError
     elif input_shape[0] == 3:
         if hparams["model"] == "resnet18":
             return ResNet18(num_classes = num_classes)
@@ -84,14 +90,12 @@ class MNISTNet(nn.Module):
         return x #F.log_softmax(x, dim=1)    
 
 class SteerableMNISTnet(torch.nn.Module):
-    
-    def __init__(self, n_classes=10, n_rot = 16, num_channels = 1, control_width = True):
-        
+    def __init__(self, n_classes=10, n_rot = 8, num_channels = 1, control_width = True):
         super(SteerableMNISTnet, self).__init__()
         self.exported=False
         channels = [32, 64]
         if control_width:
-            channels = [int(c//n_rot) for c in channels]
+            channels = [int(c//(n_rot)) for c in channels]
         # the model is equivariant under rotations by 360/n_rot degrees, modelled by Cn_rot
         self.r2_act = gspaces.Rot2dOnR2(N=n_rot)
         
@@ -117,14 +121,10 @@ class SteerableMNISTnet(torch.nn.Module):
             enn.ReLU(out_type_2, inplace=True)
         )
         self.pool1 = enn.PointwiseMaxPool(out_type_2, 2)
-        print(self.pool1.shape)
-        
-        dim_out = 9216
-        #dim_out = dim_out*n_rot
-        print(dim_out)
+        out_type_size = self.pool1.out_type.size
         self.fc1 =  torch.nn.Sequential(
             nn.Dropout(0.25),
-            nn.Linear(dim_out, 128),
+            nn.Linear(out_type_size*196, 128),
             nn.ReLU(inplace=True),
         )
         self.fc2 =  torch.nn.Sequential(
