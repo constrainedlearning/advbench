@@ -24,9 +24,9 @@ def Classifier(input_shape, num_classes, hparams):
         elif hparams["model"] == "SteerableCNN_C16_D16":
             return E2SFCNN(1, num_classes)
         elif hparams["model"] == "SteerableMNISTnet":
-            return SteerableMNISTnet(1, num_classes)
+            return SteerableMNISTnet(n_classes = num_classes, num_channels = 1)
         elif hparams["model"] == "SteerableMNISTnet-exp":
-            net =  SteerableMNISTnet(1, num_classes)
+            net =  SteerableMNISTnet(n_classes = num_classes, num_channels = 1)
             net.export()
             return net
         elif hparams["model"] == "CnSteerableCNN-exp":
