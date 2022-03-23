@@ -17,7 +17,7 @@ from advbench import attacks
 from advbench import hparams_registry
 from advbench.lib import misc, meters, plotting, logging
 from torch.cuda.amp import autocast
-
+from torchsummary import summary
 try:
     import wandb
     wandb_log=True
@@ -70,6 +70,8 @@ def main(args, hparams, test_hparams):
     adjust_lr = None if dataset.HAS_LR_SCHEDULE is False else dataset.adjust_lr
 
     adjust_lr_dual = None if dataset.HAS_LR_SCHEDULE_DUAL is False or not (args.algorithm in PD_ALGORITHMS) else dataset.adjust_lr_dual
+
+    summary(algorithm.classifier, input_size=dataset.INPUT_SHAPE)
 
     test_attacks = {
         a: vars(attacks)[a](algorithm.classifier, test_hparams, device, perturbation=args.perturbation) for a in args.test_attacks}
