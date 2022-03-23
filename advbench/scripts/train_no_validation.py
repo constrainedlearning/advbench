@@ -46,7 +46,7 @@ def main(args, hparams, test_hparams):
     elif args.perturbation=='Translation':
         hparams['epsilon'] = torch.tensor([hparams[f'epsilon_{i}'] for i in ("tx","ty")]).to(device)
         test_hparams['epsilon'] = torch.tensor([test_hparams[f'epsilon_{tfm}'] for tfm in ("tx","ty")]).to(device)
-    aug = not((args.perturbation=='Crop_and_Flip' or args.perturbation=='Crop') and not args.algorithm=='ERM')
+    aug = not((args.perturbation=='Crop_and_Flip' or args.perturbation=='Crop' or args.perturbation=='Translation') and not args.algorithm=='ERM')
     print("Augmentation:", aug)
     if args.auto_augment:
         dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True)
@@ -122,10 +122,12 @@ def main(args, hparams, test_hparams):
                 print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
             timer.batch_end()
         # save clean accuracies on validation/test sets
+
         test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
         if wandb_log:
             wandb.log({'test_clean_acc': test_clean_acc, 'epoch': epoch, 'step':step})
         add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
+
         if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []

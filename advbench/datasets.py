@@ -15,6 +15,9 @@ try:
     from ffcv.transforms import RandomHorizontalFlip, Cutout, RandomTranslate, Convert, ToDevice, ToTensor, ToTorchImage
     from ffcv.transforms.common import Squeeze
     from ffcv.writer import DatasetWriter
+    print("*"*80)
+    print('FFCV available. Using Low precision operations. May result in numerical instability.')
+    print("*"*80)
     FFCV_AVAILABLE=True
 except ImportError:
     FFCV_AVAILABLE=False
@@ -294,7 +297,6 @@ else:
             self.ffcv=False
             if augmentation:
                 train_transforms = transforms.Compose([
-                    transforms.RandomCrop(32, padding=4),
                     transforms.RandomHorizontalFlip(),
                     transforms.ToTensor()])
             else:
