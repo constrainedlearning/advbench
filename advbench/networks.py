@@ -1,4 +1,3 @@
-from re import S
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,14 +9,27 @@ from advbench.e2_networks import e2wrn
 from advbench.e2_mnist import E2SFCNN, E2SFCNN_QUOT
 from advbench.wrn import Wide_ResNet
 import torch
-import torch.nn as nn
 import torch.nn.init as init
-import torch.nn.functional as F
 import numpy as np
-import timm
+from advbench.lib.pointMLP.models.pointmlp import pointMLP, pointMLPElite
+from advbench.lib.pointMLP.utils import cal_loss
 
-def Classifier(input_shape, num_classes, hparams):
+def Classifier(input_shape, num_classes, hparams, loss=F.cross_entropy):
+    model = create_model(input_shape, num_classes, hparams)
+    if hparams["model"] in ["pointmlp", "pointmlp_elite"]:
+        loss = cal_loss
+    else:
+        loss = F.cross_entropy
+    return ModelWrapper(model, loss)
+
+def create_model(input_shape, num_classes, hparams):
     print("model", hparams["model"])
+    if hparams["model"] == "pointmlp":
+        model =  pointMLP()
+        return model
+    elif hparams["model"] == "pointmlp_elite":
+        model = pointMLPElite()
+        return model
     if input_shape[0] == 1:
         if hparams["model"] == "CnSteerableCNN":
             return CnSteerableCNN(num_channels=1)
@@ -37,7 +49,7 @@ def Classifier(input_shape, num_classes, hparams):
             print(f"input shape {input_shape}, num classes {num_classes}")
             return MNISTNet(input_shape, num_classes)
         else:
-            raise NotImplementedError
+            raise Exception("Unknown model: {}".format(hparams["model"]))
     elif input_shape[0] == 3:
         if hparams["model"] == "resnet18":
             return ResNet18(num_classes = num_classes)
@@ -55,15 +67,29 @@ def Classifier(input_shape, num_classes, hparams):
         elif hparams["model"] == "wrn-28-10":
             print("Using WRN-28-10")
             return wrn28_10(num_classes=num_classes)
-        elif hparams["model"] == "convnext-T":
-            return timm.create_model('convnext_tiny', pretrained=True)
+        #elif hparams["model"] == "convnext-T":
+            #return 0 timm.create_model('convnext_tiny', pretrained=True)
         elif hparams["model"] == "CnSteerableCNN":
             return CnSteerableCNN(num_channels=3, num_classes = num_classes)
         else:
             raise Exception("Unknown model: {}".format(hparams["model"]))
     else:
-        assert False
+        raise Exception("Unsupported input shape: {}".format(input_shape))
 
+class ModelWrapper(nn.Module):
+    def __init__(self, model, loss):
+        super(ModelWrapper, self).__init__()
+        self.model = model
+        self.loss = loss
+
+    def forward(self, x):
+        return self.model(x)
+
+    def export(self):
+        self.model.export()
+    
+    def unexport(self):
+        self.model.unexport()
 
 class MNISTNet(nn.Module):
     def __init__(self, input_shape, num_classes):

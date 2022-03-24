@@ -10,7 +10,7 @@ import time
 from humanfriendly import format_timespan
 torch.backends.cudnn.benchmark = True
 
-
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from advbench import datasets
 from advbench import algorithms
 from advbench import attacks
@@ -43,9 +43,12 @@ def main(args, hparams, test_hparams):
     if args.perturbation=='SE':
         hparams['epsilon'] = torch.tensor([hparams[f'epsilon_{i}'] for i in ("rot","tx","ty")]).to(device)
         test_hparams['epsilon'] = torch.tensor([test_hparams[f'epsilon_{tfm}'] for tfm in ("rot","tx","ty")]).to(device)
-    elif args.perturbation=='Translation':
+    elif args.perturbation =='Translation':
         hparams['epsilon'] = torch.tensor([hparams[f'epsilon_{i}'] for i in ("tx","ty")]).to(device)
         test_hparams['epsilon'] = torch.tensor([test_hparams[f'epsilon_{tfm}'] for tfm in ("tx","ty")]).to(device)
+    elif args.perturbation =='PointcloudTranslation':
+        hparams['epsilon'] = torch.tensor([hparams['epsilon_tx'] for i in range(3)] + [hparams['epsilon_ty'] for i in range(3)]).to(device)
+        test_hparams['epsilon'] = torch.tensor([test_hparams['epsilon_tx'] for i in range(3)] + [test_hparams['epsilon_ty'] for i in range(3)]).to(device)
     aug = not((args.perturbation=='Crop_and_Flip' or args.perturbation=='Crop' or args.perturbation=='Translation') and not args.algorithm=='ERM')
     print("Augmentation:", aug)
     if args.auto_augment:
@@ -67,11 +70,11 @@ def main(args, hparams, test_hparams):
         hparams,
         device,
         **kw_args).to(device)
-    adjust_lr = None if dataset.HAS_LR_SCHEDULE is False else dataset.adjust_lr
+    adjust_lr = CosineAnnealingLR(algorithm.optimizer, dataset.N_EPOCHS, eta_min=dataset.MIN_LR, last_epoch=dataset.START_EPOCH - 1)
 
     adjust_lr_dual = None if dataset.HAS_LR_SCHEDULE_DUAL is False or not (args.algorithm in PD_ALGORITHMS) else dataset.adjust_lr_dual
 
-    summary(algorithm.classifier, input_size=dataset.INPUT_SHAPE)
+    #summary(algorithm.classifier, input_size=dataset.INPUT_SHAPE)
 
     test_attacks = {
         a: vars(attacks)[a](algorithm.classifier, test_hparams, device, perturbation=args.perturbation) for a in args.test_attacks}
@@ -100,7 +103,8 @@ def main(args, hparams, test_hparams):
     step = 0
     for epoch in range(0, dataset.N_EPOCHS):
         if adjust_lr is not None:
-            adjust_lr(algorithm.optimizer, epoch, hparams)
+            if args.point_MLP:
+                adjust_lr.step()
         if adjust_lr_dual is not None:
             adjust_lr_dual(algorithm.pd_optimizer, epoch)
         if wandb_log:
@@ -225,6 +229,7 @@ if __name__ == '__main__':
     parser.add_argument('--auto_augment', action='store_true')
     parser.add_argument('--auto_augment_wo_translations', action='store_true')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use')
+    parser.add_argument('--point_MLP', action='store_true')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)

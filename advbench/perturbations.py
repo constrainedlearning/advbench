@@ -1,7 +1,7 @@
 from kornia.geometry import rotate
 import torch
 from torchvision.transforms import Pad
-from advbench.lib.transformations import se_transform, translation
+from advbench.lib.transformations import se_transform, translation, translate_pointcloud
 from kornia.geometry.transform import crop_by_boxes
 from kornia.geometry.bbox import bbox_generator
 from einops import repeat
@@ -373,4 +373,19 @@ class Translation(Perturbation):
         for i in range(self.dim):
             eps = self.eps[i]
             delta_init[:,i] =   2*eps* torch.randn(imgs.shape[0], device = imgs.device, dtype=imgs.dtype)-eps
+        return delta_init
+
+class PointcloudTranslation(Translation):
+    def __init__(self, epsilon):
+        super(PointcloudTranslation, self).__init__(epsilon)
+        self.dim = 6
+        self.names = [ 'xyz1', 'xyz2']
+
+    def _perturb(self, points, delta):
+        return translate_pointcloud(points, delta)
+    def delta_init(self, imgs):
+        delta_init = torch.empty(imgs.shape[0], self.dim, device=imgs.device, dtype=imgs.dtype)
+        for i in range(self.dim):
+            eps = self.eps[i]
+            delta_init[:,i] =   2*eps* (torch.rand(imgs.shape[0], device = imgs.device, dtype=imgs.dtype)-0.5)
         return delta_init

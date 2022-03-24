@@ -22,24 +22,21 @@ try:
 except ImportError:
     FFCV_AVAILABLE=False
 
-from timm.data.constants import \
-    IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
-from timm.data import create_transform
+
 
 from advbench.lib.AutoAugment.autoaugment import CIFAR10Policy
+from advbench.lib.pointMLP.data import ModelNet40
 
 SPLITS = ['train', 'val', 'test']
 DATASETS = ['CIFAR10', 'MNIST']
 MEAN = {
     'CIFAR10': (0.4914, 0.4822, 0.4465),
     'CIFAR100': (0.5071, 0.4867, 0.4408),
-    'IMNET': IMAGENET_DEFAULT_MEAN,
 }
 
 STD = {
     'CIFAR10': (0.2023, 0.1994, 0.2010),
-    'CIFAR100': (0.2675, 0.2565, 0.2761),
-    'IMNET': IMAGENET_DEFAULT_STD,
+    'CIFAR100': (0.2675, 0.2565, 0.2761)
 }
 
 def to_loaders(all_datasets, hparams):
@@ -84,7 +81,7 @@ class AdvRobDataset(Dataset):
     ATTACK_INTERVAL = 200     # Default, subclass may override
     ANGLE_GSIZE = 100     # Default, subclass may override
     LOSS_LANDSCAPE_BATCHES = None # Subclasses should override
-    HAS_LR_SCHEDULE = False  # Default, subclass may override
+    HAS_LR_SCHEDULE = True  # Default, subclass may override
     HAS_LR_SCHEDULE_DUAL = False # Default, subclass may override
     TRANSLATIONS = [-3, 0, 3] # Default, for plotting purposes only, subclass may override
 
@@ -591,3 +588,44 @@ class IMNET(AdvRobDataset):
             elif epoch <= self.MIN_LR_EPOCH:
                 lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
             pd_optimizer.eta = lr
+
+class modelnet40(AdvRobDataset):
+    INPUT_SHAPE = (3, 1024)
+    NUM_CLASSES = 40
+    N_EPOCHS = 300
+    NUM_POINTS = 1024
+    CHECKPOINT_FREQ = 100
+    LOG_INTERVAL = 50
+    ATTACK_INTERVAL = 50
+    LOSS_LANDSCAPE_INTERVAL = 300
+    LOSS_LANDSCAPE_GSIZE = 100
+    ANGLE_GSIZE = 100
+    LOSS_LANDSCAPE_BATCHES = 10
+    HAS_LR_SCHEDULE = True
+    MIN_LR = 0.005
+    START_EPOCH = 0
+    HAS_LR_SCHEDULE_DUAL = True
+    MAX_DUAL_LR_FACTOR = 4
+    MAX_DUAL_LR_EPOCH = 200
+    MIN_DUAL_LR_EPOCH = 300
+    MIN_DUAL_LR_FACTOR = 0.01
+
+    # test adversary parameters
+    ADV_STEP_SIZE = 2/255.
+    N_ADV_STEPS = 10
+
+    def __init__(self, root, augmentation=True):
+        super(modelnet40, self).__init__()
+        self.ffcv=False 
+        self.splits['train'] = ModelNet40(partition='train', num_points=self.NUM_POINTS)
+        self.splits['val'] = self.splits['train'] 
+        self.splits['test'] =  ModelNet40(partition='test', num_points=self.NUM_POINTS)
+    
+    @staticmethod
+    def adjust_lr_dual(self, pd_optimizer, epoch):
+        lr = pd_optimizer.eta
+        if epoch <= self.MAX_DUAL_LR_EPOCH:
+            lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
+        elif epoch <= self.MIN_LR_EPOCH:
+            lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
+        pd_optimizer.eta = lr

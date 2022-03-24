@@ -44,7 +44,7 @@ class PGD_Linf(Attack_Linf):
             delta.requires_grad_(True)
             with torch.enable_grad():
                 adv_imgs = self.perturbation.perturb_img(imgs, delta)
-                adv_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
+                adv_loss = self.classifier.loss(self.classifier(adv_imgs), labels)
             grad = torch.autograd.grad(adv_loss, [delta])[0].detach()
             delta.requires_grad_(False)
             delta += self.hparams['pgd_step_size']* torch.sign(grad)
@@ -86,7 +86,7 @@ class FGSM_Linf(Attack):
         self.classifier.eval()
 
         imgs.requires_grad = True
-        adv_loss = F.cross_entropy(self.classifier(imgs), labels)
+        adv_loss = self.classifier.loss(self.classifier(imgs), labels)
         grad = torch.autograd.grad(adv_loss, [imgs])[0].detach()
         delta = self.hparams['epsilon'] * grad.sign()
         delta = self.perturbation.clamp_delta(delta, imgs)
@@ -109,7 +109,7 @@ class LMC_Gaussian_Linf(Attack_Linf):
             delta.requires_grad_(True)
             with torch.enable_grad():
                 adv_imgs = self.perturbation.perturb_img(imgs, delta)
-                adv_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
+                adv_loss = self.classifier.loss(self.classifier(adv_imgs), labels)
             grad = torch.autograd.grad(adv_loss, [delta])[0].detach()
             delta.requires_grad_(False)
             noise = torch.randn_like(delta).to(self.device).detach()
@@ -143,7 +143,7 @@ class LMC_Laplacian_Linf(Attack_Linf):
             delta.requires_grad_(True)
             with torch.enable_grad():
                 adv_imgs = self.perturbation.perturb_img(imgs, delta)
-                adv_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
+                adv_loss = self.classifier.loss(self.classifier(adv_imgs), labels)
             grad = torch.autograd.grad(adv_loss, [delta])[0].detach()
             delta.requires_grad_(False)
             noise = noise_dist.sample(grad.shape).to(self.device)
@@ -181,13 +181,13 @@ class MCMC(Attack_Linf):
             delta = self.perturbation.delta_init(imgs).to(imgs.device)
             delta = self.perturbation.clamp_delta(delta, imgs)
             adv_imgs = self.perturbation.perturb_img(imgs, delta)
-            last_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
+            last_loss = self.classifier.loss(self.classifier(adv_imgs), labels)
             ones = torch.ones_like(last_loss)
             for _ in range(self.hparams['mcmc_dale_n_steps']):
                 proposal = self.get_proposal(delta)
                 if torch.allclose(delta, self.perturbation.clamp_delta(delta, adv_imgs)):
                     adv_imgs = self.perturbation.perturb_img(imgs, delta)
-                    proposal_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
+                    proposal_loss = self.classifier.loss(self.classifier(adv_imgs), labels)
                     acceptance_ratio = (
                         torch.minimum((proposal_loss / last_loss), ones)
                     )
@@ -242,7 +242,7 @@ class Grid_Search(Attack_Linf):
             adv_imgs = self.perturbation.perturb_img(
                 repeat(imgs, 'B W H C -> (B S) W H C', B=batch_size, S=self.grid_size),
                 repeat(self.grid, 'S D -> (B S) D', B=batch_size, D=self.dim, S=self.grid_size))
-            adv_loss = F.cross_entropy(self.classifier(adv_imgs), repeat(labels, 'B -> (B S)', S=self.grid_size), reduction="none")
+            adv_loss = self.classifier.loss(self.classifier(adv_imgs), repeat(labels, 'B -> (B S)', S=self.grid_size), reduction="none")
         adv_loss = rearrange(adv_loss, '(B S) -> B S', B=batch_size, S=self.grid_size)
         max_idx = torch.argmax(adv_loss,dim=-1)
         delta = self.grid[max_idx]
@@ -264,7 +264,7 @@ class Worst_Of_K(Attack_Linf):
             delta = self.perturbation.delta_init(repeated_images).to(imgs.device)
             delta = self.perturbation.clamp_delta(delta, repeated_images)
             adv_imgs = self.perturbation.perturb_img(repeated_images, delta)
-            adv_loss = F.cross_entropy(self.classifier(adv_imgs), repeat(labels, 'B -> (B S)', S=steps), reduction="none")
+            adv_loss = self.classifier.loss(self.classifier(adv_imgs), repeat(labels, 'B -> (B S)', S=steps), reduction="none")
             adv_loss = rearrange(adv_loss, '(B S) -> B S', B=batch_size, S=steps)
             max_idx = torch.argmax(adv_loss, dim=-1)
             delta = delta[max_idx]
