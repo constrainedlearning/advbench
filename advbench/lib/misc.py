@@ -191,7 +191,7 @@ def adv_accuracy_loss_delta_ensembleacc(algorithm, loader, device, attack):
 
 def adv_accuracy_loss_delta_ensembleacc_overall(algorithm, loader, device, attack):
     correct, ensemble_correct, total, total_ens = 0, 0, 0, 0
-    losses, accs, deltas, true, preds = [], [], [], [] []
+    losses, accs, deltas, true, preds = [], [], [], [], []
 
     algorithm.eval()
     algorithm.export()

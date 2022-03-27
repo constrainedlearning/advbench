@@ -122,7 +122,6 @@ def main(args, hparams, test_hparams):
                             wandb.log({name+"_avg": meter.avg, 'epoch': epoch, 'step':step})
                 print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
             timer.batch_end()
-            break
         # save clean accuracies on validation/test sets
         adjust_lr.step()
         test_clean_acc, test_clean_overall_acc = misc.accuracy_mean_overall(algorithm, test_ldr, device)
@@ -130,7 +129,7 @@ def main(args, hparams, test_hparams):
             wandb.log({'test_clean_acc': test_clean_acc, 'test_clean_overall_acc': test_clean_overall_acc, 'epoch': epoch, 'step':step})
         add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
 
-        if True:#(epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
+        if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():
