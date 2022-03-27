@@ -8,7 +8,6 @@ import json
 import pandas as pd
 import time
 from humanfriendly import format_timespan
-torch.backends.cudnn.benchmark = True
 
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from advbench import datasets
@@ -49,8 +48,7 @@ def main(args, hparams, test_hparams):
     elif args.perturbation =='PointcloudTranslation':
         hparams['epsilon'] = torch.tensor([hparams['epsilon_tx'] for i in range(3)] + [hparams['epsilon_ty'] for i in range(3)]).to(device)
         test_hparams['epsilon'] = torch.tensor([test_hparams['epsilon_tx'] for i in range(3)] + [test_hparams['epsilon_ty'] for i in range(3)]).to(device)
-    aug = not((args.perturbation=='Crop_and_Flip' or args.perturbation=='Crop' or args.perturbation=='Translation') and not args.algorithm=='ERM')
-    print("Augmentation:", aug)
+    aug = not args.no_augmentation
     if args.auto_augment:
         dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True)
     elif args.auto_augment_wo_translations:
@@ -102,13 +100,10 @@ def main(args, hparams, test_hparams):
     total_time = 0
     step = 0
     for epoch in range(0, dataset.N_EPOCHS):
-        if adjust_lr is not None:
-            if args.point_MLP:
-                adjust_lr.step()
         if adjust_lr_dual is not None:
             adjust_lr_dual(algorithm.pd_optimizer, epoch)
         if wandb_log:
-            wandb.log({'lr': hparams['learning_rate'], 'epoch': epoch, 'step':step})
+            wandb.log({'lr': adjust_lr.get_last_lr(), 'epoch': epoch, 'step':step})
         timer = meters.TimeMeter()
         epoch_start = time.time()
         for batch_idx, (imgs, labels) in enumerate(train_ldr):
@@ -128,7 +123,7 @@ def main(args, hparams, test_hparams):
                 print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
             timer.batch_end()
         # save clean accuracies on validation/test sets
-
+        adjust_lr.step()
         test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
         if wandb_log:
             wandb.log({'test_clean_acc': test_clean_acc, 'epoch': epoch, 'step':step})
@@ -229,7 +224,7 @@ if __name__ == '__main__':
     parser.add_argument('--auto_augment', action='store_true')
     parser.add_argument('--auto_augment_wo_translations', action='store_true')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use')
-    parser.add_argument('--point_MLP', action='store_true')
+    parser.add_argument('--no_augmentation', action='store_false')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
@@ -269,6 +264,9 @@ if __name__ == '__main__':
         json.dump(test_hparams, f, indent=2)
     
     torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = True
     random.seed(args.seed)
     np.random.seed(args.seed)
 

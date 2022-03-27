@@ -166,5 +166,5 @@ def remap(a, dx, dy, interp):
 
 def translate_pointcloud(pointcloud, delta):
     xyz1, xyz2 = delta[:,:3]+11./12., delta[:,3:]
-    translated_pointcloud = (torch.mul(pointcloud, xyz1)+ xyz2).astype('float32')
+    translated_pointcloud = torch.mul(pointcloud, xyz1[:,:, None])+ xyz2[:,:, None]
     return translated_pointcloud

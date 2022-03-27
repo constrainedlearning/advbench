@@ -215,7 +215,7 @@ class IOStream():
         self.f.close()
 
 
-def cal_loss(pred, gold, label_smoothing=0.2):
+def cal_loss(pred, gold, label_smoothing=0.2, reduction="mean"):
     ''' Calculate cross entropy loss, apply label smoothing if needed. '''
 
     gold = gold.contiguous().view(-1)
@@ -228,8 +228,12 @@ def cal_loss(pred, gold, label_smoothing=0.2):
         one_hot = one_hot * (1 - eps) + (1 - one_hot) * eps / (n_class - 1)
         log_prb = F.log_softmax(pred, dim=1)
 
-        loss = -(one_hot * log_prb).sum(dim=1).mean()
+        loss = -(one_hot * log_prb).sum(dim=1)
+        if reduction=="mean":
+            loss = loss.mean()
+        elif reduction=="sum":  
+            loss = loss.sum()
     else:
-        loss = F.cross_entropy(pred, gold, reduction='mean')
+        loss = F.cross_entropy(pred, gold, reduction=reduction)
 
     return loss

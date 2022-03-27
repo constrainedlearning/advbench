@@ -549,15 +549,10 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('g_dale_pd_inv_eta', 0.0001, lambda r: 0.0001)
         _hparam('g_dale_pd_inv_margin', 0.2, lambda r: 0.2)
 
-        # DALE-PD-INV (Laplacian-HMC)
-        if dataset == 'MNIST':
-            _hparam('l_dale_pd_inv_step_size', 0.4, lambda r: 0.4)
-            _hparam('l_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
-            _hparam('l_dale_pd_inv_margin', 0.03, lambda r: 0.03)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
-            _hparam('l_dale_pd_inv_step_size', 0.4, lambda r: 0.4)
-            _hparam('l_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
-            _hparam('l_dale_pd_inv_margin', 0.08, lambda r: 0.08)
+        # DALE-PD-INV (Laplacian-HMC)    
+        _hparam('l_dale_pd_inv_step_size', 0.1, lambda r: 0.1)
+        _hparam('l_dale_pd_inv_eta', 0.0002, lambda r: 0.0002)
+        _hparam('l_dale_pd_inv_margin', 0.35, lambda r: 0.35)
         
         # Discrete DALE-PD-INV
         _hparam('d_num_translations', 3, lambda r: 3)
@@ -600,7 +595,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
     if dataset=="IMNET":
         _hparam('perturbation_batch_size', 20)
     else:
-        _hparam('perturbation_batch_size', 40)
+        _hparam('perturbation_batch_size', 50)
 
     _hparam('gaussian_attack_std', 0.5)
     _hparam('laplacian_attack_std', 0.5)
@@ -618,8 +613,6 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         _hparam('mcmc_dale_scale', 0.2)
         _hparam('mcmc_dale_n_steps', 10)
         _hparam('mcmc_proposal', 'Laplace')
-
-        
 
         ##### PGD #####
         if dataset == 'MNIST':
@@ -788,13 +781,13 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
 
         ###### MCMC ###########
         _hparam('mcmc_dale_scale', 0.01)
-        _hparam('mcmc_dale_n_steps', 5)
+        _hparam('mcmc_dale_n_steps', 10)
         _hparam('mcmc_proposal', 'Laplace')
         
 
         ##### PGD #####
         if dataset == 'MNIST':
-            _hparam('pgd_n_steps', 5)
+            _hparam('pgd_n_steps', 10)
             _hparam('pgd_step_size', 0.1)
         elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
             _hparam('pgd_n_steps', 10)
@@ -828,20 +821,8 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         
 
         ##### PGD #####
-        if dataset == 'MNIST':
-            _hparam('pgd_n_steps', 30)
-            _hparam('pgd_step_size', 0.5)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
-            _hparam('pgd_n_steps', 20)
-            _hparam('pgd_step_size', 0.2)
-
-        ##### TRADES #####
-        if dataset == 'MNIST':
-            _hparam('trades_n_steps', 40)
-            _hparam('trades_step_size', 5)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
-            _hparam('trades_n_steps', 40)
-            _hparam('trades_step_size', 5)
+        _hparam('pgd_n_steps', 20)
+        _hparam('pgd_step_size', 0.02)
         
         # Grid Search
         _hparam('grid_size', 120)
