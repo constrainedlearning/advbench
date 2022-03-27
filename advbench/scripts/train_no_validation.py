@@ -122,28 +122,29 @@ def main(args, hparams, test_hparams):
                             wandb.log({name+"_avg": meter.avg, 'epoch': epoch, 'step':step})
                 print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
             timer.batch_end()
+            break
         # save clean accuracies on validation/test sets
         adjust_lr.step()
-        test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
+        test_clean_acc, test_clean_overall_acc = misc.accuracy_mean_overall(algorithm, test_ldr, device)
         if wandb_log:
-            wandb.log({'test_clean_acc': test_clean_acc, 'epoch': epoch, 'step':step})
+            wandb.log({'test_clean_acc': test_clean_acc, 'test_clean_overall_acc': test_clean_overall_acc, 'epoch': epoch, 'step':step})
         add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
 
-        if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
+        if True:#(epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():
                 print(attack_name)
-                test_adv_acc, accs, loss, deltas, ensemble_acc = misc.adv_accuracy_loss_delta_ensembleacc(algorithm, test_ldr, device, attack)
+                test_adv_acc, accs, loss, deltas, ensemble_acc, overall_adv_acc = misc.adv_accuracy_loss_delta_ensembleacc_overall(algorithm, test_ldr, device, attack)
                 print("Test Adv Acc:", test_adv_acc)
                 print("Ensemble Acc:", ensemble_acc)
                 add_results_row([epoch, test_adv_acc, attack_name, 'Test'])
                 test_adv_accs.append(test_adv_acc)
                 if wandb_log and args.perturbation!="Linf":
                     print(f"plotting and logging {attack_name}")
-                    wandb.log({'test_acc_adv_'+attack_name: test_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'test_acc_ensemble_'+attack_name: ensemble_acc, 'epoch': epoch, 'step':step})
+                    wandb.log({'test_acc_adv_'+attack_name: test_adv_acc,'test_oacc_adv_'+attack_name: overall_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'test_acc_ensemble_'+attack_name: ensemble_acc, 'epoch': epoch, 'step':step})
                     plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
-                    #plotting.plot_perturbed_wandb(deltas, accs, name="test_acc_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
+                    plotting.plot_perturbed_wandb(deltas, accs, name="test_acc_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
                     
                     if args.log_imgs:
                         imgs, labels = next(iter(test_ldr))

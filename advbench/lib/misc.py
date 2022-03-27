@@ -11,7 +11,7 @@ import torch
 import torch.nn.functional as F
 from torch.cuda.amp import autocast
 from advbench.datasets import FFCV_AVAILABLE
-
+from sklearn.metrics import balanced_accuracy_score
 def timing(f):
     @wraps(f)
     def wrap(*args, **kw):
@@ -52,6 +52,32 @@ def accuracy(algorithm, loader, device):
     algorithm.unexport()
 
     return 100. * correct / total
+
+@torch.no_grad()
+def accuracy_mean_overall(algorithm, loader, device):
+    correct, total = 0, 0
+    true = []
+    preds = []
+    algorithm.eval()
+    algorithm.export()
+    for imgs, labels in tqdm(loader):
+        imgs, labels = imgs.to(device), labels.to(device)
+        if FFCV_AVAILABLE:
+            with autocast():
+                output = algorithm.predict(imgs)
+        else:
+            output = algorithm.predict(imgs)
+        pred = output.argmax(dim=1, keepdim=True)
+        true.append(label.cpu().numpy())
+        preds.append(pred.detach().cpu().numpy())
+        correct += pred.eq(labels.view_as(pred)).sum().item()
+        total += imgs.size(0) 
+    algorithm.train()
+    algorithm.unexport()
+    true = np.concatenate(true)
+    preds = np.concatenate(preds)
+    oa = balanced_accuracy_score(true, preds)
+    return 100. * correct / total, 100. * oa
 
 def adv_accuracy(algorithm, loader, device, attack):
     correct, total = 0, 0
@@ -162,6 +188,63 @@ def adv_accuracy_loss_delta_ensembleacc(algorithm, loader, device, attack):
     acc = 100. * correct / total
     ensemble_acc = 100. * ensemble_correct / total_ens
     return acc, np.concatenate(accs, axis=0), np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0), ensemble_acc
+
+def adv_accuracy_loss_delta_ensembleacc_overall(algorithm, loader, device, attack):
+    correct, ensemble_correct, total, total_ens = 0, 0, 0, 0
+    losses, accs, deltas, true, preds = [], [], [], [] []
+
+    algorithm.eval()
+    algorithm.export()
+    with torch.no_grad():
+        for imgs, labels in tqdm(loader):
+            imgs, labels = imgs.to(device), labels.to(device)
+            if FFCV_AVAILABLE:
+                with autocast():
+                    attacked = attack(imgs, labels)
+            else:
+                attacked = attack(imgs, labels)
+            old_labels = labels
+            if len(attacked) == 2:
+                adv_imgs, delta = attacked
+            elif len(attacked) == 3:
+                adv_imgs, delta, labels = attacked
+            if FFCV_AVAILABLE:
+                with autocast():
+                    output = algorithm.predict(adv_imgs)
+            else:
+                output = algorithm.predict(adv_imgs)
+            loss = algorithm.classifier.loss(output, labels, reduction='none')
+            pred = output.argmax(dim=1, keepdim=True)
+            true.append(label.cpu().numpy())
+            preds.append(pred.detach().cpu().numpy())
+            if len(attacked) == 3:
+                # get the models prediction for each transform
+                ensemble_preds = torch.zeros_like(output)
+                ensemble_preds[torch.arange(ensemble_preds.shape[0]), pred.squeeze()] = 1
+                ensemble_preds = rearrange(ensemble_preds, '(B S) C -> B S C', B=imgs.shape[0], C=output.shape[1])
+            # Average over transforms (S)
+                ensemble_preds = ensemble_preds.mean(dim=1)
+            # predict using average
+                ensemble_preds = ensemble_preds.argmax(dim=1, keepdim=True)
+            else:
+                ensemble_preds = pred
+            losses.append(loss.cpu().numpy())
+            deltas.append(delta.cpu().numpy())
+            corr = pred.eq(labels.view_as(pred))
+            accs.append(corr.cpu().numpy())
+            ensemble_correct += ensemble_preds.eq(old_labels.view_as(ensemble_preds)).sum().item() 
+            correct += corr.sum().item()
+            total += adv_imgs.size(0)
+            total_ens += imgs.size(0)
+            
+    algorithm.train()
+    algorithm.unexport()
+    acc = 100. * correct / total
+    ensemble_acc = 100. * ensemble_correct / total_ens
+    true = np.concatenate(true)
+    preds = np.concatenate(preds)
+    oa = balanced_accuracy_score(true, preds)
+    return acc, np.concatenate(accs, axis=0), np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0), ensemble_acc, oa
 
 class Tee:
     def __init__(self, fname, mode="a"):
