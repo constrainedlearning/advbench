@@ -263,7 +263,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         if dataset == 'MNIST':
             _hparam('l_dale_pd_inv_step_size', 0.05, lambda r: 0.05)
             _hparam('l_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
-            _hparam('l_dale_pd_inv_margin', 0.14, lambda r: 0.14)
+            _hparam('l_dale_pd_inv_margin', 0.07, lambda r: 0.07)
         elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
             _hparam('l_dale_pd_inv_step_size', 1, lambda r: 1)
             _hparam('l_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
