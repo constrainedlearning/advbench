@@ -61,7 +61,7 @@ def validate(net, testloader, criterion, device):
     }
 
 
-def voting(net, testloader, device, num_pepeat=300, num_vote=10):
+def voting(net, testloader, device, num_pepeat=1, num_vote=10):
     print("Voting...")
     net.eval()
     best_acc = 0
