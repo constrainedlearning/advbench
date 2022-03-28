@@ -68,7 +68,7 @@ def accuracy_mean_overall(algorithm, loader, device):
         else:
             output = algorithm.predict(imgs)
         pred = output.argmax(dim=1, keepdim=True)
-        true.append(label.cpu().numpy())
+        true.append(labels.cpu().numpy())
         preds.append(pred.detach().cpu().numpy())
         correct += pred.eq(labels.view_as(pred)).sum().item()
         total += imgs.size(0) 
@@ -76,8 +76,8 @@ def accuracy_mean_overall(algorithm, loader, device):
     algorithm.unexport()
     true = np.concatenate(true)
     preds = np.concatenate(preds)
-    oa = balanced_accuracy_score(true, preds)
-    return 100. * correct / total, 100. * oa
+    mean = balanced_accuracy_score(true, preds)
+    return 100. * correct / total, 100. * mean
 
 def adv_accuracy(algorithm, loader, device, attack):
     correct, total = 0, 0
@@ -215,7 +215,7 @@ def adv_accuracy_loss_delta_ensembleacc_overall(algorithm, loader, device, attac
                 output = algorithm.predict(adv_imgs)
             loss = algorithm.classifier.loss(output, labels, reduction='none')
             pred = output.argmax(dim=1, keepdim=True)
-            true.append(label.cpu().numpy())
+            true.append(labels.cpu().numpy())
             preds.append(pred.detach().cpu().numpy())
             if len(attacked) == 3:
                 # get the models prediction for each transform
@@ -243,8 +243,8 @@ def adv_accuracy_loss_delta_ensembleacc_overall(algorithm, loader, device, attac
     ensemble_acc = 100. * ensemble_correct / total_ens
     true = np.concatenate(true)
     preds = np.concatenate(preds)
-    oa = balanced_accuracy_score(true, preds)
-    return acc, np.concatenate(accs, axis=0), np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0), ensemble_acc, oa
+    mean = balanced_accuracy_score(true, preds)
+    return acc, np.concatenate(accs, axis=0), np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0), ensemble_acc, mean
 
 class Tee:
     def __init__(self, fname, mode="a"):

@@ -41,7 +41,9 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
 
     if dataset == 'IMNET':
         _hparam('label_smoothing', 0.1, lambda r: 0.1 )
-    else:
+    elif dataset == 'modelnet40':
+        _hparam('label_smoothing', 0.2, lambda r: 0.2 )
+    else:    
         _hparam('label_smoothing', 0.0, lambda r: 0.0)
         
     # optimization
@@ -595,7 +597,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
     if dataset=="IMNET":
         _hparam('perturbation_batch_size', 20)
     else:
-        _hparam('perturbation_batch_size', 50)
+        _hparam('perturbation_batch_size', 10)
 
     _hparam('gaussian_attack_std', 0.5)
     _hparam('laplacian_attack_std', 0.5)

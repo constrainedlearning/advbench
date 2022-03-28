@@ -15,6 +15,7 @@ from advbench import algorithms
 from advbench import attacks
 from advbench import hparams_registry
 from advbench.lib import misc, meters, plotting, logging
+from advbench.lib.pointMLP.voting import voting
 from torch.cuda.amp import autocast
 from torchsummary import summary
 try:
@@ -124,9 +125,9 @@ def main(args, hparams, test_hparams):
             timer.batch_end()
         # save clean accuracies on validation/test sets
         adjust_lr.step()
-        test_clean_acc, test_clean_overall_acc = misc.accuracy_mean_overall(algorithm, test_ldr, device)
+        test_clean_acc, test_clean_mean_acc = misc.accuracy_mean_overall(algorithm, test_ldr, device)
         if wandb_log:
-            wandb.log({'test_clean_acc': test_clean_acc, 'test_clean_overall_acc': test_clean_overall_acc, 'epoch': epoch, 'step':step})
+            wandb.log({'test_clean_oacc': test_clean_acc, 'test_clean_macc': test_clean_mean_acc, 'epoch': epoch, 'step':step})
         add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
 
         if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
@@ -141,7 +142,7 @@ def main(args, hparams, test_hparams):
                 test_adv_accs.append(test_adv_acc)
                 if wandb_log and args.perturbation!="Linf":
                     print(f"plotting and logging {attack_name}")
-                    wandb.log({'test_acc_adv_'+attack_name: test_adv_acc,'test_oacc_adv_'+attack_name: overall_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'test_acc_ensemble_'+attack_name: ensemble_acc, 'epoch': epoch, 'step':step})
+                    wandb.log({'test_oacc_adv_'+attack_name: test_adv_acc,'test_macc_adv_'+attack_name: overall_adv_acc, 'test_loss_adv_'+attack_name: loss.mean(), 'test_acc_ensemble_'+attack_name: ensemble_acc, 'epoch': epoch, 'step':step})
                     plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
                     plotting.plot_perturbed_wandb(deltas, accs, name="test_acc_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
                     
@@ -173,6 +174,9 @@ def main(args, hparams, test_hparams):
         epoch_end = time.time()
         total_time += epoch_end - epoch_start
 
+        if epoch == dataset.N_EPOCHS-1:
+            test_clean_acc_voting, test_clean_mean_acc_voting = voting(algorithm, test_ldr, device)
+            wandb.log({'test_clean_oacc_voting': test_clean_acc_voting, 'test_clean_macc_voting': test_clean_mean_acc_voting, 'epoch': epoch, 'step':step})
         # print results
         print(f'Epoch: {epoch+1}/{dataset.N_EPOCHS}\t', end='')
         print(f'Epoch time: {format_timespan(epoch_end - epoch_start)}\t', end='')
@@ -220,7 +224,7 @@ if __name__ == '__main__':
     parser.add_argument('--model', type=str, default='resnet18', help='Model to use')
     parser.add_argument('--optimizer', type=str, default='SGD', help='Optimizer to use')
     parser.add_argument('--log_imgs', action='store_true')
-    parser.add_argument('--label_smoothing', type=float, default=0.0)
+    parser.add_argument('--label_smoothing', type=float, default=0.2)
     parser.add_argument('--auto_augment', action='store_true')
     parser.add_argument('--auto_augment_wo_translations', action='store_true')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use')

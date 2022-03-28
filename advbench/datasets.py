@@ -602,7 +602,7 @@ class modelnet40(AdvRobDataset):
     ANGLE_GSIZE = 100
     LOSS_LANDSCAPE_BATCHES = 10
     HAS_LR_SCHEDULE = True
-    MIN_LR = 0.001
+    MIN_LR = 0.005
     START_EPOCH = 0
     HAS_LR_SCHEDULE_DUAL = True
     MAX_DUAL_LR_FACTOR = 4

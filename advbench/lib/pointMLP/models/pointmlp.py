@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.nn.init as init
 # from torch import einsum
 # from einops import rearrange, repeat
 
@@ -328,6 +329,7 @@ class Model(nn.Module):
             nn.Dropout(0.5),
             nn.Linear(256, self.class_num)
         )
+        
 
     def forward(self, x):
         xyz = x.permute(0, 2, 1)
@@ -358,11 +360,4 @@ def pointMLPElite(num_classes=40, **kwargs) -> Model:
                    activation="relu", bias=False, use_xyz=False, normalize="anchor",
                    dim_expansion=[2, 2, 2, 1], pre_blocks=[1, 1, 2, 1], pos_blocks=[1, 1, 2, 1],
                    k_neighbors=[24,24,24,24], reducers=[2, 2, 2, 2], **kwargs)
-
-if __name__ == '__main__':
-    data = torch.rand(2, 3, 1024)
-    print("===> testing pointMLP ...")
-    model = pointMLP()
-    out = model(data)
-    print(out.shape)
 
