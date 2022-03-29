@@ -191,7 +191,7 @@ def adv_accuracy_loss_delta_ensembleacc(algorithm, loader, device, attack):
 
 def adv_accuracy_loss_delta_ensembleacc_overall(algorithm, loader, device, attack):
     correct, ensemble_correct, total, total_ens = 0, 0, 0, 0
-    losses, accs, deltas, true, preds = [], [], [], [], []
+    losses, accs, deltas, true, preds, ens_labels, ens_preds = [], [], [], [], [], [], []
 
     algorithm.eval()
     algorithm.export()
@@ -216,6 +216,7 @@ def adv_accuracy_loss_delta_ensembleacc_overall(algorithm, loader, device, attac
             loss = algorithm.classifier.loss(output, labels, reduction='none')
             pred = output.argmax(dim=1, keepdim=True)
             true.append(labels.cpu().numpy())
+            ens_labels.append(old_labels.cpu().numpy())
             preds.append(pred.detach().cpu().numpy())
             if len(attacked) == 3:
                 # get the models prediction for each transform
@@ -232,10 +233,12 @@ def adv_accuracy_loss_delta_ensembleacc_overall(algorithm, loader, device, attac
             deltas.append(delta.cpu().numpy())
             corr = pred.eq(labels.view_as(pred))
             accs.append(corr.cpu().numpy())
-            ensemble_correct += ensemble_preds.eq(old_labels.view_as(ensemble_preds)).sum().item() 
+            ensemble_correct += ensemble_preds.eq(old_labels.view_as(ensemble_preds)).sum().item()
+            ens_preds.append(ensemble_preds.cpu().numpy()) 
             correct += corr.sum().item()
             total += adv_imgs.size(0)
             total_ens += imgs.size(0)
+            break
             
     algorithm.train()
     algorithm.unexport()
@@ -243,8 +246,11 @@ def adv_accuracy_loss_delta_ensembleacc_overall(algorithm, loader, device, attac
     ensemble_acc = 100. * ensemble_correct / total_ens
     true = np.concatenate(true)
     preds = np.concatenate(preds)
+    ens_preds = np.concatenate(ens_preds)
+    ens_labels = np.concatenate(ens_labels)
+    ens_mean = balanced_accuracy_score(ens_labels, ens_preds)
     mean = balanced_accuracy_score(true, preds)
-    return acc, np.concatenate(accs, axis=0), np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0), ensemble_acc, mean
+    return acc, np.concatenate(accs, axis=0), np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0), ensemble_acc, ens_mean, mean
 
 class Tee:
     def __init__(self, fname, mode="a"):
