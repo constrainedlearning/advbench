@@ -32,7 +32,6 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     _hparam('augmentation_prob', 0.5, lambda r: 0.5)
     _hparam('perturbation_batch_size', 10, lambda r: 10)
     _hparam('mcmc_dale_scale', 0.05, lambda r: 0.05)
-    _hparam('mcmc_dale_n_steps', 5, lambda r: 5)
     _hparam('mcmc_proposal', 'Laplace', lambda r: 'Laplace')
     _hparam('gaussian_attack_std', 1, lambda r: 1 )
     _hparam('laplacian_attack_std', 1, lambda r: 1 )
@@ -218,7 +217,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
 
     elif perturbation=='SE':
         ##### Worst of K ######
-        _hparam('worst_of_k_steps', 10, lambda r:10)
+        _hparam('worst_of_k_steps', 30, lambda r:30)
 
         _hparam('epsilon_rot', 30, lambda r:30)
         _hparam('epsilon_tx', 3, lambda r:3)
@@ -268,6 +267,9 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('l_dale_pd_inv_step_size', 1, lambda r: 1)
             _hparam('l_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
             _hparam('l_dale_pd_inv_margin', 0.3, lambda r: 0.3)
+
+        # MCMC DALE
+        _hparam('mcmc_dale_n_steps', 30, lambda r:30)
         
         # Discrete DALE-PD-INV
         _hparam('d_num_translations', 3, lambda r: 3)
@@ -285,7 +287,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('n_dale_n_steps', 15, lambda r: 15)
         _hparam('n_dale_step_size', 2, lambda r: 2)
         _hparam('n_burn', 3, lambda r: 3)
-       
+        
         # Grid Search
         _hparam('grid_size', 120, lambda r: 120)
     elif perturbation=='Translation':
@@ -593,7 +595,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
 
         ###### MCMC ###########
         _hparam('mcmc_dale_scale', 0.2)
-        _hparam('mcmc_dale_n_steps', 10)
+        _hparam('mcmc_dale_n_steps', 30)
         _hparam('mcmc_proposal', 'Laplace')
         
 

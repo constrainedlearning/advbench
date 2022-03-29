@@ -103,13 +103,6 @@ if FFCV_AVAILABLE:
         LOSS_LANDSCAPE_BATCHES = 40
         ANGLE_GSIZE = 100
         HAS_LR_SCHEDULE = True
-        HAS_LR_SCHEDULE_DUAL = False
-        HAS_LR_SCHEDULE = True
-        HAS_LR_SCHEDULE_DUAL = True
-        MAX_DUAL_LR_FACTOR = 8
-        MAX_DUAL_LR_EPOCH = 120
-        MIN_DUAL_LR_EPOCH = 180
-        MIN_DUAL_LR_FACTOR = 0.01
 
 
         # test adversary parameters
@@ -147,13 +140,6 @@ if FFCV_AVAILABLE:
             self.splits['test'] = CIFAR10_(root, train=False)
             self.write()
 
-        @staticmethod
-        def adjust_lr_dual(pd_optimizer, epoch):
-            lr = pd_optimizer.eta
-            if epoch <= self.MAX_DUAL_LR_EPOCH:
-                lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
-            elif epoch <= self.MIN_LR_EPOCH:
-                lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
 
 
         @staticmethod
@@ -192,11 +178,7 @@ if FFCV_AVAILABLE:
         ANGLE_GSIZE = 100
         LOSS_LANDSCAPE_BATCHES = 10
         HAS_LR_SCHEDULE = True
-        HAS_LR_SCHEDULE_DUAL = True
-        MAX_DUAL_LR_FACTOR = 8
-        MAX_DUAL_LR_EPOCH = 120
-        MIN_DUAL_LR_EPOCH = 180
-        MIN_DUAL_LR_FACTOR = 0.01
+
 
         # test adversary parameters
         ADV_STEP_SIZE = 2/255.
@@ -246,15 +228,6 @@ if FFCV_AVAILABLE:
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
             return
-        
-        @staticmethod
-        def adjust_lr_dual(self, pd_optimizer, epoch):
-            lr = pd_optimizer.eta
-            if epoch <= self.MAX_DUAL_LR_EPOCH:
-                lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
-            elif epoch <= self.MIN_LR_EPOCH:
-                lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
-            pd_optimizer.eta = lr
 
         def write(self):
                 folder = os.path.join('data','ffcv', 'CIFAR')
@@ -281,11 +254,6 @@ else:
         ANGLE_GSIZE = 100
         LOSS_LANDSCAPE_BATCHES = 10
         HAS_LR_SCHEDULE = True
-        HAS_LR_SCHEDULE_DUAL = True
-        MAX_DUAL_LR_FACTOR = 8
-        MAX_DUAL_LR_EPOCH = 120
-        MIN_DUAL_LR_EPOCH = 180
-        MIN_DUAL_LR_FACTOR = 0.01
 
         # test adversary parameters
         ADV_STEP_SIZE = 2/255.
@@ -324,14 +292,6 @@ else:
                 lr = hparams['learning_rate'] * 0.008
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
-        @staticmethod
-        def adjust_lr_dual(self, pd_optimizer, epoch):
-            lr = pd_optimizer.eta
-            if epoch <= self.MAX_DUAL_LR_EPOCH:
-                lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
-            elif epoch <= self.MIN_LR_EPOCH:
-                lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
-            pd_optimizer.eta = lr
     
     class CIFAR100(AdvRobDataset):
         INPUT_SHAPE = (3, 32, 32)
@@ -344,11 +304,6 @@ else:
         ANGLE_GSIZE = 100
         LOSS_LANDSCAPE_BATCHES = 10
         HAS_LR_SCHEDULE = True
-        HAS_LR_SCHEDULE_DUAL = True
-        MAX_DUAL_LR_FACTOR = 8
-        MAX_DUAL_LR_EPOCH = 120
-        MIN_DUAL_LR_EPOCH = 180
-        MIN_DUAL_LR_FACTOR = 0.01
 
         # test adversary parameters
         ADV_STEP_SIZE = 2/255.
@@ -398,15 +353,6 @@ else:
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
             return
-        
-        @staticmethod
-        def adjust_lr_dual(self, pd_optimizer, epoch):
-            lr = pd_optimizer.eta
-            if epoch <= self.MAX_DUAL_LR_EPOCH:
-                lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
-            elif epoch <= self.MIN_LR_EPOCH:
-                lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
-            pd_optimizer.eta = lr 
 
 class MNIST(AdvRobDataset):
     INPUT_SHAPE = (1, 28, 28)
@@ -421,7 +367,6 @@ class MNIST(AdvRobDataset):
     LOSS_LANDSCAPE_GSIZE = 1000#28000
     ANGLE_GSIZE = 100
     LOSS_LANDSCAPE_BATCHES = 20
-    HAS_LR_SCHEDULE_DUAL = True
 
     # test adversary parameters
     ADV_STEP_SIZE = 0.1
@@ -453,21 +398,6 @@ class MNIST(AdvRobDataset):
             lr = hparams['learning_rate'] * 0.001
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
-    
-    @staticmethod
-    def adjust_lr_dual(pd_optimizer, epoch):
-        lr = pd_optimizer.eta
-        if epoch == 10:
-            lr = lr * 2
-        if epoch == 20:
-            lr = lr * 2
-        if epoch == 25:
-            lr = lr * 2
-        if epoch == 90:
-            lr = lr / 10
-        if epoch == 120:
-            lr = lr / 10
-        pd_optimizer.eta = lr
 
 class MNISTe2(AdvRobDataset):
     INPUT_SHAPE = (1, 28, 28)
@@ -529,11 +459,6 @@ class IMNET(AdvRobDataset):
         ANGLE_GSIZE = 100
         LOSS_LANDSCAPE_BATCHES = 10
         HAS_LR_SCHEDULE = True
-        HAS_LR_SCHEDULE_DUAL = True
-        MAX_DUAL_LR_FACTOR = 8
-        MAX_DUAL_LR_EPOCH = 120
-        MIN_DUAL_LR_EPOCH = 180
-        MIN_DUAL_LR_FACTOR = 0.01
 
         # test adversary parameters
         ADV_STEP_SIZE = 2/255.
@@ -582,12 +507,3 @@ class IMNET(AdvRobDataset):
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
             return
-        
-        @staticmethod
-        def adjust_lr_dual(self, pd_optimizer, epoch):
-            lr = pd_optimizer.eta
-            if epoch <= self.MAX_DUAL_LR_EPOCH:
-                lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
-            elif epoch <= self.MIN_LR_EPOCH:
-                lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
-            pd_optimizer.eta = lr
