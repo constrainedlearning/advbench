@@ -592,9 +592,9 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         hparams[name] = default_val
     if dataset=="MNIST":
         _hparam('perturbation_batch_size', 10)
-    if dataset=="CIFAR10" or dataset=="CIFAR100":
+    elif dataset=="CIFAR10" or dataset=="CIFAR100":
         _hparam('perturbation_batch_size', 10)
-    if dataset=="IMNET":
+    elif dataset=="IMNET":
         _hparam('perturbation_batch_size', 20)
     else:
         _hparam('perturbation_batch_size', 10)

@@ -11,9 +11,11 @@ from advbench.wrn import Wide_ResNet
 import torch
 import torch.nn.init as init
 import numpy as np
-from advbench.lib.pointMLP.models.pointmlp import pointMLP, pointMLPElite
-from advbench.lib.pointMLP.utils import cal_loss
-
+try:
+    from advbench.lib.pointMLP.models.pointmlp import pointMLP, pointMLPElite
+    from advbench.lib.pointMLP.utils import cal_loss
+except:
+    print("pointMLP not available, pointops lib needs to be compiled")
 def Classifier(input_shape, num_classes, hparams, loss=F.cross_entropy):
     model = create_model(input_shape, num_classes, hparams)
     if hparams["model"] in ["pointmlp", "pointmlp_elite"]:
