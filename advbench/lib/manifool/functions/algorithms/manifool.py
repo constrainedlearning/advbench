@@ -216,19 +216,26 @@ def manifool_single_target(I_org, net, mode, target,
        
         u, dist = get_gradient()
 
+
+        
         # If dist is infinity (i.e. if u is perpendicular to the manifold) stop iterating as the alg. wont converge.
         if dist == np.inf or u is None:
             it = maxIter -1
+            print('alg. wont converge')
 
         # Normalize the gradient
         if dist == 0.:
             dist += 1e-5
-        u = u/u.norm()
+        if u is not None:
+            u = u/u.norm()
+        else:
+            u = 0
 
         #Transform the image accordingly
         s, diff, I, k_I = line_search(step_sizes, diff)
-        v_t = s*u + gamma*v_pre
-        tfm.compose_(g.para2tfm(-v_t,mode,1))
+        if u is not None:
+            v_t = s*u + gamma*v_pre
+            tfm.compose_(g.para2tfm(-v_t,mode,1))
 
         if crop:
             I_c = g.center_crop_tensor(I,crop)
@@ -249,7 +256,8 @@ def manifool_single_target(I_org, net, mode, target,
             print(diff, dist, torch.max(s*u.abs()))
 
         it += 1
-        v_pre = v_t.clone()
+        if u is not None:
+            v_pre = v_t.clone()
 
     if it == maxIter:
         return k_I, k_org, it, tfm, I_c
@@ -257,7 +265,6 @@ def manifool_single_target(I_org, net, mode, target,
     # Normally, the update step of the movement direction(u) tries to maximize the decrease of the classifier, however,
     # in the last iteration, we want to get a point close to the boundary and not as low as we can get. Thus, the we do
     # a backtrack to get a smaller vector at the last step.
-
     tfm2 = tfm.compose(g.para2tfm(v_t,mode,1))#reverse the last step
     I = tfm2(I_org)
     if crop:

@@ -49,7 +49,7 @@ def make_algebra_matrix(tau, mode):
         B = np.array([[tau[1],-tau[0],0],[tau[0],tau[1],0],[0,0,0]])
 
     elif mode == 'rotation+translation':
-        B = np.array([[0,-tau[0],tau[1]],[tau[0],0,tau[2]],[0,0,0]])
+        B = torch.tensor([[0,-tau[0],tau[1]],[tau[0],0,tau[2]],[0,0,0]]).cpu().numpy()
 
     elif mode == 'scaling+translation':
         B = np.array([[tau[0],0,tau[1]],[0,tau[0],tau[2]],[0,0,0]])

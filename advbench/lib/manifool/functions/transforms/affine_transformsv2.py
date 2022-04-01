@@ -4,12 +4,6 @@ import torch
 import torch.cuda
 from kornia.geometry import warp_affine
 
-try:
-    raise ImportError # Pycuda not working
-    from advbench.lib.manifool.functions.transforms.gpu_projective import proj_warp_gpu
-except Exception as e:
-    print('manifool not using GPU')
-
 from skimage.transform import warp, AffineTransform
 import numpy as np
 
@@ -29,7 +23,7 @@ def transform_matrix_offset_center(matrix, x, y):
     o_y = float(y) / 2 + 0.5
     offset_matrix = torch.DoubleTensor([[1, 0, o_x], [0, 1, o_y], [0, 0, 1]])
     reset_matrix = torch.DoubleTensor([[1, 0, -o_x], [0, 1, -o_y], [0, 0, 1]])
-    transform_matrix = torch.mm(torch.mm(offset_matrix, matrix), reset_matrix)
+    transform_matrix = torch.mm(torch.mm(offset_matrix.double(), matrix.double()), reset_matrix.double())
     return transform_matrix
 
 def apply_transform(x, transform, fill_mode='constant', fill_value=0., interp_order = 0):
