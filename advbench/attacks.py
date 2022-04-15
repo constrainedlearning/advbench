@@ -1,10 +1,5 @@
 import os, sys
 from math import sqrt
-try:
-    import hamiltorch
-    HAMILTORCH_AVAILABLE = True
-except ImportError:
-    HAMILTORCH_AVAILABLE = False
 import numpy as np
 import torch
 import torch.nn as nn
@@ -152,17 +147,17 @@ class LMC_Laplacian_Linf(Attack_Linf):
         self.classifier.train()
         return adv_imgs.detach(), delta.detach()
 
-class MCMC(Attack_Linf):
+class MH(Attack_Linf):
     def __init__(self, classifier,  hparams, device, perturbation='Linf', acceptance_meter=None):
-        super(MCMC, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
-        if self.hparams['mcmc_proposal']=='Laplace':
+        super(MH, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+        if self.hparams['mh_proposal']=='Laplace':
             if isinstance(self.perturbation.eps, list):
                 eps = torch.tensor(self.perturbation.eps).to(device)
             else:
                 eps = self.perturbation.eps
             if isinstance(eps, torch.Tensor):
                 eps = eps.to(device)
-            self.noise_dist = Laplace(torch.zeros(self.perturbation.dim, device=device), self.hparams['mcmc_dale_scale']*eps)
+            self.noise_dist = Laplace(torch.zeros(self.perturbation.dim, device=device), self.hparams['mh_dale_scale']*eps)
         else:
             raise NotImplementedError
         self.get_proposal = lambda x: x + self.noise_dist.sample([x.shape[0]]).to(x.device)
@@ -180,9 +175,9 @@ class MCMC(Attack_Linf):
             adv_imgs = self.perturbation.perturb_img(imgs, delta)
             last_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
             ones = torch.ones_like(last_loss)
-            for _ in range(self.hparams['mcmc_dale_n_steps']):
+            for _ in range(self.hparams['mh_dale_n_steps']):
                 proposal = self.get_proposal(delta)
-                if torch.allclose(delta, self.perturbation.clamp_delta(delta, adv_imgs)):
+                if torch.allclose(proposal, self.perturbation.clamp_delta(proposal, adv_imgs)):
                     adv_imgs = self.perturbation.perturb_img(imgs, delta)
                     proposal_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
                     acceptance_ratio = (
@@ -359,48 +354,3 @@ class Manifool(Attack_Linf):
             manifool_out = manifool(imgs[i], self.classifier, mode='rotation+translation')
             adv_imgs[i] = manifool_out['output_image']
         return adv_imgs.detach(), delta.detach()
-
-
-if HAMILTORCH_AVAILABLE:
-    class NUTS(Attack_Linf):
-        def __init__(self, classifier,  hparams, device, perturbation='Linf'):
-            super(NUTS, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
-            self.infty = 10e8 #torch.tensor(float('inf')).to(device)
-            self.burn = self.hparams['n_burn']
-            self.eps = hparams['epsilon']
-
-        def forward(self, imgs, labels):
-            self.classifier.eval()
-            batch_size = imgs.size(0)
-            total_size = 1
-            img_dims = tuple(d for d in range(1,imgs.dim()))
-            for i in imgs.size():
-                total_size = total_size*i
-            params_init = 0.001*torch.rand(total_size).to(self.device)
-            def log_prob(delta):
-                delta = delta.reshape(imgs.shape)
-                adv_imgs = imgs+torch.clamp(delta, min=-self.eps, max=self.eps)
-                loss = 1 - torch.softmax(self.classifier(adv_imgs), dim=1)[range(batch_size), labels]
-                log_loss = torch.log(loss)
-                #log_loss[torch.amax(torch.abs(delta),img_dims)>self.eps] = - self.infty
-                return log_loss.sum()
-            self.blockPrint()
-            delta = hamiltorch.sample(log_prob_func=log_prob, params_init=params_init,
-                                    num_samples=self.burn+self.hparams['n_dale_n_steps'],
-                                    step_size=self.hparams['n_dale_step_size'],
-                                    burn = self.burn,
-                                    num_steps_per_sample=7,
-                                    desired_accept_rate=0.8)[-1]
-            self.enablePrint()
-            delta = torch.clamp(delta, min=-self.eps, max=self.eps)
-            adv_imgs = imgs + delta.reshape(imgs.shape)
-            self.classifier.train()
-            return adv_imgs.detach(), delta.detach()
-        # Disable
-        def blockPrint(self):
-            sys.stdout = open(os.devnull, 'w')
-
-        # Restore
-        def enablePrint(self):
-            sys.stdout = sys.__stdout__
-

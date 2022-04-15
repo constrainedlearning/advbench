@@ -5,7 +5,9 @@ import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10 as CIFAR10_
 from torchvision.datasets import CIFAR100 as CIFAR100_
 from torchvision.datasets import MNIST as MNIST_
+from torchvision.datasets import STL10 as STL10_
 from torchvision.datasets import ImageFolder
+from advbench.lib.transformations import Cutout
 try:
     raise ImportError
     from ffcv.fields import IntField, RGBImageField
@@ -33,12 +35,14 @@ DATASETS = ['CIFAR10', 'MNIST']
 MEAN = {
     'CIFAR10': (0.4914, 0.4822, 0.4465),
     'CIFAR100': (0.5071, 0.4867, 0.4408),
+    'STL10': (0.485, 0.456, 0.406),
     'IMNET': IMAGENET_DEFAULT_MEAN,
 }
 
 STD = {
     'CIFAR10': (0.2023, 0.1994, 0.2010),
     'CIFAR100': (0.2675, 0.2565, 0.2761),
+    'STL10': (0.229, 0.224, 0.225),
     'IMNET': IMAGENET_DEFAULT_STD,
 }
 
@@ -87,6 +91,7 @@ class AdvRobDataset(Dataset):
     HAS_LR_SCHEDULE = False  # Default, subclass may override
     HAS_LR_SCHEDULE_DUAL = False # Default, subclass may override
     TRANSLATIONS = [-3, 0, 3] # Default, for plotting purposes only, subclass may override
+    TEST_INTERVAL = 1 # Default, subclass may override
 
     def __init__(self):
         self.splits = dict.fromkeys(SPLITS)
@@ -139,8 +144,6 @@ if FFCV_AVAILABLE:
 
             self.splits['test'] = CIFAR10_(root, train=False)
             self.write()
-
-
 
         @staticmethod
         def adjust_lr(optimizer, epoch, hparams):
@@ -240,7 +243,7 @@ if FFCV_AVAILABLE:
                     path = os.path.join(folder, name+'.beton')
                     writer = DatasetWriter(path, fields)
                     writer.from_indexed_dataset(ds)
-                    self.splits[name] = path  
+                    self.splits[name] = path
 
 else:
     class CIFAR10(AdvRobDataset):
@@ -353,6 +356,62 @@ else:
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
             return
+
+    class STL10(AdvRobDataset):
+        INPUT_SHAPE = (3, 96, 96)
+        NUM_CLASSES = 10
+        N_EPOCHS = 1000
+        CHECKPOINT_FREQ = 100
+        TEST_INTERVAL = 50
+        LOG_INTERVAL = 100
+        LOSS_LANDSCAPE_INTERVAL = 1000
+        LOSS_LANDSCAPE_GSIZE = 500
+        ANGLE_GSIZE = 100
+        LOSS_LANDSCAPE_BATCHES = 5
+        HAS_LR_SCHEDULE = True
+
+        # test adversary parameters
+        ADV_STEP_SIZE = 2/255.
+        N_ADV_STEPS = 20
+
+        def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=False):
+            super(STL10, self).__init__()
+
+            self.ffcv=False
+            tfs = [transforms.RandomHorizontalFlip()]
+
+            
+            tfs += [transforms.ToTensor(),  Cutout(60),
+                    transforms.Normalize(MEAN['CIFAR10'], STD['CIFAR10'])]
+
+            train_transforms = transforms.Compose(tfs)
+            test_transforms = transforms.Compose([transforms.ToTensor(),
+                                                    transforms.Normalize(MEAN['CIFAR10'], STD['CIFAR10'])])
+
+            train_data = STL10_(root, split="train", transform=train_transforms, download=True)
+            self.splits['train'] = train_data
+            
+            self.splits['val'] = Subset(train_data, range(4000, 5000))
+
+            self.splits['test'] = STL10_(root, split="test", transform=test_transforms)
+
+        @staticmethod
+        def adjust_lr(optimizer, epoch, hparams):
+            """
+            Decay initial learning rate exponentially starting after epoch_start epochs
+            The learning rate is multiplied with base_factor every lr_decay_epoch epochs
+            """
+            lr = hparams['learning_rate']
+            if epoch >= 300:
+                lr = hparams['learning_rate'] * 0.2
+            if epoch >= 400:
+                lr = hparams['learning_rate'] * 0.04
+            if epoch >= 600:
+                lr = hparams['learning_rate'] * 0.008
+            if epoch >= 800:
+                lr = hparams['learning_rate'] * 0.0016
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr
 
 class MNIST(AdvRobDataset):
     INPUT_SHAPE = (1, 28, 28)

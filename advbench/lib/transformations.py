@@ -3,6 +3,7 @@ from numpy import pi
 from einops import rearrange, reduce, repeat
 from kornia.geometry import warp_affine 
 from kornia.geometry.transform import Affine
+import numpy as np
 import functools
 import math
 
@@ -75,91 +76,38 @@ def translation(imgs, delta):
   """
   return Affine(translation = delta.to(imgs.device).to(imgs.dtype))(imgs)
 
-######### DIFFEO FREQUENCY ##############
-# From https://github.com/pcsl-epfl/diffeomorphism/blob/main/diff.py
-#########                   ##############
-@functools.lru_cache()
-def scalar_field_modes(n, m, dtype=torch.float64, device='cpu'):
+class Cutout:
+    """Randomly mask out a patch from an image.
+    Args:
+        size (int): The size of the square patch.
     """
-    sqrt(1 / Energy per mode) and the modes
-    """
-    x = torch.linspace(0, 1, n, dtype=dtype, device=device)
-    k = torch.arange(1, m + 1, dtype=dtype, device=device)
-    i, j = torch.meshgrid(k, k)
-    r = (i.pow(2) + j.pow(2)).sqrt()
-    e = (r < m + 0.5) / r
-    s = torch.sin(math.pi * x[:, None] * k[None, :])
-    return e, s
-
-def scalar_field(delta, n, m, device='cuda'):
-    """
-    random scalar field of size nxn made of the first m modes
-    """
-    d = delta.reshape()
-    e, s = scalar_field_modes(n, m, dtype=torch.get_default_dtype(), device=device)
-    c = torch.randn(m, m, device=device) * e
-    return torch.einsum('ij,xi,yj->yx', c, s, s)
-
-
-def deform(image, delta, cut=15,T=8e-6, interp='linear'):
-    """
-    1. Sample a displacement field tau: R2 -> R2, using tempertature `T` and cutoff `cut`
-    2. Apply tau to `image`
-    :param img Tensor: square image(s) [..., y, x]
-    :param T float: temperature
-    :param cut int: high frequency cutoff
-    """
-    n = image.shape[-1]
-    assert image.shape[-2] == n, 'Image(s) should be square.'
-
-    device = image.device.type
-
-    # Sample dx, dy
-    # u, v are defined in [0, 1]^2
-    # dx, dx are defined in [0, n]^2
-    u = scalar_field(n, cut, device)  # [n,n]
-    v = scalar_field(n, cut, device)  # [n,n]
-    dx = T ** 0.5 * u * n
-    dy = T ** 0.5 * v * n
-
-    # Apply tau
-    return remap(image, dx, dy, interp)
-
-
-def remap(a, dx, dy, interp):
-    """
-    :param a: Tensor of shape [..., y, x]
-    :param dx: Tensor of shape [y, x]
-    :param dy: Tensor of shape [y, x]
-    :param interp: interpolation method
-    """
-    n, m = a.shape[-2:]
-    assert dx.shape == (n, m) and dy.shape == (n, m), 'Image(s) and displacement fields shapes should match.'
-
-    y, x = torch.meshgrid(torch.arange(n, dtype=dx.dtype), torch.arange(m, dtype=dx.dtype))
-
-    xn = (x - dx).clamp(0, m-1)
-    yn = (y - dy).clamp(0, n-1)
-
-    if interp == 'linear':
-        xf = xn.floor().long()
-        yf = yn.floor().long()
-        xc = xn.ceil().long()
-        yc = yn.ceil().long()
-
-        xv = xn - xf
-        yv = yn - yf
-
-        return (1-yv)*(1-xv)*a[..., yf, xf] + (1-yv)*xv*a[..., yf, xc] + yv*(1-xv)*a[..., yc, xf] + yv*xv*a[..., yc, xc]
-
-    if interp == 'gaussian':
-        # can be implemented more efficiently by adding a cutoff to the Gaussian
-        sigma = 0.4715
-
-        dx = (xn[:, :, None, None] - x)
-        dy = (yn[:, :, None, None] - y)
-
-        c = (-dx**2 - dy**2).div(2 * sigma**2).exp()
-        c = c / c.sum([2, 3], keepdim=True)
-
-        return (c * a[..., None, None, :, :]).sum([-1, -2])
+    def __init__(self, size):
+        self.size = size
+    
+    def __call__(self, img):
+        """
+        Args:
+            img (Tensor): Tensor image
+        Returns:
+            Tensor: Image with a hole of dimension size x size cut out of it.
+        """
+        h = img.size(1)
+        w = img.size(2)
+        
+        mask = np.ones((h, w), np.float32)
+        
+        y = np.random.randint(h)
+        x = np.random.randint(w)
+        
+        y1 = np.clip(y - self.size // 2, 0, h)
+        y2 = np.clip(y + self.size // 2, 0, h)
+        x1 = np.clip(x - self.size // 2, 0, w)
+        x2 = np.clip(x + self.size // 2, 0, w)
+        
+        mask[y1: y2, x1: x2] = 0.
+        
+        mask = torch.from_numpy(mask)
+        mask = mask.expand_as(img)
+        img = img * mask
+        
+        return img

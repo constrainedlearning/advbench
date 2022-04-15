@@ -470,10 +470,10 @@ class Wide_ResNet(torch.nn.Module):
         return out
 
 
-def e2wrn(depth = 28, widen_factor = 7, dropout = 0.3, num_classes=100, r=3, flip=True):
+def e2wrn(depth = 28, widen_factor = 7, dropout = 0.3, num_classes=100, r=3, flip=True, **kwargs):
     """Constructs a Wide ResNet D8 D4 D1 invariant model.
     Args:
         pretrained (bool): If True, returns a model pre-trained on Cifar100
     """
-    model = Wide_ResNet(depth, widen_factor, dropout, f=flip, initial_stride=1)
+    model = Wide_ResNet(depth, widen_factor, dropout, f=flip, initial_stride=1, **kwargs)
     return model

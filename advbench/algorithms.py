@@ -6,7 +6,6 @@ from collections import OrderedDict
 import pandas as pd
 from numpy.random import binomial
 from torch.cuda.amp import GradScaler, autocast
-#from torchsummary import summary
 from advbench.datasets import FFCV_AVAILABLE
 
 from advbench import attacks, networks, optimizers, perturbations
@@ -24,14 +23,14 @@ ALGORITHMS = [
     'Discrete_DALE',
     'Gaussian_DALE_PD',
     'Gaussian_DALE_PD_Reverse',
-    'MCMC_DALE_PD_Reverse',
+    'MH_DALE_PD_Reverse',
     'KL_DALE_PD',
     'Worst_Of_K',
     'Augmentation',
     'Batch_Augmentation',
     'Grid_Search',
     'Batch_Grid',
-    'NUTS_DALE',
+    'Uniform_DALE_PD_Reverse',
     'Worst_DALE_PD_Reverse',
     'PGD_DALE_PD_Reverse'
 ]
@@ -443,11 +442,11 @@ class PGD_DALE_PD_Reverse(Laplacian_DALE_PD_Reverse):
         super(PGD_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
         self.attack = attacks.PGD_Linf(self.classifier, self.hparams, device, perturbation=perturbation)
 
-class MCMC_DALE_PD_Reverse(PrimalDualBase):
+class MH_DALE_PD_Reverse(PrimalDualBase):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):
-        super(MCMC_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
+        super(MH_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
         self.meters['acceptance rate'] = meters.AverageMeter()
-        self.attack = attacks.MCMC(self.classifier, self.hparams, device, perturbation=perturbation, acceptance_meter=self.meters['acceptance rate'])
+        self.attack = attacks.MH(self.classifier, self.hparams, device, perturbation=perturbation, acceptance_meter=self.meters['acceptance rate'])
         self.pd_optimizer = optimizers.PrimalDualOptimizer(
             parameters=self.dual_params,
             margin=self.hparams['g_dale_pd_inv_margin'],
@@ -628,36 +627,6 @@ class Batch_Grid(Algorithm):
         self.optimizer.step()
         self.meters['loss'].update(loss.item(), n=imgs.size(0))
 
-class NUTS_DALE(Algorithm):
-    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=1.0):
-        super(NUTS_DALE, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
-        self.attack = attacks.NUTS(self.classifier, self.hparams, device, perturbation=perturbation)
-        self.meters['clean loss'] = meters.AverageMeter()
-        self.meters['robust loss'] = meters.AverageMeter()
-
-    def step(self, imgs, labels):
-        adv_imgs, deltas = self.attack(imgs, labels)
-        self.optimizer.zero_grad()
-        clean_loss = F.cross_entropy(self.predict(imgs), labels)
-        robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
-        total_loss = robust_loss + self.hparams['l_dale_nu'] * clean_loss
-        total_loss.backward()
-        self.optimizer.step()
-
-        self.meters['loss'].update(total_loss.item(), n=imgs.size(0))
-        self.meters['clean loss'].update(clean_loss.item(), n=imgs.size(0))
-        self.meters['robust loss'].update(robust_loss.item(), n=imgs.size(0))
-
-class GConv(Augmentation):
-    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
-        hparams['epsilon_rot'] = 0.0
-        super(GConv, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
-    def export(self):
-        self.classifier.export()
-        self.classifier.to(self.device)
-    def unexport(self):
-        self.classifier.unexport()
-        self.classifier.to(self.device)
 
 class Discrete_DALE(PrimalDualBase):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0, batched=False):

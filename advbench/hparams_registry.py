@@ -31,8 +31,8 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('batch_size', 128, lambda r: int(2 ** r.uniform(3, 8)))
     _hparam('augmentation_prob', 0.5, lambda r: 0.5)
     _hparam('perturbation_batch_size', 10, lambda r: 10)
-    _hparam('mcmc_dale_scale', 0.05, lambda r: 0.05)
-    _hparam('mcmc_proposal', 'Laplace', lambda r: 'Laplace')
+    _hparam('mh_dale_scale', 0.05, lambda r: 0.05)
+    _hparam('mh_proposal', 'Laplace', lambda r: 'Laplace')
     _hparam('gaussian_attack_std', 1, lambda r: 1 )
     _hparam('laplacian_attack_std', 1, lambda r: 1 )
 
@@ -48,9 +48,9 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('lr_decay_start', 15, lambda r: 15)
         _hparam('lr_decay_factor', 0.8, lambda r: r.uniform(0.1, 0.3))
         _hparam('lr_decay_epoch', 1, lambda r: 1)
-    elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+    elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
         _hparam('learning_rate', 0.1, lambda r: 10 ** r.uniform(-2, -1))
-    if dataset == 'CIFAR100':
+    if dataset == 'CIFAR100' or dataset == 'STL10':
         _hparam('lr_decay_start', 0, lambda r: 0)
         _hparam('lr_decay_factor', 0.2, lambda r: r.uniform(0.1, 0.3))
         _hparam('lr_decay_epoch', 60, lambda r: 60)
@@ -64,12 +64,12 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     if perturbation == 'Linf':
         if dataset == 'MNIST':
             _hparam('epsilon', 0.3, lambda r: 0.3)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('epsilon', 0.031, lambda r: 0.031)
     elif perturbation == 'Rotation':
         if dataset == 'MNIST':
             _hparam('epsilon', 30, lambda r: 30)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('epsilon', 30, lambda r: 30)
 
     # Algorithm specific
@@ -78,7 +78,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         if dataset == 'MNIST':
             _hparam('pgd_n_steps', 7, lambda r: 7)
             _hparam('pgd_step_size', 0.1, lambda r: 0.1)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('pgd_n_steps', 10, lambda r: 10)
             _hparam('pgd_step_size', 0.007, lambda r: 0.007)
 
@@ -87,7 +87,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('trades_n_steps', 7, lambda r: 7)
             _hparam('trades_step_size', 0.1, lambda r: r.uniform(0.01, 0.1))
             _hparam('trades_beta', 1.0, lambda r: r.uniform(0.1, 10.0))
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('trades_n_steps', 10, lambda r: 15)
             _hparam('trades_step_size', 2/255., lambda r: r.uniform(0.01, 0.1))
             _hparam('trades_beta', 6.0, lambda r: r.uniform(0.1, 10.0))
@@ -95,7 +95,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         ##### MART #####
         if dataset == 'MNIST':
             _hparam('mart_beta', 5.0, lambda r: r.uniform(0.1, 10.0))
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('mart_beta', 5.0, lambda r: r.uniform(0.1, 10.0))
 
         ##### Gaussian DALE #####
@@ -103,7 +103,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('g_dale_n_steps', 15, lambda r: 15)
             _hparam('g_dale_step_size', 10, lambda r: 10)
             _hparam('g_dale_noise_coeff', 0.001, lambda r: 10 ** r.uniform(-6.0, -2.0))
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('g_dale_n_steps', 10, lambda r: 10)
             _hparam('g_dale_step_size', 0.007, lambda r: 0.007)
             _hparam('g_dale_noise_coeff', 0, lambda r: 0)
@@ -115,7 +115,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('l_dale_n_steps', 7, lambda r: 7)
             _hparam('l_dale_step_size', 0.1, lambda r: 0.1)
             _hparam('l_dale_noise_coeff', 0.001, lambda r: 10 ** r.uniform(-6.0, -2.0))
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('l_dale_n_steps', 10, lambda r: 10)
             _hparam('l_dale_step_size', 0.007, lambda r: 0.007)
             _hparam('l_dale_noise_coeff', 1e-2, lambda r: 1e-2)
@@ -138,7 +138,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         if dataset == 'MNIST':
             _hparam('pgd_n_steps', 20, lambda r: 20)
             _hparam('pgd_step_size', 1, lambda r: 1)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('pgd_n_steps', 20, lambda r: 20)
             _hparam('pgd_step_size', 10, lambda r: 10)
 
@@ -147,7 +147,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('trades_n_steps', 15, lambda r: 15)
             _hparam('trades_step_size', 2, lambda r: r.uniform(0.2, 2))
             _hparam('trades_beta', 1.0, lambda r: r.uniform(0.1, 10.0))
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('trades_n_steps', 10, lambda r: 15)
             _hparam('trades_step_size', 2/255., lambda r: r.uniform(0.01, 0.1))
             _hparam('trades_beta', 6.0, lambda r: r.uniform(0.1, 10.0))
@@ -155,7 +155,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         ##### MART #####
         if dataset == 'MNIST':
             _hparam('mart_beta', 5.0, lambda r: r.uniform(0.1, 10.0))
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('mart_beta', 5.0, lambda r: r.uniform(0.1, 10.0))
 
         ##### Gaussian DALE #####
@@ -163,7 +163,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('g_dale_n_steps', 20, lambda r: 1)
             _hparam('g_dale_step_size', 10, lambda r: 10)
             _hparam('g_dale_noise_coeff', 1, lambda r: 10 ** r.uniform(-1.0, 1.0))
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('g_dale_n_steps', 10, lambda r: 10)
             _hparam('g_dale_step_size', 0.007, lambda r: 0.007)
             _hparam('g_dale_noise_coeff', 0, lambda r: 0)
@@ -175,7 +175,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('l_dale_n_steps', 15, lambda r: 15)
             _hparam('l_dale_step_size', 2, lambda r: 2)
             _hparam('l_dale_noise_coeff', 1, lambda r: 10 ** r.uniform(-1.0, -1.0))
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('l_dale_n_steps', 10, lambda r: 10)
             _hparam('l_dale_step_size', 0.007, lambda r: 0.007)
             _hparam('l_dale_noise_coeff', 1e-2, lambda r: 1e-2)
@@ -187,7 +187,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('l_dale_n_steps', 15, lambda r: 15)
             _hparam('l_dale_step_size', 2, lambda r: 2)
             _hparam('l_dale_noise_coeff', 1, lambda r: 10 ** r.uniform(-1.0, -1.0))
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('l_dale_n_steps', 10, lambda r: 10)
             _hparam('l_dale_step_size', 0.007, lambda r: 0.007)
             _hparam('l_dale_noise_coeff', 1e-2, lambda r: 1e-2)
@@ -220,8 +220,12 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('worst_of_k_steps', 30, lambda r:30)
 
         _hparam('epsilon_rot', 30, lambda r:30)
-        _hparam('epsilon_tx', 3, lambda r:3)
-        _hparam('epsilon_ty', 3, lambda r:3)
+        if dataset == 'STL10':
+            _hparam('epsilon_tx', 10, lambda r:10)
+            _hparam('epsilon_ty', 10, lambda r:10)
+        else:
+            _hparam('epsilon_tx', 3, lambda r:3)
+            _hparam('epsilon_ty', 3, lambda r:3)
         ##### PGD #####
         _hparam('pgd_n_steps', 30, lambda r: 30)
         _hparam('pgd_step_size', 0.1, lambda r: 0.1)
@@ -263,13 +267,13 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('l_dale_pd_inv_step_size', 0.05, lambda r: 0.05)
             _hparam('l_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
             _hparam('l_dale_pd_inv_margin', 0.07, lambda r: 0.07)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('l_dale_pd_inv_step_size', 1, lambda r: 1)
             _hparam('l_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
             _hparam('l_dale_pd_inv_margin', 0.3, lambda r: 0.3)
 
-        # MCMC DALE
-        _hparam('mcmc_dale_n_steps', 30, lambda r:30)
+        # MH DALE
+        _hparam('mh_dale_n_steps', 30, lambda r:30)
         
         # Discrete DALE-PD-INV
         _hparam('d_num_translations', 3, lambda r: 3)
@@ -278,7 +282,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('d_dale_pd_inv_step_size', 0.05, lambda r: 0.05)
             _hparam('d_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
             _hparam('d_dale_pd_inv_margin', 0.14, lambda r: 0.14)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('d_dale_pd_inv_step_size', 1, lambda r: 1)
             _hparam('d_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
             _hparam('d_dale_pd_inv_margin', 0.15, lambda r: 0.15)
@@ -336,7 +340,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('l_dale_pd_inv_step_size', 0.4, lambda r: 0.4)
             _hparam('l_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
             _hparam('l_dale_pd_inv_margin', 0.03, lambda r: 0.03)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('l_dale_pd_inv_step_size', 0.4, lambda r: 0.4)
             _hparam('l_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
             _hparam('l_dale_pd_inv_margin', 0.08, lambda r: 0.08)
@@ -348,7 +352,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('d_dale_pd_inv_step_size', 0.05, lambda r: 0.05)
             _hparam('d_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
             _hparam('d_dale_pd_inv_margin', 0.14, lambda r: 0.14)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('d_dale_pd_inv_step_size', 0.2, lambda r: 0.2)
             _hparam('d_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
             _hparam('d_dale_pd_inv_margin', 0.08, lambda r: 0.08)
@@ -409,7 +413,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('l_dale_pd_inv_step_size', 0.05, lambda r: 0.05)
             _hparam('l_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
             _hparam('l_dale_pd_inv_margin',  0.01, lambda r: 0.01)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('l_dale_pd_inv_step_size', 0.1, lambda r: 0.1)
             _hparam('l_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
             _hparam('l_dale_pd_inv_margin',  0.01, lambda r: 0.01)
@@ -421,7 +425,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('d_dale_pd_inv_step_size', 0.05, lambda r: 0.05)
             _hparam('d_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
             _hparam('d_dale_pd_inv_margin', 0.01, lambda r: 0.01)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('d_dale_pd_inv_step_size', 1, lambda r: 1)
             _hparam('d_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
             _hparam('d_dale_pd_inv_margin', 0.01, lambda r: 0.01)
@@ -482,7 +486,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('l_dale_pd_inv_step_size', 0.05, lambda r: 0.05)
             _hparam('l_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
             _hparam('l_dale_pd_inv_margin',  0.1, lambda r: 0.1)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('l_dale_pd_inv_step_size', 0.1, lambda r: 0.1)
             _hparam('l_dale_pd_inv_eta', 0.000001, lambda r: 0.000001)
             _hparam('l_dale_pd_inv_margin',  0.15, lambda r: 0.15)
@@ -492,7 +496,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('d_dale_pd_inv_step_size', 0.05, lambda r: 0.05)
             _hparam('d_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
             _hparam('d_dale_pd_inv_margin', 0.01, lambda r: 0.01)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('d_dale_pd_inv_step_size', 1, lambda r: 1)
             _hparam('d_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
             _hparam('d_dale_pd_inv_margin', 0.3, lambda r: 0.3)
@@ -521,26 +525,26 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         hparams[name] = default_val
     if dataset=="MNIST":
         _hparam('perturbation_batch_size', 10)
-    if dataset=="CIFAR10" or dataset=="CIFAR100":
+    if dataset=="CIFAR10" or dataset=="CIFAR100" or dataset == 'STL10':
         _hparam('perturbation_batch_size', 10)
     if dataset=="IMNET":
-        _hparam('perturbation_batch_size', 20)
+        _hparam('perturbation_batch_size', 5)
     _hparam('gaussian_attack_std', 0.5)
     _hparam('laplacian_attack_std', 0.5)
 
     if perturbation == 'Linf':
         if dataset == 'MNIST':
             _hparam('epsilon', 0.3)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('epsilon', 8/255.)
         
         ##### Worst of K ######
         _hparam('worst_of_k_steps', 10)
 
-        ###### MCMC ###########
-        _hparam('mcmc_dale_scale', 0.2)
-        _hparam('mcmc_dale_n_steps', 10)
-        _hparam('mcmc_proposal', 'Laplace')
+        ###### MH ###########
+        _hparam('mh_dale_scale', 0.2)
+        _hparam('mh_dale_n_steps', 10)
+        _hparam('mh_proposal', 'Laplace')
 
         
 
@@ -548,7 +552,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         if dataset == 'MNIST':
             _hparam('pgd_n_steps', 10)
             _hparam('pgd_step_size', 0.1)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('pgd_n_steps', 10)
             _hparam('pgd_step_size', 0.003)
 
@@ -556,7 +560,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         if dataset == 'MNIST':
             _hparam('trades_n_steps', 10)
             _hparam('trades_step_size', 0.1)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('trades_n_steps', 20)
             _hparam('trades_step_size', 2/255.)
     elif perturbation=='Rotation':
@@ -565,14 +569,14 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
 
         if dataset == 'MNIST':
             _hparam('epsilon', 30)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('epsilon', 20)
 
         ##### PGD #####
         if dataset == 'MNIST':
             _hparam('pgd_n_steps', 10)
             _hparam('pgd_step_size', 2)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('pgd_n_steps', 10)
             _hparam('pgd_step_size', 2)
 
@@ -580,7 +584,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         if dataset == 'MNIST':
             _hparam('trades_n_steps', 40)
             _hparam('trades_step_size', 5)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('trades_n_steps', 40)
             _hparam('trades_step_size', 5)
         
@@ -593,17 +597,17 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         _hparam('epsilon_tx', 4)
         _hparam('epsilon_ty', 4)
 
-        ###### MCMC ###########
-        _hparam('mcmc_dale_scale', 0.2)
-        _hparam('mcmc_dale_n_steps', 30)
-        _hparam('mcmc_proposal', 'Laplace')
+        ###### MH ###########
+        _hparam('mh_dale_scale', 0.2)
+        _hparam('mh_dale_n_steps', 30)
+        _hparam('mh_proposal', 'Laplace')
         
 
         ##### PGD #####
         if dataset == 'MNIST':
             _hparam('pgd_n_steps', 30)
             _hparam('pgd_step_size', 0.5)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('pgd_n_steps', 20)
             _hparam('pgd_step_size', 0.2)
 
@@ -611,7 +615,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         if dataset == 'MNIST':
             _hparam('trades_n_steps', 40)
             _hparam('trades_step_size', 5)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('trades_n_steps', 40)
             _hparam('trades_step_size', 5)
         
@@ -628,20 +632,24 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         _hparam('worst_of_k_steps', 10)
 
         _hparam('epsilon_rot', 30)
-        _hparam('epsilon_tx', 3)
-        _hparam('epsilon_ty', 3)
+        if dataset == 'STL10':
+            _hparam('epsilon_tx', 10)
+            _hparam('epsilon_ty', 10)
+        else:
+            _hparam('epsilon_tx', 3)
+            _hparam('epsilon_ty', 3)
 
-        ###### MCMC ###########
-        _hparam('mcmc_dale_scale', 0.5)
-        _hparam('mcmc_dale_n_steps', 40)
-        _hparam('mcmc_proposal', 'Laplace')
+        ###### MH ###########
+        _hparam('mh_dale_scale', 0.5)
+        _hparam('mh_dale_n_steps', 40)
+        _hparam('mh_proposal', 'Laplace')
         
 
         ##### PGD #####
         if dataset == 'MNIST':
             _hparam('pgd_n_steps', 40)
             _hparam('pgd_step_size', 0.5)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('pgd_n_steps', 10)
             _hparam('pgd_step_size', 0.5)
 
@@ -649,7 +657,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         if dataset == 'MNIST':
             _hparam('trades_n_steps', 40)
             _hparam('trades_step_size', 5)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('trades_n_steps', 40)
             _hparam('trades_step_size', 5)
         
@@ -672,17 +680,17 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         _hparam('epsilon_tx', 3)
         _hparam('epsilon_ty', 3)
 
-        ###### MCMC ###########
-        _hparam('mcmc_dale_scale', 1)
-        _hparam('mcmc_dale_n_steps', 10)
-        _hparam('mcmc_proposal', 'Laplace')
+        ###### MH ###########
+        _hparam('mh_dale_scale', 1)
+        _hparam('mh_dale_n_steps', 10)
+        _hparam('mh_proposal', 'Laplace')
         
 
         ##### PGD #####
         if dataset == 'MNIST':
             _hparam('pgd_n_steps', 5)
             _hparam('pgd_step_size', 0.1)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('pgd_n_steps', 10)
             _hparam('pgd_step_size', 0.5)
 
@@ -690,7 +698,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         if dataset == 'MNIST':
             _hparam('trades_n_steps', 40)
             _hparam('trades_step_size', 5)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('trades_n_steps', 40)
             _hparam('trades_step_size', 5)
         
@@ -709,17 +717,17 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         ##### Worst of K ######
         _hparam('worst_of_k_steps', 10)
 
-        ###### MCMC ###########
-        _hparam('mcmc_dale_scale', 0.01)
-        _hparam('mcmc_dale_n_steps', 5)
-        _hparam('mcmc_proposal', 'Laplace')
+        ###### MH ###########
+        _hparam('mh_dale_scale', 0.01)
+        _hparam('mh_dale_n_steps', 5)
+        _hparam('mh_proposal', 'Laplace')
         
 
         ##### PGD #####
         if dataset == 'MNIST':
             _hparam('pgd_n_steps', 5)
             _hparam('pgd_step_size', 0.1)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('pgd_n_steps', 10)
             _hparam('pgd_step_size', 0.5)
 
@@ -727,7 +735,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         if dataset == 'MNIST':
             _hparam('trades_n_steps', 40)
             _hparam('trades_step_size', 5)
-        elif dataset == 'CIFAR10' or dataset == 'CIFAR100':
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('trades_n_steps', 40)
             _hparam('trades_step_size', 5)
         

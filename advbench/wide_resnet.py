@@ -215,3 +215,11 @@ def wrn28_10(**kwargs):
     """
     model = WideResNet(28, widen_factor=10, dropRate=0.3, initial_stride=2, **kwargs)
     return model
+
+def wrn16_8_stl(**kwargs):
+    """Constructs a Wide ResNet 16-8 model with initial stride of 2 as mentioned here:
+    https://github.com/uoguelph-mlrg/Cutout/issues/2
+
+    """
+    model = WideResNet(16, widen_factor=8, dropRate=0.3, initial_stride=2, **kwargs)
+    return model

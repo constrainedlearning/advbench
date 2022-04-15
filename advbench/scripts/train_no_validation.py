@@ -29,9 +29,9 @@ PD_ALGORITHMS = [
     'Laplacian_DALE',
     'Gaussian_DALE_PD',
     'Gaussian_DALE_PD_Reverse',
-    'MCMC_DALE_PD_Reverse',
+    'Laplacian_DALE_PD_Reverse',
+    'MH_DALE_PD_Reverse',
     'KL_DALE_PD',
-    'NUTS_DALE',
 ]
 
 def main(args, hparams, test_hparams):
@@ -124,11 +124,11 @@ def main(args, hparams, test_hparams):
                 print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
             timer.batch_end()
         # save clean accuracies on validation/test sets
-
-        test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
-        if wandb_log:
-            wandb.log({'test_clean_acc': test_clean_acc, 'epoch': epoch, 'step':step})
-        add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
+        if dataset.TEST_INTERVAL is None or epoch % dataset.TEST_INTERVAL == 0:
+            test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
+            if wandb_log:
+                wandb.log({'test_clean_acc': test_clean_acc, 'epoch': epoch, 'step':step})
+            add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
 
         if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
             # compute save and log adversarial accuracies on validation/test sets
@@ -184,7 +184,8 @@ def main(args, hparams, test_hparams):
         for name, meter in algorithm.meters.items():
             if meter.print:
                 print(f'Avg. train {name}: {meter.avg:.3f}\t', end='')
-        print(f'\nClean val. accuracy: {test_clean_acc:.3f}\t', end='')
+        if dataset.TEST_INTERVAL is None or epoch % dataset.TEST_INTERVAL == 0:
+            print(f'\nClean val. accuracy: {test_clean_acc:.3f}\t', end='')
         if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
             for attack_name, acc in zip(test_attacks.keys(), test_adv_accs):
                 print(f'{attack_name} val. accuracy: {acc:.3f}\t', end='')
@@ -201,6 +202,9 @@ def main(args, hparams, test_hparams):
     torch.save(
         {'model': algorithm.state_dict()}, 
         os.path.join(args.output_dir, f'ckpt.pkl'))
+    
+    if wandb_log:
+        wandb.save(os.path.join(args.output_dir, f'ckpt.pkl'))
 
     with open(os.path.join(args.output_dir, 'done'), 'w') as f:
         f.write('done')

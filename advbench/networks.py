@@ -9,6 +9,7 @@ from torch.nn.functional import pad
 from advbench.e2_networks import e2wrn
 from advbench.e2_mnist import E2SFCNN, E2SFCNN_QUOT
 from advbench.wrn import Wide_ResNet
+from advbench.wide_resnet import  wrn16_8_stl
 import torch
 import torch.nn as nn
 import torch.nn.init as init
@@ -41,8 +42,6 @@ def Classifier(input_shape, num_classes, hparams):
     elif input_shape[0] == 3:
         if hparams["model"] == "resnet18":
             return ResNet18(num_classes = num_classes)
-        elif hparams["model"] == "steerable_resnet18":
-            return SteerableResNet18(num_classes = num_classes)
         elif hparams["model"] == "wrn-28-7-rot":
             print("Using e2 invariant WRN-28-7")
             return e2wrn(depth=28, widen_factor = 7, num_classes=num_classes, r=3)
@@ -55,6 +54,12 @@ def Classifier(input_shape, num_classes, hparams):
         elif hparams["model"] == "wrn-28-10":
             print("Using WRN-28-10")
             return wrn28_10(num_classes=num_classes)
+        elif hparams["model"] == "wrn-16-8":
+            print("Using WRN-16-8")
+            return wrn16_8_stl(num_classes=num_classes)
+        elif hparams["model"] == "wrn-16-8-rot":
+            print("Using e2 invariant WRN-16-8-rot")
+            return e2wrn(depth=16, widen_factor = 8, num_classes=num_classes, r=3, fixparams=True)
         elif hparams["model"] == "convnext-T":
             return timm.create_model('convnext_tiny', pretrained=True)
         elif hparams["model"] == "CnSteerableCNN":
@@ -372,33 +377,6 @@ class CnSteerableCNN(torch.nn.Module):
             x = enn.GeometricTensor(input, self.input_type)
         else:
             x = input
-        '''
-        #x = input
-        # apply each equivariant block
-        
-        # Each layer has an input and an output type
-        # A layer takes a GeometricTensor in input.
-        # This tensor needs to be associated with the same representation of the layer's input type
-        #
-        # The Layer outputs a new GeometricTensor, associated with the layer's output type.
-        # As a result, consecutive layers need to have matching input/output types
-        x = self.block1(x)
-        x = self.block2(x)
-        x = self.pool1(x)
-        
-        x = self.block3(x)
-        x = self.block4(x)
-        x = self.pool2(x)
-        
-        x = self.block5(x)
-        x = self.block6(x)
-        
-        # pool over the spatial dimensions
-        x = self.pool3(x)
-        
-        # pool over the group
-        x = self.gpool(x)
-        '''
         if not self.exported:
             x = self.model(x)
             # unwrap the output GeometricTensor
@@ -419,207 +397,6 @@ class CnSteerableCNN(torch.nn.Module):
     def unexport(self):
         self.exported=False
 
-class SteerableResNet(nn.Module):
-    def __init__(self, block, num_blocks, restriction = 1, flip=False, N=8,  main_fiber: str = "regular",
-                 inner_fiber: str = "regular", num_classes=10):
-        super(SteerableResNet, self).__init__()
-        self.exported=False
-        nStages = [64, 128, 256, 512]
-        self.in_planes = 64
-        # level of [R]estriction:
-        #   restriction < 0 : never do restriction, i.e. initial group (either D8 or C8) preserved for the whole network
-        #   restriction = 0 : do restriction before first layer, i.e. initial group doesn't have rotation equivariance (C1 or D1)
-        #   restriction > 0 : restrict after every block, i.e. start with 8 rotations, then restrict to 4 and finally 1
-        self.r = restriction
-        if self.r < 0:
-            nStages = [int(n//8) for n in nStages]
-        elif self.r == 0:
-            nStages[1:] = [int(n//8) for n in nStages[1:]]
-        elif self.r > 0:
-            for i in range(len(nStages)):
-                nStages[i] = int(nStages[i]//(8/2**i))
-        self.f = flip
-        self.N = N
-        if self.f:
-            self.gspace = gspaces.FlipRot2dOnR2(N)
-        else:
-            self.gspace = gspaces.Rot2dOnR2(N)
-        if self.r == 0:
-            id = (0, 1) if self.f else 1
-            self.gspace, _, _ = self.gspace.restrict(id)
-        r1 = enn.FieldType(self.gspace, [self.gspace.trivial_repr] * 3)
-        self.input_type = r1
-        r2 = FIBERS[main_fiber](self.gspace, nStages[0], fixparams=True)
-        self.in_type = r2
-        self.in_planes = r2
-        self.conv1 = enn.R2Conv(r1, r2, nStages[0], 3, stride=1, bias=False)
-        self.relu1 = enn.ReLU(self.in_type,inplace=True)
-        self.bn1 = enn.InnerBatchNorm(self.in_type)
-        self.restrict1 = lambda x: x
-        self.layer1 = self._make_layer_rot(block, nStages[0], num_blocks[0], stride=1, main_fiber=main_fiber, inner_fiber=inner_fiber)
-        if self.r > 0:
-            id = (0, 4) if self.f else 4
-            self.restrict2 = self._restrict_layer(id)
-        else:
-            self.restrict2 = lambda x: x
-        self.layer2 = self._make_layer_rot(block, nStages[1], num_blocks[1], stride=2, main_fiber=main_fiber, inner_fiber=inner_fiber)
-        if self.r > 0:
-            id = (0, 2) if self.f else 2
-            self.restrict3 = self._restrict_layer(id)
-        else:
-            self.restrict3 = lambda x: x
-        self.layer3 = self._make_layer_rot(block, nStages[2], num_blocks[2], stride=2, main_fiber=main_fiber, inner_fiber=inner_fiber)
-        if self.r > 0:
-            id = (0, 1) if self.f else 1
-            self.restrict4 = self._restrict_layer(id)
-        else:
-            self.restrict4 = lambda x: x
-        self.layer4 = self._make_layer_rot(block, nStages[3], num_blocks[3], stride=2, main_fiber=main_fiber, inner_fiber=inner_fiber)
-        self.bn4 = enn.InnerBatchNorm(self.in_type, momentum=0.9)
-        self.linear = nn.Linear(self.in_type.size, num_classes)
-
-        self.total_params = sum(p.numel() for p in self.parameters())
-        #print("Total number of parameters: {}".format(self.total_params))
-        self.total_trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
-        #print("Total number of trainable parameters: {}".format(self.total_trainable_params))
-
-        for name, module in self.named_modules():
-            if isinstance(module, enn.R2Conv):
-                init.generalized_he_init(module.weights.data, module.basisexpansion)
-            elif isinstance(module, torch.nn.BatchNorm2d):
-                module.weight.data.fill_(1)
-                module.bias.data.zero_()
-            elif isinstance(module, torch.nn.Linear):
-                module.bias.data.zero_()
-
-    def _restrict_layer(self, subgroup_id):
-        layers = list()
-        layers.append(enn.RestrictionModule(self.in_type, subgroup_id))
-        layers.append(enn.DisentangleModule(layers[-1].out_type))
-        self.in_type = layers[-1].out_type
-        self.gspace = self.in_type.gspace
-        restrict_layer = enn.SequentialModule(*layers)
-        return restrict_layer
-
-    def _make_layer_rot(self, block, planes, num_blocks, stride, main_fiber: str = "regular",
-                    inner_fiber: str = "regular",
-                    out_fiber: str = None):
-        strides = [stride] + [1] * (num_blocks - 1)
-        layers = []
-        main_type = FIBERS[main_fiber](self.gspace, planes, fixparams=True)
-        inner_class = FIBERS[inner_fiber](self.gspace, planes, fixparams=True)
-        if out_fiber is None:
-            out_fiber = main_fiber
-        out_type = FIBERS[out_fiber](self.gspace, planes, fixparams=True)
-        
-        for b, stride in enumerate(strides):
-            if b == num_blocks - 1:
-                out_f = out_type
-            else:
-                out_f = main_type
-            layers.append(block(self.in_type, out_type, stride, out_fiber=out_f))
-            self.in_type = layers[-1].out_type
-            #print("Layer {}: {} -> {} -> {}".format(len(layers), in_type, main_type, out_type))
-        return nn.Sequential(*layers)
-
-    def forward(self, x):
-        # wrap the input tensor in a GeometricTensor
-        # (associate it with the input type)
-        if not self.exported:
-            #x = pad(input, (0,1,0,1))
-            x = enn.GeometricTensor(x, self.input_type)
-        else:
-            x = input
-        out = self.relu1(self.bn1(self.conv1(x)))
-        out = self.layer1(out)
-        out = self.restrict2(out)
-        out = self.layer2(out)
-        out = self.restrict3(out)
-        out = self.layer3(out)
-        out = self.restrict4(out)
-        out = self.layer4(out)
-        if not self.exported:
-            out = out.tensor
-        out = F.avg_pool2d(out, 4)
-        out = out.view(out.size(0), -1)
-        out = self.linear(out)
-        return out
-    
-    def export(self):
-        self.exported=True
-        self.exported_model = self.model.export().eval()
-    
-    def unexport(self):
-        self.exported=False
-
-class SteerableBasicBlock(nn.Module):
-    expansion = 1
-    def __init__(self, in_planes, planes, stride=1, out_fiber = None):
-        super(SteerableBasicBlock, self).__init__()
-        if out_fiber is None:
-            out_fiber = in_planes
-        self.in_type = in_planes
-        inner_class = planes
-        self.out_type = out_fiber
-        self.conv1 = enn.R2Conv(in_planes, planes, 3, stride=stride, padding=1, bias=False)
-        self.bn1 = enn.InnerBatchNorm(planes)
-        self.relu1 = enn.ReLU(planes,inplace=True)
-        self.conv2 = enn.R2Conv(planes, out_fiber, 3, stride=1, padding=1, bias=False)
-        self.bn2 = enn.InnerBatchNorm(out_fiber)
-        self.relu2 = enn.ReLU(out_fiber, inplace=True)
-
-        self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes.size != self.expansion * planes.size:
-            self.shortcut = nn.Sequential(
-                enn.R2Conv(in_planes, out_fiber, 1, stride=stride, bias=False),
-                enn.InnerBatchNorm(out_fiber)
-            )
-
-    def forward(self, x):
-        out = self.relu1(self.bn1(self.conv1(x)))
-        out = self.bn2(self.conv2(out))
-        out += self.shortcut(x)
-        out = self.relu2(out)
-        return out
-
-
-class SteerableBottleneck(nn.Module):
-    expansion = 4
-
-    def __init__(self, in_planes, planes, stride=1, out_fiber = None):
-        super(SteerableBottleneck, self).__init__()
-        if out_fiber is None:
-            out_fiber = in_planes
-        self.conv1 = enn.R2Conv(in_planes, planes, 1, bias=False)
-        self.bn1 = enn.InnerBatchNorm(planes)
-        self.relu1 = enn.ReLU(planes,inplace=True)
-        self.conv2 = enn.R2Conv(planes, planes, 3, stride=stride, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(planes)
-        self.conv2 = enn.R2Conv(planes, planes, 3, stride=1, padding=1, bias=False)
-        self.bn2 = enn.InnerBatchNorm(planes)
-        self.relu2 = enn.ReLU(planes,inplace=True)
-        self.conv3 = enn.R2Conv(planes, self.expansion * planes, 1, bias=False)
-        self.relu3 = enn.ReLU(self.expansion * planes,inplace=True)
-        self.bn3 = enn.InnerBatchNorm(self.expansion * planes)
-
-        self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion * planes:
-            self.shortcut = nn.Sequential(
-                enn.R2Conv(in_planes, self.expansion * planes, 1, stride=stride, bias=False),
-                enn.InnerBatchNorm(self.expansion * planes)
-            )
-
-    def forward(self, x):
-        out = self.relu1(self.bn1(self.conv1(x)))
-        out = self.relu2(self.bn2(self.conv2(out)))
-        out = self.bn3(self.conv3(out))
-        out += self.shortcut(x)
-        out = self.relu3(out)
-        return out
-
-def SteerableResNet18():
-    return SteerableResNet(SteerableBasicBlock, [2, 2, 2, 2])
-
 def wrn28_10(num_classes=10):
     """Constructs a Wide ResNet 28-10 model.
     This model is only [R]otation equivariant (no flips equivariance)
@@ -627,4 +404,13 @@ def wrn28_10(num_classes=10):
         pretrained (bool): If True, returns a model pre-trained on Cifar100
     """
     model = Wide_ResNet(depth=28, widen_factor=10, dropRate=0.3, num_classes=num_classes)
+    return model
+
+def wrn16_8(num_classes=10):
+    """Constructs a Wide ResNet 16-8 model.
+    This model is only [R]otation equivariant (no flips equivariance)
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on Cifar100
+    """
+    model = Wide_ResNet(depth=16, widen_factor=8, dropRate=0.3, num_classes=num_classes)
     return model
