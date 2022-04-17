@@ -65,7 +65,7 @@ def main(args, hparams, test_hparams):
         hparams,
         device,
         **kw_args).to(device)
-    if dataset = "STL10":
+    if dataset == "STL10":
         adjust_lr = CosineAnnealingLR(algorithm.optimizer, dataset.N_EPOCHS, eta_min=dataset.MIN_LR, last_epoch=dataset.START_EPOCH - 1)
     else:
         adjust_lr = None if dataset.HAS_LR_SCHEDULE is False else dataset.adjust_lr
@@ -98,7 +98,9 @@ def main(args, hparams, test_hparams):
     total_time = 0
     step = 0
     for epoch in range(0, dataset.N_EPOCHS):
-        if adjust_lr is not None:
+        if dataset =="STL10":
+            adjust_lr.step()
+        elif adjust_lr is not None:
             adjust_lr(algorithm.optimizer, epoch, hparams)
         if wandb_log:
             wandb.log({'lr': hparams['learning_rate'], 'epoch': epoch, 'step':step})
