@@ -47,9 +47,7 @@ class Translation(Perturbation):
         self.dim = 2
         self.names = [ 'Tx', 'Ty']
     def clamp_delta(self, delta, imgs):
-        """Clamp delta so that (1) the perturbation is bounded
-        in the l_inf norm by self.hparams['epsilon'] and (2) so that the
-        perturbed image is in [0, 1]^d."""
+        """Clamp delta so that (1) the perturbation is bounded in +- epsilon pixels"""
         for i in range(self.dim):
             delta[:, i] = torch.clamp(delta[:, i], - self.eps[i], self.eps[i])
         return delta
@@ -70,9 +68,7 @@ class Rotation(Perturbation):
         self.dim = 1
         self.names = ['Angle']
     def clamp_delta(self, delta, imgs):
-        """Clamp delta so that (1) the perturbation is bounded
-        in the l_inf norm by self.hparams['epsilon'] and (2) so that the
-        perturbed image is in [0, 1]^d."""
+        """Clamp delta so that (1) the perturbation is bounded to +- epsilon degrees."""
         delta = torch.clamp(delta, -self.eps, self.eps)
         return delta
 
@@ -93,9 +89,6 @@ class SE(Perturbation):
         self.dim = 3
         self.names = ['Angle', 'Tx', 'Ty']
     def clamp_delta(self, delta, imgs):
-        """Clamp delta so that (1) the perturbation is bounded
-        in the l_inf norm by self.hparams['epsilon'] and (2) so that the
-        perturbed image is in [0, 1]^d."""
         for i in range(self.dim):
             delta[:, i] = torch.clamp(delta[:, i], - self.eps[i], self.eps[i])
         return delta

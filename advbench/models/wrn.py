@@ -43,14 +43,14 @@ class NetworkBlock(nn.Module):
         return self.layer(x)
 
 class Wide_ResNet(nn.Module):
-    def __init__(self,  num_classes=10, depth=28, widen_factor=10, dropRate=0.3):
+    def __init__(self, initial_stride=1, num_classes=10, depth=28, widen_factor=10, dropRate=0.3):
         super(Wide_ResNet, self).__init__()
         nChannels = [16, 16*widen_factor, 32*widen_factor, 64*widen_factor]
         assert((depth - 4) % 6 == 0)
         n = (depth - 4) / 6
         block = BasicBlock
         # 1st conv before any network block
-        self.conv1 = nn.Conv2d(3, nChannels[0], kernel_size=3, stride=1,
+        self.conv1 = nn.Conv2d(3, nChannels[0], kernel_size=3, stride=initial_stride,
                                padding=1, bias=False)
         # 1st block
         self.block1 = NetworkBlock(n, nChannels[0], nChannels[1], block, 1, dropRate)
@@ -88,3 +88,16 @@ class Wide_ResNet(nn.Module):
     
     def loss(self, logits, y):
         return self.crossEntropy(logits, y)
+
+def wrn28_10(num_classes=10):
+    """Constructs a Wide ResNet 28-10 model.
+    """
+    model = Wide_ResNet(depth=28, widen_factor=10, dropRate=0.3, num_classes=num_classes)
+    return model
+
+def wrn16_8(num_classes=10):
+    """Constructs a Wide ResNet 16-8 model with initial stride of 2 as mentioned here:
+    https://github.com/uoguelph-mlrg/Cutout/issues/2
+    """
+    model = Wide_ResNet(depth=16, widen_factor=8, dropRate=0.3, num_classes=num_classes, initial_stride=2)
+    return model

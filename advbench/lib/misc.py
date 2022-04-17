@@ -78,8 +78,8 @@ def adv_accuracy(algorithm, loader, device, attack):
     return 100. * correct / total
 
 def adv_accuracy_loss_delta(algorithm, loader, device, attack):
-    correct, total = 0, 0
-    losses, deltas = [], []
+    adv_correct, correct, total, adv_losses = 0, 0, 0, 0
+    losses, deltas, accs = [], [], []
 
     algorithm.eval()
     algorithm.export()
@@ -102,15 +102,25 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
                     adv_imgs, delta, labels = attacked
                 output = algorithm.predict(adv_imgs)
                 loss = F.cross_entropy(output, labels, reduction='none')
-                pred = output.argmax(dim=1, keepdim=True)
+                pred = output.argmax(dim=1)       
+            pred = rearrange(pred, '(B S) -> B S', B=imgs.shape[0])
+            eq = pred.eq(labels.view_as(pred))
+            accs.append(eq.view_as(loss).cpu().numpy())
+            worst , _ = eq.min(dim = 1)
+            adv_correct += worst.sum().item()
+            correct += eq.sum().item()
             losses.append(loss.cpu().numpy())
+            loss = rearrange(loss, '(B S) -> B S', B=imgs.shape[0])
+            worst_loss, _ = loss.max(dim=1)
+            adv_losses += worst_loss.sum().item()
             deltas.append(delta.cpu().numpy())
-            correct += pred.eq(labels.view_as(pred)).sum().item()
             total += adv_imgs.size(0)
     algorithm.train()
     algorithm.unexport()
-    acc = 100. * correct / total
-    return acc, np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0)
+    adv_acc = 100. * adv_correct / total
+    adv_mean = 100. * correct / total
+    adv_loss = adv_losses / total
+    return adv_acc, adv_mean, adv_loss, np.concatenate(accs, axis=0), np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0)
 
 def adv_accuracy_loss_delta_ensembleacc(algorithm, loader, device, attack):
     correct, ensemble_correct, total, total_ens = 0, 0, 0, 0

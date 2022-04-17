@@ -14,13 +14,15 @@ def get_output_label(output, input_ind=None):
     :param input_ind: If the input had multiple images, the index of the requested output label
     :return: the output label of the network
     """
+    #print(output)
     if input_ind:
         _, k_org = torch.max(output.data[input_ind,:],0)
     else:
         _, k_org = torch.max(output.data,1)
-
-
-    k_org = k_org[0]
+    try:
+        k_org = k_org.item()
+    except:
+        k_org = k_org[0]
 
     return k_org
 
@@ -81,25 +83,18 @@ def manifool_single_target(I_org, net, mode, target,
             gg = torch.cuda.FloatTensor([[1,-1]])
         else:
             gg = torch.FloatTensor([1,-1])
-        print(output)
+        #print(output)
         assert(x.requires_grad)
         assert(output.requires_grad)
         output[:,[k_org,target]].backward(gg,retain_graph=True)
         w_tar = x.grad.clone().data + 0
         w_tar = w_tar.view(n,1)
-
+        u_tar = torch.linalg.lstsq(w_tar,J_n).solution
         try:
-            u_tar = torch.gels(w_tar,J_n)[0]
-            u_tar = u_tar[:J_n.size()[1]]
-            try:
-                dist = abs(output.data[0, target] - output.data[0, k_org]) / (J_n.mm(u_tar)).norm()
-            except ZeroDivisionError:
-                dist = np.inf
-            u_tar.squeeze_()
-        except Exception as e:
-            u_tar = None
+            dist = abs(output.data[0, target] - output.data[0, k_org]) / (J_n.mm(u_tar.T)).norm()
+        except ZeroDivisionError:
             dist = np.inf
-
+        u_tar.squeeze_()
         return u_tar, dist
 
 
@@ -143,20 +138,18 @@ def manifool_single_target(I_org, net, mode, target,
             x = Variable(I_c, requires_grad = True)
 
             output = net(x)
-            print(output.requires_grad)
             f_org = output.data[:,k_org]
-            print(output.requires_grad)
             diff_curr = f_org - output.data[:,target]
             diff_x, s = torch.max((diff_pre - diff_curr),0)
 
-            if diff_max < diff_x[0]:
-                diff_max = diff_x[0]
-                s_final = s + ind
-                k_I = get_output_label(output,s[0])
-                chosen_diff = diff_curr[s[0]]
-                I_chosen = I_batch[s[0],:].clone()
+            if diff_max < diff_x.item():
+                diff_max = diff_x.item()
+                s_final = s.item() + ind
+                k_I = get_output_label(output,s)
+                chosen_diff = diff_curr[s.item()]
+                I_chosen = I_batch[s.item(),:].clone()
 
-        s = s_final[0]
+        s = s_final
 
         return step_sizes[s], chosen_diff, I_chosen, k_I
 
@@ -215,7 +208,7 @@ def manifool_single_target(I_org, net, mode, target,
         # Choose min gradient on the manifold
        
         u, dist = get_gradient()
-
+        print("u, dist ", u, dist)
 
         
         # If dist is infinity (i.e. if u is perpendicular to the manifold) stop iterating as the alg. wont converge.
@@ -245,7 +238,7 @@ def manifool_single_target(I_org, net, mode, target,
         x = Variable(I_c.unsqueeze(0), requires_grad = True)
 
         output = net(x)
-        print(output.requires_grad)
+        #print(output.requires_grad)
         k_I = get_output_label(output)
 
         if I_c.norm() == 0:
@@ -275,7 +268,7 @@ def manifool_single_target(I_org, net, mode, target,
     x = Variable(I_c.unsqueeze(0), requires_grad = True)
 
     output = net(x)
-    print(output.requires_grad)
+    #print(output.requires_grad)
     _, k_I = torch.max(output.data,1)
     k_I = k_I[0]
 
@@ -294,7 +287,7 @@ def manifool_single_target(I_org, net, mode, target,
 
         output = net(x)
         _, k_I = torch.max(output.data,1)
-        print(output.requires_grad)
+        #print(output.requires_grad)
         k_I = k_I[0]
 
     if crop:
@@ -311,8 +304,8 @@ def manifool(I_org, net, mode='rotation+translation',
              batch_size=3,
              cuda_on=True,
              crop = None,
-             numerical = False,
-             verbose = 1,
+             numerical = True,
+             verbose = 2,
              geo_step = 0.05,
              N_c = 10):
     """

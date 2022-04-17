@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.laplace import Laplace
+from torch.optim import Adam
 from einops import rearrange, reduce, repeat
 
 from advbench import perturbations
@@ -42,77 +43,77 @@ class PGD_Linf(Attack_Linf):
                 adv_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
             grad = torch.autograd.grad(adv_loss, [delta])[0].detach()
             delta.requires_grad_(False)
-            delta += self.hparams['pgd_step_size']* torch.sign(grad)
+            delta += self.hparams['pgd_step_size']*self.eps*torch.sign(grad)
             delta = self.perturbation.clamp_delta(delta, imgs)
         adv_imgs = self.perturbation.perturb_img(imgs, delta)
             
         self.classifier.train()
         return adv_imgs.detach(), delta.detach()    # this detach may not be necessary
 
-class TRADES_Linf(Attack_Linf):
-    def __init__(self, classifier, hparams,  device, perturbation='Linf'):
-        super(TRADES_Linf, self).__init__(classifier, hparams, device, perturbation=perturbation)
-        self.kl_loss_fn = nn.KLDivLoss(reduction='batchmean')  # AR: let's write a method to do the log-softmax part
-
-    def forward(self, imgs, labels):
-        self.classifier.eval()
-        delta = self.perturbation.delta_init(imgs).to(imgs.device)
-        for _ in range(self.hparams['trades_n_steps']):
-            delta.requires_grad_(True)
-            with torch.enable_grad():
-                adv_imgs = self.perturbation.perturb_img(imgs, delta)
-                adv_loss = self.kl_loss_fn(
-                    F.log_softmax(self.classifier(adv_imgs), dim=1),   # AR: Note that this means that we can't have softmax at output of classifier
-                    F.softmax(self.classifier(imgs), dim=1))
-            grad = torch.autograd.grad(adv_loss, [delta])[0].detach()
-            delta.requires_grad_(False)
-            delta += self.hparams['trades_step_size']* torch.sign(grad)
-            delta = self.perturbation.clamp_delta(delta, imgs)
-        adv_imgs = self.perturbation.perturb_img(imgs, delta)
+class Fo(Attack_Linf):
+    def __init__(self, classifier, hparams, device, perturbation='Linf'):
+        super(Fo, self).__init__(classifier, hparams, device, perturbation=perturbation)
         
-        self.classifier.train()
-        return adv_imgs.detach(), delta.detach() # this detach may not be necessary
-
-class FGSM_Linf(Attack):
-    def __init__(self, classifier,  hparams, device,  perturbation='Linf'):
-        super(FGSM_Linf, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
-
     def forward(self, imgs, labels):
         self.classifier.eval()
-
-        imgs.requires_grad = True
-        adv_loss = F.cross_entropy(self.classifier(imgs), labels)
-        grad = torch.autograd.grad(adv_loss, [imgs])[0].detach()
-        delta = self.hparams['epsilon'] * grad.sign()
-        delta = self.perturbation.clamp_delta(delta, imgs)
-        adv_imgs = self.perturbation.perturb_img(imgs, delta)
-
+        delta = self.perturbation.delta_init(imgs).to(imgs.device)
+        highest_loss = torch.zeros(imgs.shape[0], device = imgs.device)
+        worst_delta = torch.empty_like(delta)
+        for _ in range(self.hparams['fo_restarts']):
+            delta, adv_loss = self.optimize_delta(imgs, labels, delta)
+            worst_delta[adv_loss>highest_loss] = delta[adv_loss>highest_loss]
+            highest_loss[adv_loss>highest_loss] = adv_loss[adv_loss>highest_loss]
+        adv_imgs = self.perturbation.perturb_img(imgs, worst_delta)    
         self.classifier.train()
-
         return adv_imgs.detach(), delta.detach()
 
-class LMC_Gaussian_Linf(Attack_Linf):
-    def __init__(self, classifier,  hparams, device, perturbation='Linf'):
-        super(LMC_Gaussian_Linf, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
-    def forward(self, imgs, labels):
+class Fo_Adam(Fo):
+    def __init__(self, classifier, hparams, device, perturbation='Linf'):
+        super(Fo_Adam, self).__init__(classifier, hparams, device, perturbation=perturbation)
+    
+    def optimize_delta(self, imgs, labels, delta):
         self.classifier.eval()
-        batch_size = imgs.size(0)
         delta = self.perturbation.delta_init(imgs).to(imgs.device)
-        for _ in range(self.hparams['g_dale_n_steps']):
+        opt = Adam([delta], lr = self.hparams['fo_adam_step_size'], betas = (0.9, 0.999))
+        for _ in range(self.hparams['fo_n_steps']):
+            with torch.enable_grad():
+                adv_imgs = self.perturbation.perturb_img(imgs, delta)
+                adv_loss = F.cross_entropy(self.classifier(adv_imgs), labels, reduction='none')
+                mean = adv_loss.mean()
+            mean.backward()
+            opt.step()
+            delta = self.perturbation.clamp_delta(delta, imgs)            
+        self.classifier.train()
+        return delta, adv_loss
+
+class Fo_SGD(Fo):
+    def __init__(self, classifier,  hparams, device, perturbation='Linf'):
+        super(Fo_SGD, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+        if isinstance(self.perturbation.eps, torch.Tensor):
+                self.perturbation.eps.to(device)
+        if isinstance(self.perturbation.eps, list):
+            eps = torch.tensor(self.perturbation.eps).to(device)
+        else:
+            eps = self.perturbation.eps
+        self.step = (eps*self.hparams['fo_sgd_step_size'])
+    def optimize_delta(self, imgs, labels, delta):
+        batch_size = imgs.size(0)
+        velocity=0
+        for t in range(self.hparams['fo_n_steps']):
             delta.requires_grad_(True)
             with torch.enable_grad():
                 adv_imgs = self.perturbation.perturb_img(imgs, delta)
-                adv_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
-            grad = torch.autograd.grad(adv_loss, [delta])[0].detach()
+                adv_loss = F.cross_entropy(self.classifier(adv_imgs), labels, reduction='none')
+                mean = - adv_loss.mean()
+            torch.nn.utils.clip_grad_norm_(delta, 1, norm_type=2.0)
+            grad = torch.autograd.grad(mean, [delta])[0].detach()
             delta.requires_grad_(False)
-            noise = torch.randn_like(delta).to(self.device).detach()
-            delta += self.step.to(self.device) * grad + self.noise_coeff.to(self.device) * noise
-            delta = self.perturbation.clamp_delta(delta, imgs)
-        adv_imgs = self.perturbation.perturb_img(imgs, delta)
-
-        self.classifier.train()
-
-        return adv_imgs.detach(), delta.detach()
+            grad = torch.clip(grad, min=-1, max=1)
+            velocity = self.hparams['fo_sgd_momentum']*velocity+grad
+            if t<self.hparams['fo_n_steps']-1:     
+                delta += self.step*velocity
+                delta = self.perturbation.clamp_delta(delta, imgs)
+        return delta.detach(), adv_loss
 
 class LMC_Laplacian_Linf(Attack_Linf):
     def __init__(self, classifier,  hparams, device, perturbation='Linf'):
@@ -221,10 +222,7 @@ class Grid_Search(Attack_Linf):
                 eps = self.epsilon[idx]
                 
             step = 2*eps/self.grid_steps
-            if self.perturbation_name == 'CPAB':
-                grids.append(torch.arange(0, eps, step=step, device=self.device))
-            else:   
-                grids.append(torch.arange(-eps, eps, step=step, device=self.device))
+            grids.append(torch.arange(-eps, eps, step=step, device=self.device))
         self.grid = torch.cartesian_prod(*grids)
 
     def forward(self, imgs, labels):
@@ -325,7 +323,7 @@ class Laplacian_Batch(Dist_Batch):
 
 class Grid_Batch(Grid_Search):
     def __init__(self, classifier,  hparams, device, perturbation='Linf'):
-        super(Grid_Batch, self).__init__(classifier,  hparams, device,  perturbation=perturbation, grid_size = hparams['perturbation_batch_size'])
+        super(Grid_Batch, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
 
     def forward(self, imgs, labels):
         batch_size = imgs.size(0)
@@ -333,24 +331,8 @@ class Grid_Batch(Grid_Search):
         rep_imgs = repeat(imgs, 'B W H C -> (B S) W H C', B=batch_size, S=self.grid_size)
         delta = self.perturbation.clamp_delta(rep_grid, rep_imgs)
         adv_imgs = self.perturbation.perturb_img(
-                rep_imgs,
-                rep_grid)
+            rep_imgs,
+            rep_grid)
         new_labels = repeat(labels, 'B -> (B S)', S=self.grid_size)
         
         return adv_imgs.detach(), delta, new_labels.detach()
-
-class Manifool(Attack_Linf):
-    def __init__(self, classifier,  hparams, device, perturbation='SE'):
-        assert(perturbation=='SE')
-        super(Manifool, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
-
-    def forward(self, imgs, labels):
-        batch_size = imgs.size(0)
-        if FFCV_AVAILABLE:
-            imgs = imgs.float()
-        adv_imgs = torch.empty_like(imgs)
-        delta = self.perturbation.delta_init(imgs).to(imgs.device)
-        for i in range(batch_size):
-            manifool_out = manifool(imgs[i], self.classifier, mode='rotation+translation')
-            adv_imgs[i] = manifool_out['output_image']
-        return adv_imgs.detach(), delta.detach()

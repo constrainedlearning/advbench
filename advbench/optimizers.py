@@ -4,13 +4,7 @@ from torch.nn.functional import relu
 import torch.nn as nn
 import e2cnn.nn as enn
 
-#TODO(AR): Need to write an optimizer for primal-dual
-
 def Optimizer(classifier, hparams):
-
-    # return optim.Adadelta(
-    #     classifier.parameters(),
-    #     lr=1.0)
 
     return optim.SGD(
         classifier.parameters(),
@@ -53,7 +47,6 @@ def SFCNN_Optimizer(model, hparams):
                   if n.endswith('weight') or n.split('.')[-1].startswith('weight')
                   ]
     weights_fully = [p for m in linearLayers for n, p in m.named_parameters() if n.endswith('weight')]
-    # CROP OFF LAST WEIGHT !!!!! (classification layer)
     weights_fully, weights_softmax = weights_fully[:-1], [weights_fully[-1]]
     print("SFCNN optimizer")
     for n, p in model.named_parameters():

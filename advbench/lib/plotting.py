@@ -21,7 +21,6 @@ def adjust_legend_fontsize(ax, fontsize):
 
 def multicol_legend(ax, ncol=2):
     handles, labels = ax.get_legend_handles_labels()
-    # ax.legend.remove()
     ax.legend(handles, labels, ncol=ncol, loc='best')
 
 def tick_density(plot, every=2, mod_val=1, axis='x'):
@@ -43,8 +42,11 @@ def plot_perturbed_wandb(deltas, metric, name="loss", wandb_args = {}, plot_mode
         deltas = deltas[:, 0]
         data = [[x, y] for (x, y) in zip(deltas.tolist(), metric.tolist())]
         table = wandb.Table(data=data, columns = ["delta", "loss"])
-        print("plotting line")
-        wandb_dict = {name : wandb.plot.scatter(table, "delta", "loss", title=name)}
+        if plot_mode=="table":
+            wandb_dict = {name : table}
+        else:
+            print("plotting line")
+            wandb_dict = {name : wandb.plot.scatter(table, "delta", "loss", title=name)}
         wandb_dict.update(wandb_args)
         wandb.log(wandb_dict)
 
@@ -56,7 +58,6 @@ def plot_perturbed_wandb(deltas, metric, name="loss", wandb_args = {}, plot_mode
             wandb.log(wandb_dict)
         elif plot_mode=="surface":
             num_points = int(round(deltas.shape[0]**(1/deltas.shape[1])))
-            #deltas = deltas[[range(0,num_points, num_points) , range(0,num_points, num_points),range(0,num_points, num_points)]]
             unmeshed_deltas = []
             for i in range(3):
                 unmeshed_deltas.append(deltas[range(0, num_points**(3-i), num_points**(3-i-1)), i])
@@ -66,15 +67,24 @@ def plot_perturbed_wandb(deltas, metric, name="loss", wandb_args = {}, plot_mode
                 wandb_dict = {f"{name} perturbation landscape" : fig}
                 wandb_dict.update(wandb_args)
                 wandb.log(wandb_dict)
+        elif plot_mode == "table":
+            data = [[x, y] for (x, y) in zip(deltas.tolist(), metric.tolist())]
+            table = wandb.Table(data=data, columns = ["delta", "loss"])
+            wandb_dict = {name:table}
+            wandb_dict.update(wandb_args)
+            wandb.log(wandb_dict)
     
     elif deltas.shape[1]>3:
         deltas = np.linalg.norm(deltas, axis=1)
         data = [[x, y] for (x, y) in zip(deltas.tolist(), metric.tolist())]
         table = wandb.Table(data=data, columns = ["delta", "loss"])
-        print("plotting line")
-        wandb_dict = {name : wandb.plot.scatter(table, "delta", "loss", title=name)}
+        if plot_mode=="table":
+            wandb_dict = {name : table}
+        else:
+            print("plotting line")
+            wandb_dict = {name : wandb.plot.scatter(table, "delta", "loss", title=name)}
         wandb_dict.update(wandb_args)
-        wandb.log(wandb_dict)           
+        wandb.log(wandb_dict)        
     else:
         print("plotting not implemented for given perturbation dimension")
         pass
@@ -91,5 +101,3 @@ def plot_3d_surface(x,y, loss, axis_labels=None):
     if axis_labels is not None:
         fig.update_layout(scene = dict(xaxis_title=axis_labels[0], yaxis_title=axis_labels[1], zaxis_title=axis_labels[2]))
     return  fig
-
-

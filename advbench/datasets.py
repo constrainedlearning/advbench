@@ -8,8 +8,9 @@ from torchvision.datasets import MNIST as MNIST_
 from torchvision.datasets import STL10 as STL10_
 from torchvision.datasets import ImageFolder
 from advbench.lib.transformations import Cutout
+import os
 try:
-    raise ImportError
+    FFCV_AVAILABLE = os.get_env('FFCV_AVAILABLE')
     from ffcv.fields import IntField, RGBImageField
     from ffcv.fields.decoders import IntDecoder, SimpleRGBImageDecoder
     from ffcv.loader import Loader, OrderOption
@@ -18,10 +19,10 @@ try:
     from ffcv.transforms.common import Squeeze
     from ffcv.writer import DatasetWriter
     print("*"*80)
-    print('FFCV available. Using Low precision operations. May result in numerical instability.')
+    print('FFCV available. Also using Low precision operations. May result in numerical instability.')
     print("*"*80)
     FFCV_AVAILABLE=True
-except ImportError:
+except:
     FFCV_AVAILABLE=False
 
 from timm.data.constants import \
@@ -49,7 +50,7 @@ STD = {
 def to_loaders(all_datasets, hparams):
     if not all_datasets.ffcv:    
         def _to_loader(split, dataset):
-            batch_size = hparams['batch_size'] if split == 'train' else 10
+            batch_size = hparams['batch_size'] #if split == 'train' else 10
             return DataLoader(
                 dataset=dataset, 
                 batch_size=batch_size,
@@ -108,11 +109,6 @@ if FFCV_AVAILABLE:
         LOSS_LANDSCAPE_BATCHES = 40
         ANGLE_GSIZE = 100
         HAS_LR_SCHEDULE = True
-
-
-        # test adversary parameters
-        ADV_STEP_SIZE = 2/255.
-        N_ADV_STEPS = 20
 
         def __init__(self, root, augmentation=True):
             super(CIFAR10, self).__init__()
@@ -181,11 +177,6 @@ if FFCV_AVAILABLE:
         ANGLE_GSIZE = 100
         LOSS_LANDSCAPE_BATCHES = 10
         HAS_LR_SCHEDULE = True
-
-
-        # test adversary parameters
-        ADV_STEP_SIZE = 2/255.
-        N_ADV_STEPS = 20
 
         def __init__(self, root, augmentation=True):
             super(CIFAR100, self).__init__()
@@ -258,10 +249,6 @@ else:
         LOSS_LANDSCAPE_BATCHES = 10
         HAS_LR_SCHEDULE = True
 
-        # test adversary parameters
-        ADV_STEP_SIZE = 2/255.
-        N_ADV_STEPS = 20
-
         def __init__(self, root, augmentation=True):
             super(CIFAR10, self).__init__()
 
@@ -277,7 +264,6 @@ else:
 
             train_data = CIFAR10_(root, train=True, transform=train_transforms, download=True)
             self.splits['train'] = train_data
-            # self.splits['train'] = Subset(train_data, range(5000))
 
             train_data = CIFAR10_(root, train=True, transform=train_transforms)
             self.splits['val'] = Subset(train_data, range(45000, 50000))
@@ -307,10 +293,6 @@ else:
         ANGLE_GSIZE = 100
         LOSS_LANDSCAPE_BATCHES = 10
         HAS_LR_SCHEDULE = True
-
-        # test adversary parameters
-        ADV_STEP_SIZE = 2/255.
-        N_ADV_STEPS = 20
 
         def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=False):
             super(CIFAR100, self).__init__()
@@ -370,10 +352,6 @@ else:
         LOSS_LANDSCAPE_BATCHES = 5
         HAS_LR_SCHEDULE = True
 
-        # test adversary parameters
-        ADV_STEP_SIZE = 2/255.
-        N_ADV_STEPS = 20
-
         def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=False):
             super(STL10, self).__init__()
 
@@ -423,13 +401,9 @@ class MNIST(AdvRobDataset):
     LOSS_LANDSCAPE_INTERVAL = 100
     LOSS_LANDSCAPE_BATCHES = 20
     HAS_LR_SCHEDULE = False
-    LOSS_LANDSCAPE_GSIZE = 1000#28000
+    LOSS_LANDSCAPE_GSIZE = 1000
     ANGLE_GSIZE = 100
     LOSS_LANDSCAPE_BATCHES = 20
-
-    # test adversary parameters
-    ADV_STEP_SIZE = 0.1
-    N_ADV_STEPS = 10
 
     def __init__(self, root, augmentation=False):
         super(MNIST, self).__init__()
