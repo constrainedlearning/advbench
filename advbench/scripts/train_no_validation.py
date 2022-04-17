@@ -35,8 +35,6 @@ PD_ALGORITHMS = [
 ]
 
 def main(args, hparams, test_hparams):
-    #if args.dataset=="IMNET" or args.dataset=="MNIST":
-    #device = 'cuda' if torch.cuda.is_available() else 'cpu'
     device = args.device
     print(f"Using {device}")
     hparams['model'] = args.model
@@ -67,9 +65,10 @@ def main(args, hparams, test_hparams):
         hparams,
         device,
         **kw_args).to(device)
-    adjust_lr = None if dataset.HAS_LR_SCHEDULE is False else dataset.adjust_lr
-
-    adjust_lr_dual = None if dataset.HAS_LR_SCHEDULE_DUAL is False or not (args.algorithm in PD_ALGORITHMS) else dataset.adjust_lr_dual
+    if dataset == "STL10":
+        adjust_lr = CosineAnnealingLR(algorithm.optimizer, dataset.N_EPOCHS, eta_min=dataset.MIN_LR, last_epoch=dataset.START_EPOCH - 1)
+    else:
+        adjust_lr = None if dataset.HAS_LR_SCHEDULE is False else dataset.adjust_lr
 
     summary(algorithm.classifier, input_size=dataset.INPUT_SHAPE)
 
@@ -82,8 +81,8 @@ def main(args, hparams, test_hparams):
         defaults = [args.algorithm, args.dataset, args.trial_seed, args.output_dir]
         results_df.loc[len(results_df)] = data + defaults
     if wandb_log:
-        name = f"{args.perturbation} {args.algorithm} {args.test_attacks} {args.trial_seed} {args.seed}"
-        wandb.init(project=f"march-adversarial-constrained-{args.dataset}", name=name)
+        name = f"{args.perturbation} {args.algorithm} {args.model} {args.seed}"
+        wandb.init(project=f"DAug-{args.dataset}", name=name)
         wandb.config.update(args)
         wandb.config.update(hparams)
         train_eval, test_eval = [], []
@@ -99,10 +98,10 @@ def main(args, hparams, test_hparams):
     total_time = 0
     step = 0
     for epoch in range(0, dataset.N_EPOCHS):
-        if adjust_lr is not None:
+        if dataset =="STL10":
+            adjust_lr.step()
+        elif adjust_lr is not None:
             adjust_lr(algorithm.optimizer, epoch, hparams)
-        if adjust_lr_dual is not None:
-            adjust_lr_dual(algorithm.pd_optimizer, epoch)
         if wandb_log:
             wandb.log({'lr': hparams['learning_rate'], 'epoch': epoch, 'step':step})
         timer = meters.TimeMeter()
@@ -197,13 +196,12 @@ def main(args, hparams, test_hparams):
         meters_df = algorithm.meters_to_df(epoch)
         meters_df.to_pickle(os.path.join(args.output_dir, 'meters.pkl'))
         algorithm.reset_meters()
-
-    torch.save(
-        {'model': algorithm.state_dict()}, 
-        os.path.join(args.output_dir, f'ckpt.pkl'))
-    
+    # Save model
+    model_filepath = os.path.join(args.output_dir, f'{name}_ckpt.pkl')
+    torch.save(algorithm.state_dict(), model_filepath)
+    # Push it to wandb
     if wandb_log:
-        wandb.save(os.path.join(args.output_dir, f'ckpt.pkl'))
+        wandb.save(model_filepath)
 
     with open(os.path.join(args.output_dir, 'done'), 'w') as f:
         f.write('done')
