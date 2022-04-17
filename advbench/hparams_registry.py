@@ -215,7 +215,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('l_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
             _hparam('l_dale_pd_inv_margin', 0.03, lambda r: 0.03)
         elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
-            _hparam('l_dale_pd_inv_step_size', 0.4, lambda r: 0.4)
+            _hparam('l_dale_pd_inv_step_size', 0.1, lambda r: 0.1)
             _hparam('l_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
             _hparam('l_dale_pd_inv_margin', 0.08, lambda r: 0.08)
         

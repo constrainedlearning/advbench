@@ -228,6 +228,7 @@ if __name__ == '__main__':
     parser.add_argument('--auto_augment', action='store_true')
     parser.add_argument('--auto_augment_wo_translations', action='store_true')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use')
+    parser.add_argument('--eps', type=float, default=0.0, help="Constant level")
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
@@ -247,7 +248,8 @@ if __name__ == '__main__':
     else:
         seed = misc.seed_hash(args.hparams_seed, args.trial_seed)
         hparams = hparams_registry.random_hparams(args.algorithm, args.perturbation, args.dataset, seed)
-
+    if args.eps > 0:
+        hparams['l_dale_pd_inv_margin'] = args.eps
     hparams['optimizer'] = args.optimizer
     hparams['label_smoothing'] = args.label_smoothing
     print ('Hparams:')
