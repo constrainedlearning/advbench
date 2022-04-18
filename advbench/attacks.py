@@ -52,7 +52,7 @@ class Fo(Attack_Linf):
             highest_loss[adv_loss>highest_loss] = adv_loss[adv_loss>highest_loss]
         adv_imgs = self.perturbation.perturb_img(imgs, worst_delta)    
         self.classifier.train()
-        return adv_imgs.detach(), delta.detach()
+        return adv_imgs.detach(), worst_delta.detach()
 
 class Fo_PGD(Fo):
     def __init__(self, classifier, hparams, device, perturbation='Linf'):
