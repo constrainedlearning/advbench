@@ -44,8 +44,7 @@ def main(args, hparams, test_hparams):
     elif args.perturbation=='Translation':
         hparams['epsilon'] = torch.tensor([hparams[f'epsilon_{i}'] for i in ("tx","ty")]).to(device)
         test_hparams['epsilon'] = torch.tensor([test_hparams[f'epsilon_{tfm}'] for tfm in ("tx","ty")]).to(device)
-    aug = not((args.perturbation=='Crop_and_Flip' or args.perturbation=='Crop' or args.perturbation=='Translation') and not args.algorithm=='ERM')
-    print("Augmentation:", aug)
+    aug = args.aug
     if args.auto_augment:
         dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True)
     elif args.auto_augment_wo_translations:
@@ -224,6 +223,7 @@ if __name__ == '__main__':
     parser.add_argument('--log_imgs', action='store_true')
     parser.add_argument('--label_smoothing', type=float, default=0.0)
     parser.add_argument('--auto_augment', action='store_true')
+    parser.add_argument('--augment', action='store_true')
     parser.add_argument('--auto_augment_wo_translations', action='store_true')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use')
     parser.add_argument('--eps', type=float, default=0.0, help="Constant level")

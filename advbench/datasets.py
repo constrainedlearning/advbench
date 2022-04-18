@@ -356,11 +356,15 @@ else:
             super(STL10, self).__init__()
 
             self.ffcv=False
-            tfs = [transforms.RandomHorizontalFlip()]
+            if augmentation:
+                tfs = [transforms.RandomHorizontalFlip()]
+            else:
+                tfs = []
 
-            
-            tfs += [transforms.ToTensor(),  Cutout(60),
-                    transforms.Normalize(MEAN['CIFAR10'], STD['CIFAR10'])]
+            tfs += [transforms.ToTensor()]
+            if augmentation:        
+                tfs += [Cutout(60)]
+            tfs += [transforms.Normalize(MEAN['CIFAR10'], STD['CIFAR10'])]
 
             train_transforms = transforms.Compose(tfs)
             test_transforms = transforms.Compose([transforms.ToTensor(),
