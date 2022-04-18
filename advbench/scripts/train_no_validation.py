@@ -68,7 +68,7 @@ def main(args, hparams, test_hparams):
     else:
         adjust_lr = None if dataset.HAS_LR_SCHEDULE is False else dataset.adjust_lr
 
-    summary(algorithm.classifier, input_size=dataset.INPUT_SHAPE)
+    summary(algorithm.classifier, input_size=dataset.INPUT_SHAPE, device=device)
 
     test_attacks = {
         a: vars(attacks)[a](algorithm.classifier, test_hparams, device, perturbation=args.perturbation) for a in args.test_attacks}
