@@ -78,7 +78,7 @@ def adv_accuracy(algorithm, loader, device, attack):
     return 100. * correct / total
 
 def adv_accuracy_loss_delta(algorithm, loader, device, attack):
-    adv_correct, correct, total, adv_losses = 0, 0, 0, 0
+    adv_correct, correct, total, total_worst, adv_losses = 0, 0, 0, 0, 0
     losses, deltas, accs = [], [], []
 
     algorithm.eval()
@@ -115,11 +115,12 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
             adv_losses += worst_loss.sum().item()
             deltas.append(delta.cpu().numpy())
             total += adv_imgs.size(0)
+            total_worst += worst_loss.size(0)
     algorithm.train()
     algorithm.unexport()
-    adv_acc = 100. * adv_correct / total
+    adv_acc = 100. * adv_correct / total_worst
     adv_mean = 100. * correct / total
-    adv_loss = adv_losses / total
+    adv_loss = adv_losses / total_worst
     return adv_acc, adv_mean, adv_loss, np.concatenate(accs, axis=0), np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0)
 
 def adv_accuracy_loss_delta_ensembleacc(algorithm, loader, device, attack):
