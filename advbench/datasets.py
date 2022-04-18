@@ -351,6 +351,7 @@ else:
         ANGLE_GSIZE = 100
         LOSS_LANDSCAPE_BATCHES = 5
         HAS_LR_SCHEDULE = True
+        ATTACK_INTERVAL = 1000
 
         def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=False):
             super(STL10, self).__init__()
