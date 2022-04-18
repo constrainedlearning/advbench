@@ -415,7 +415,7 @@ class KL_DALE_PD(PrimalDualBase):
 
 class Adversarial_Worst_Of_K(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
-        super(Worst_Of_K, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+        super(Adversarial_Worst_Of_K, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
         self.attack = attacks.Worst_Of_K(self.classifier, self.hparams, device, perturbation=perturbation)
 
     def step(self, imgs, labels):

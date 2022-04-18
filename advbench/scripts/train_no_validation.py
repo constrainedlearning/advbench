@@ -8,7 +8,6 @@ import json
 import pandas as pd
 import time
 from humanfriendly import format_timespan
-torch.backends.cudnn.benchmark = True
 
 
 from advbench import datasets
@@ -84,6 +83,7 @@ def main(args, hparams, test_hparams):
         wandb.init(project=f"DAug-{args.dataset}", name=name)
         wandb.config.update(args)
         wandb.config.update(hparams)
+        wandb.config.update({"test_"+key:val for key, val in test_hparams.items()})
         train_eval, test_eval = [], []
         if args.perturbation =="SE":
             translations = list(combinations_with_replacement(dataset.TRANSLATIONS, r=2))
