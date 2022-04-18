@@ -315,8 +315,8 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
 
         ##### PGD #####
         if dataset == 'MNIST':
-            _hparam('pgd_n_steps', 40)
-            _hparam('pgd_step_size', 0.5)
+            _hparam('pgd_n_steps', 30)
+            _hparam('pgd_step_size', 0.3)
         elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('pgd_n_steps', 10)
             _hparam('pgd_step_size', 0.5)

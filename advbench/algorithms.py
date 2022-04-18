@@ -134,7 +134,7 @@ class Adversarial(Algorithm):
 class Adversarial_PGD(Adversarial):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
         super(Adversarial_PGD, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
-        self.attack = attacks.PGD_Linf(self.classifier, self.hparams, device, perturbation=perturbation)
+        self.attack = attacks.Fo_PGD(self.classifier, self.hparams, device, perturbation=perturbation)
 
 class Adversarial_SGD(Adversarial):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
@@ -328,7 +328,12 @@ class Worst_DALE_PD_Reverse(Laplacian_DALE_PD_Reverse):
 class PGD_DALE_PD_Reverse(Laplacian_DALE_PD_Reverse):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):
         super(PGD_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
-        self.attack = attacks.PGD_Linf(self.classifier, self.hparams, device, perturbation=perturbation)
+        self.attack = attacks.Fo_PGD(self.classifier, self.hparams, device, perturbation=perturbation)
+
+class Adam_DALE_PD_Reverse(Laplacian_DALE_PD_Reverse):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):
+        super(Adam_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
+        self.attack = attacks.Fo_Adam(self.classifier, self.hparams, device, perturbation=perturbation)
 
 class MH_DALE_PD_Reverse(PrimalDualBase):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):

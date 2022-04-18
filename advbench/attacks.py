@@ -28,27 +28,13 @@ class Attack(nn.Module):
 class Attack_Linf(Attack):
     def __init__(self, classifier, hparams, device, perturbation='Linf'):
         super(Attack_Linf, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
-    
-class PGD_Linf(Attack_Linf):
-    def __init__(self, classifier, hparams, device, perturbation='Linf'):
-        super(PGD_Linf, self).__init__(classifier, hparams, device, perturbation=perturbation)
-    
-    def forward(self, imgs, labels):
-        self.classifier.eval()
-        delta = self.perturbation.delta_init(imgs).to(imgs.device)
-        for _ in range(self.hparams['pgd_n_steps']):
-            delta.requires_grad_(True)
-            with torch.enable_grad():
-                adv_imgs = self.perturbation.perturb_img(imgs, delta)
-                adv_loss = F.cross_entropy(self.classifier(adv_imgs), labels)
-            grad = torch.autograd.grad(adv_loss, [delta])[0].detach()
-            delta.requires_grad_(False)
-            delta += self.hparams['pgd_step_size']*self.eps*torch.sign(grad)
-            delta = self.perturbation.clamp_delta(delta, imgs)
-        adv_imgs = self.perturbation.perturb_img(imgs, delta)
-            
-        self.classifier.train()
-        return adv_imgs.detach(), delta.detach()    # this detach may not be necessary
+        if isinstance(self.perturbation.eps, torch.Tensor):
+                self.perturbation.eps.to(device)
+        if isinstance(self.perturbation.eps, list):
+            eps = torch.tensor(self.perturbation.eps).to(device)
+        else:
+            eps = self.perturbation.eps
+        self.step = (eps*self.hparams['pgd_step_size'])
 
 class Fo(Attack_Linf):
     def __init__(self, classifier, hparams, device, perturbation='Linf'):
@@ -66,6 +52,25 @@ class Fo(Attack_Linf):
         adv_imgs = self.perturbation.perturb_img(imgs, worst_delta)    
         self.classifier.train()
         return adv_imgs.detach(), delta.detach()
+
+class Fo_PGD(Fo):
+    def __init__(self, classifier, hparams, device, perturbation='Linf'):
+        super(Fo_PGD, self).__init__(classifier, hparams, device, perturbation=perturbation)
+    
+    def optimize_delta(self, imgs, labels, delta):
+        self.classifier.eval()    
+        for _ in range(self.hparams['pgd_n_steps']):
+            delta.requires_grad_(True)
+            with torch.enable_grad():
+                adv_imgs = self.perturbation.perturb_img(imgs, delta)
+                adv_loss = F.cross_entropy(self.classifier(adv_imgs), labels, reduction='none')
+                mean = adv_loss.mean()
+            grad = torch.autograd.grad(mean, [delta])[0].detach()
+            delta.requires_grad_(False)
+            delta += self.step*torch.sign(grad)
+            delta = self.perturbation.clamp_delta(delta, imgs)            
+        self.classifier.train()
+        return delta, adv_loss   # this detach may not be necessary
 
 class Fo_Adam(Fo):
     def __init__(self, classifier, hparams, device, perturbation='Linf'):
