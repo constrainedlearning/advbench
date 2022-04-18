@@ -67,9 +67,10 @@ def main(args, hparams, test_hparams):
         adjust_lr = CosineAnnealingLR(algorithm.optimizer, dataset.N_EPOCHS, eta_min=dataset.MIN_LR, last_epoch=dataset.START_EPOCH - 1)
     else:
         adjust_lr = None if dataset.HAS_LR_SCHEDULE is False else dataset.adjust_lr
-
-    summary(algorithm.classifier, input_size=dataset.INPUT_SHAPE, device=device)
-
+    try:
+        summary(algorithm.classifier, input_size=dataset.INPUT_SHAPE, device=device)
+    except:
+        print("Model summary failed, currently does not support devices other than cpu or cuda.")
     test_attacks = {
         a: vars(attacks)[a](algorithm.classifier, test_hparams, device, perturbation=args.perturbation) for a in args.test_attacks}
     

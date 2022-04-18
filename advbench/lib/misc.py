@@ -115,7 +115,7 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
             adv_losses += worst_loss.sum().item()
             deltas.append(delta.cpu().numpy())
             total += adv_imgs.size(0)
-            total_worst += worst_loss.size(0)
+            total_worst += imgs.size(0)
     algorithm.train()
     algorithm.unexport()
     adv_acc = 100. * adv_correct / total_worst
