@@ -43,6 +43,7 @@ class Fo(Attack_Linf):
     def forward(self, imgs, labels):
         self.classifier.eval()
         highest_loss = torch.zeros(imgs.shape[0], device = imgs.device)
+        delta = self.perturbation.delta_init(imgs).to(imgs.device)
         worst_delta = torch.empty_like(delta)
         for _ in range(self.hparams['fo_restarts']):
             delta = self.perturbation.delta_init(imgs).to(imgs.device)
@@ -164,6 +165,7 @@ class MH(Attack_Linf):
             if isinstance(eps, torch.Tensor):
                 eps = eps.to(device)
             self.noise_dist = Laplace(torch.zeros(self.perturbation.dim, device=device), self.hparams['mh_dale_scale']*eps)
+            self.eps = eps
         else:
             raise NotImplementedError
         self.get_proposal = lambda x: x + self.noise_dist.sample([x.shape[0]]).to(x.device)
