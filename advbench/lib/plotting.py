@@ -50,7 +50,7 @@ def plot_perturbed_wandb(deltas, metric, name="loss", wandb_args = {}, plot_mode
         wandb_dict.update(wandb_args)
         wandb.log(wandb_dict)
 
-    elif deltas.shape[1] == 3: # plot using plotly
+    elif deltas.shape[1] in [2,3]: # plot using plotly
         if plot_mode == "scatter":
             fig = plot_3d_scatter(deltas, metric, axis_labels=DELTA_DIMS)
             wandb_dict = {f"{name} scatter":fig}
@@ -90,8 +90,12 @@ def plot_perturbed_wandb(deltas, metric, name="loss", wandb_args = {}, plot_mode
         pass
 
 
-def plot_3d_scatter(deltas, loss, axis_labels=None):
-    fig = px.scatter_3d(x=deltas[:,0], y=deltas[:,1], z=deltas[:,2], color=loss)
+def plot_3d_scatter(deltas, loss, axis_labels=None, max_points = 100):
+    if len(deltas.shape)==3:
+        b, c, n = deltas.shape
+        deltas = np.transpose(deltas, axes=(0,2,1)).reshape(b * n, c)
+        loss = np.repeat(loss, c*n)
+    fig = px.scatter_3d(x=deltas[:max_points,0], y=deltas[:max_points,1], z=deltas[:max_points,2], color=loss[:max_points])
     if axis_labels is not None:
         fig.update_layout(scene = dict(xaxis_title=axis_labels[0], yaxis_title=axis_labels[1], zaxis_title=axis_labels[2]))
     return fig

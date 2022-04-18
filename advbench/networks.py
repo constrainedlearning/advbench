@@ -3,13 +3,30 @@ from advbench.models.e2_mnist import E2SFCNN, E2SFCNN_QUOT
 from advbench.models.wrn import wrn16_8, wrn28_10
 from advbench.models.resnet import ResNet18
 from advbench.models.mnist import MNISTNet, CnSteerableCNN, SteerableMNISTnet
+from advbench.models.dgcnn import DGCNN, cal_loss
+import torch.nn as nn
+from torch.nn.functional import cross_entropy
 import torch.nn.init as init
 import numpy as np
 import timm
 
-def Classifier(input_shape, num_classes, hparams):
+def Classifier(input_shape, num_classes, hparams, loss=None):
+    model = create_model(input_shape, num_classes, hparams)
+    if hparams["model"] == "DGCNN":
+        loss = cal_loss
+    elif 'label_smoothing' in hparams:
+        loss = lambda pred, target, reduction='mean': cross_entropy(pred, target, reduction=reduction, label_smoothing=hparams['label_smoothing'])
+    elif loss is None:
+        # For all other models use CE
+        loss = cross_entropy
+    return ModelWrapper(model, loss)
+
+def create_model(input_shape, num_classes, hparams):
     print("model", hparams["model"])
-    if input_shape[0] == 1:
+    if hparams["model"] == "DGCNN":
+        model = DGCNN()
+        return model
+    elif input_shape[0] == 1:
         if hparams["model"] == "CnSteerableCNN":
             return CnSteerableCNN(num_channels=1)
         elif hparams["model"] == "SteerableCNN_C16_D16":
@@ -59,3 +76,17 @@ def Classifier(input_shape, num_classes, hparams):
     else:
         raise Exception("Num channels not supported: {}".format(input_shape[0]))
 
+class ModelWrapper(nn.Module):
+    def __init__(self, model, loss):
+        super(ModelWrapper, self).__init__()
+        self.model = model
+        self.loss = loss
+
+    def forward(self, x):
+        return self.model(x)
+
+    def export(self):
+        self.model.export()
+    
+    def unexport(self):
+        self.model.unexport()

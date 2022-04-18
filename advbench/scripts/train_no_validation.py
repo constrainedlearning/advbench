@@ -50,7 +50,7 @@ def main(args, hparams, test_hparams):
         dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True, exclude_translations=True)
     else:
         dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug)
-    train_ldr, _, test_ldr = datasets.to_loaders(dataset, hparams)
+    train_ldr, _, test_ldr = datasets.to_loaders(dataset, hparams, device=device)
     kw_args = {"perturbation": args.perturbation}
     if args.algorithm in PD_ALGORITHMS: 
         if args.algorithm.endswith("Reverse"):
@@ -63,10 +63,7 @@ def main(args, hparams, test_hparams):
         hparams,
         device,
         **kw_args).to(device)
-    if dataset == "STL10":
-        adjust_lr = CosineAnnealingLR(algorithm.optimizer, dataset.N_EPOCHS, eta_min=dataset.MIN_LR, last_epoch=dataset.START_EPOCH - 1)
-    else:
-        adjust_lr = None if dataset.HAS_LR_SCHEDULE is False else dataset.adjust_lr
+    adjust_lr = None if dataset.HAS_LR_SCHEDULE is False else dataset.adjust_lr
 
     summary(algorithm.classifier, input_size=dataset.INPUT_SHAPE, device=device)
 
@@ -97,10 +94,7 @@ def main(args, hparams, test_hparams):
     total_time = 0
     step = 0
     for epoch in range(0, dataset.N_EPOCHS):
-        if dataset =="STL10":
-            adjust_lr.step()
-        elif adjust_lr is not None:
-            adjust_lr(algorithm.optimizer, epoch, hparams)
+        adjust_lr(algorithm.optimizer, epoch, hparams)
         if wandb_log:
             wandb.log({'lr': hparams['learning_rate'], 'epoch': epoch, 'step':step})
         timer = meters.TimeMeter()

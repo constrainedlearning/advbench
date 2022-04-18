@@ -1,5 +1,8 @@
 import os
 import torch
+import sys
+import glob
+import h5py
 from torch.utils.data import Dataset, Subset, DataLoader
 import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10 as CIFAR10_
@@ -8,7 +11,9 @@ from torchvision.datasets import MNIST as MNIST_
 from torchvision.datasets import STL10 as STL10_
 from torchvision.datasets import ImageFolder
 from advbench.lib.transformations import Cutout
-import os
+from sklearn.model_selection import train_test_split
+from copy import deepcopy
+import numpy as np
 try:
     FFCV_AVAILABLE = os.get_env('FFCV_AVAILABLE')
     from ffcv.fields import IntField, RGBImageField
@@ -31,6 +36,8 @@ from timm.data import create_transform
 
 from advbench.lib.AutoAugment.autoaugment import CIFAR10Policy
 
+os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+
 SPLITS = ['train', 'val', 'test']
 DATASETS = ['CIFAR10', 'MNIST']
 MEAN = {
@@ -47,10 +54,15 @@ STD = {
     'IMNET': IMAGENET_DEFAULT_STD,
 }
 
-def to_loaders(all_datasets, hparams):
+def to_loaders(all_datasets, hparams, device):
     if not all_datasets.ffcv:    
         def _to_loader(split, dataset):
-            batch_size = hparams['batch_size'] #if split == 'train' else 10
+            if split == 'train':
+                batch_size = hparams['batch_size'] 
+            elif all_datasets.TEST_BATCH is None:
+                batch_size = hparams['batch_size'] 
+            else:
+                batch_size = all_datasets.TEST_BATCH 
             return DataLoader(
                 dataset=dataset, 
                 batch_size=batch_size,
@@ -65,9 +77,14 @@ def to_loaders(all_datasets, hparams):
         
             ordering = OrderOption.RANDOM if split == 'train' else OrderOption.SEQUENTIAL
             
-            batch_size = hparams['batch_size'] if split == 'train' else 48
+            if split == 'train':
+                batch_size = hparams['batch_size'] 
+            elif all_datasets.TEST_BATCH is None:
+                batch_size = hparams['batch_size'] 
+            else:
+                batch_size = all_datasets.TEST_BATCH
 
-            label_pipeline = [IntDecoder(), ToTensor(), ToDevice('cuda:0'), Squeeze()]
+            label_pipeline = [IntDecoder(), ToTensor(), ToDevice(device), Squeeze()]
             
             loaders.append(Loader(path, batch_size=batch_size, num_workers=all_datasets.N_WORKERS,
                                 order=ordering, drop_last=(split == 'train'),
@@ -93,6 +110,7 @@ class AdvRobDataset(Dataset):
     HAS_LR_SCHEDULE_DUAL = False # Default, subclass may override
     TRANSLATIONS = [-3, 0, 3] # Default, for plotting purposes only, subclass may override
     TEST_INTERVAL = 1 # Default, subclass may override
+    TEST_BATCH = None
 
     def __init__(self):
         self.splits = dict.fromkeys(SPLITS)
@@ -484,7 +502,6 @@ class MNISTe2(AdvRobDataset):
             param_group['lr'] = lr
         return
 
-
 class IMNET(AdvRobDataset):
         INPUT_SHAPE = (3, 224, 224)
         NUM_CLASSES = 1000
@@ -544,3 +561,106 @@ class IMNET(AdvRobDataset):
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
             return
+
+class modelnet40(AdvRobDataset):
+    INPUT_SHAPE = (3, 1024)
+    NUM_CLASSES = 40
+    N_EPOCHS = 250
+    NUM_POINTS = 1024
+    CHECKPOINT_FREQ = 100
+    LOG_INTERVAL = 100
+    ATTACK_INTERVAL = 250
+    LOSS_LANDSCAPE_INTERVAL = 300
+    LOSS_LANDSCAPE_GSIZE = 100
+    ANGLE_GSIZE = 100
+    LOSS_LANDSCAPE_BATCHES = 10
+    HAS_LR_SCHEDULE = True
+    MIN_LR = 0.005
+    START_EPOCH = 0
+    TEST_BATCH = 10
+
+    # test adversary parameters
+    ADV_STEP_SIZE = 2/255.
+    N_ADV_STEPS = 10
+
+    def __init__(self, root, augmentation=True):
+        super(modelnet40, self).__init__()
+        self.ffcv=False
+        self.splits['train'] = _ModelNet40(partition='train', num_points=self.NUM_POINTS,random_translate=False, validation=True)
+        self.splits['val'] = get_val(self.splits['train'])
+        self.splits['test'] =  _ModelNet40(partition='test', num_points=self.NUM_POINTS)
+
+class _ModelNet40(Dataset):
+    def __init__(self, num_points, partition='train', random_translate=True, validation=False):
+        self.validation = validation
+        if self.validation:
+            self.all_data, self.all_label, self.train_idx, self.val_idx = self.load_data(partition, validation=validation)
+            if partition=="train":
+                self.data, self.label =  self.all_data[self.train_idx], self.all_label[self.train_idx]
+            elif partition=="val":
+                self.data, self.label =  self.all_data[self.val_idx], self.all_label[self.val_idx]
+        else:
+            self.data, self.label = self.load_data(partition, validation=self.validation)
+        self.num_points = num_points
+        self.partition = partition
+        self.random_translate = random_translate
+
+    def set_validation(self):
+        if self.validation:
+            self.data, self.label = self.all_data[self.val_idx], self.all_label[self.val_idx]
+        else:
+            print("Dataset has no validation set")
+
+    def __getitem__(self, item):
+        pointcloud = self.data[item][:self.num_points]
+        label = self.label[item]
+        if self.partition == 'train':
+            if self.random_translate:
+                pointcloud = translate_pointcloud(pointcloud)
+            np.random.shuffle(pointcloud)
+        return pointcloud.T, label
+
+    def __len__(self):
+        return self.data.shape[0]
+
+    def download(self):
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        DATA_DIR = os.path.join(BASE_DIR, 'data')
+        if not os.path.exists(DATA_DIR):
+            os.mkdir(DATA_DIR)
+        if not os.path.exists(os.path.join(DATA_DIR, 'modelnet40_ply_hdf5_2048')):
+            www = 'https://shapenet.cs.stanford.edu/media/modelnet40_ply_hdf5_2048.zip'
+            zipfile = os.path.basename(www)
+            os.system('wget --no-check-certificate %s; unzip %s' % (www, zipfile))
+            os.system('mv %s %s' % (zipfile[:-4], DATA_DIR))
+            os.system('rm %s' % (zipfile))
+
+
+    def load_data(self, partition, validation=False):
+        self.download()
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        DATA_DIR = os.path.join(BASE_DIR, 'data')
+        all_data = []
+        all_label = []
+        for h5_name in glob.glob(os.path.join(DATA_DIR, 'modelnet40_ply_hdf5_2048', 'ply_data_%s*.h5'%partition)):
+            # print(f"h5_name: {h5_name}")
+            f = h5py.File(h5_name,'r')
+            data = f['data'][:].astype('float32')
+            label = f['label'][:].astype('int64')
+            f.close()
+            all_data.append(data)
+            all_label.append(label)
+        all_data = np.concatenate(all_data, axis=0)
+        all_label = np.concatenate(all_label, axis=0)
+        if validation:
+            idx = np.arange(len(all_data))
+            train_idxs, val_idxs = train_test_split(idx, test_size=0.1)
+            return all_data, all_label, train_idxs, val_idxs
+        else:
+            return all_data, all_label
+    
+
+def get_val(dataset):
+    val_set = deepcopy(dataset)
+    val_set.set_validation()
+    return(val_set)

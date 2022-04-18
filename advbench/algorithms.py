@@ -92,19 +92,19 @@ class Algorithm(nn.Module):
         pass
 
 class ERM(Algorithm):
-    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', label_smoothing=0):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
         super(ERM, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
         self.attack = attacks.Rand_Aug(self.classifier, self.hparams, device, perturbation=perturbation)
     def step(self, imgs, labels):
         self.optimizer.zero_grad(set_to_none=True)
         if FFCV_AVAILABLE:
             with autocast():
-                loss = F.cross_entropy(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+                loss = self.classifier.loss(self.predict(imgs), labels)
                 self.scaler.scale(loss).backward()
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
         else:
-            loss = F.cross_entropy(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+            loss = self.classifier.loss(self.predict(imgs), labels)
             loss.backward()
         self.optimizer.step()
         
@@ -118,14 +118,14 @@ class Adversarial(Algorithm):
         if FFCV_AVAILABLE:
             with autocast():
                 adv_imgs, deltas = self.attack(imgs, labels)
-                loss = F.cross_entropy(self.predict(adv_imgs), labels)
+                loss = self.classifier.loss(self.predict(adv_imgs), labels)
                 self.scaler.scale(loss).backward()
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
         else:
             adv_imgs, deltas =   self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            loss = F.cross_entropy(self.predict(adv_imgs), labels)
+            loss = self.classifier.loss(self.predict(adv_imgs), labels)
             loss.backward()
             self.optimizer.step()
 
@@ -159,8 +159,8 @@ class Gaussian_DALE(Algorithm):
                 adv_imgs, deltas = self.attack(imgs, labels)
                 adv_imgs, deltas =   self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = F.cross_entropy(self.predict(imgs), labels)
-                robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
+                clean_loss = self.classifier.loss(self.predict(imgs), labels)
+                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
                 total_loss = robust_loss + self.hparams['g_dale_nu'] * clean_loss
                 self.scaler.scale(total_loss).backward()
                 self.scaler.step(self.optimizer)
@@ -168,8 +168,8 @@ class Gaussian_DALE(Algorithm):
         else:
             adv_imgs, deltas =   self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            clean_loss = F.cross_entropy(self.predict(imgs), labels)
-            robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
+            clean_loss = self.classifier.loss(self.predict(imgs), labels)
+            robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
             total_loss = robust_loss + self.hparams['g_dale_nu'] * clean_loss
             total_loss.backward()
             self.optimizer.step()
@@ -190,8 +190,8 @@ class Laplacian_DALE(Algorithm):
             with autocast():
                 adv_imgs, deltas =   self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = F.cross_entropy(self.predict(imgs), labels)
-                robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
+                clean_loss = self.classifier.loss(self.predict(imgs), labels)
+                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
                 total_loss = robust_loss + self.hparams['g_dale_nu'] * clean_loss
                 self.scaler.scale(total_loss).backward()
                 self.scaler.step(self.optimizer)
@@ -199,8 +199,8 @@ class Laplacian_DALE(Algorithm):
         else:
             adv_imgs, deltas =   self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            clean_loss = F.cross_entropy(self.predict(imgs), labels)
-            robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
+            clean_loss = self.classifier.loss(self.predict(imgs), labels)
+            robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
             total_loss = robust_loss + self.hparams['l_dale_nu'] * clean_loss
             total_loss.backward()
             self.optimizer.step()
@@ -234,8 +234,8 @@ class Gaussian_DALE_PD(PrimalDualBase):
             with autocast():
                 adv_imgs, deltas = self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = F.cross_entropy(self.predict(imgs), labels)
-                robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
+                clean_loss = self.classifier.loss(self.predict(imgs), labels)
+                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
                 total_loss = robust_loss + self.hparams['g_dale_nu'] * clean_loss
                 self.scaler.scale(total_loss).backward()
                 self.scaler.step(self.optimizer)
@@ -243,8 +243,8 @@ class Gaussian_DALE_PD(PrimalDualBase):
         else:
             adv_imgs, deltas =self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            clean_loss = F.cross_entropy(self.predict(imgs), labels)
-            robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
+            clean_loss = self.classifier.loss(self.predict(imgs), labels)
+            robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
             total_loss = robust_loss + self.dual_params['dual_var'] * clean_loss
             total_loss.backward()
             self.optimizer.step()
@@ -271,8 +271,8 @@ class Gaussian_DALE_PD_Reverse(PrimalDualBase):
     def step(self, imgs, labels):
         adv_imgs, deltas =self.attack(imgs, labels)
         self.optimizer.zero_grad()
-        clean_loss = F.cross_entropy(self.predict(imgs), labels)
-        robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
+        clean_loss = self.classifier.loss(self.predict(imgs), labels)
+        robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
         total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
         total_loss.backward()
         self.optimizer.step()
@@ -298,8 +298,8 @@ class Laplacian_DALE_PD_Reverse(PrimalDualBase):
             with autocast():
                 adv_imgs, deltas = self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = F.cross_entropy(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
-                robust_loss = F.cross_entropy(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
+                clean_loss = self.classifier.loss(self.predict(imgs), labels)
+                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
                 total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
                 self.scaler.scale(total_loss).backward()
                 self.scaler.step(self.optimizer)
@@ -307,8 +307,8 @@ class Laplacian_DALE_PD_Reverse(PrimalDualBase):
         else:
             adv_imgs, deltas =self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            clean_loss = F.cross_entropy(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
-            robust_loss = F.cross_entropy(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
+            clean_loss = self.classifier.loss(self.predict(imgs), labels)
+            robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
             total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
             total_loss.backward()
             self.optimizer.step()
@@ -350,8 +350,8 @@ class MH_DALE_PD_Reverse(PrimalDualBase):
             with autocast():
                 adv_imgs, deltas = self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = F.cross_entropy(self.predict(imgs), labels)
-                robust_loss = F.cross_entropy(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
+                clean_loss = self.classifier.loss(self.predict(imgs), labels)
+                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
                 total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
                 self.scaler.scale(total_loss).backward()
                 self.scaler.step(self.optimizer)
@@ -359,8 +359,8 @@ class MH_DALE_PD_Reverse(PrimalDualBase):
         else:
             adv_imgs, deltas =self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            clean_loss = F.cross_entropy(self.predict(imgs), labels)
-            robust_loss = F.cross_entropy(self.predict(adv_imgs), labels)
+            clean_loss = self.classifier.loss(self.predict(imgs), labels)
+            robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
             total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
             total_loss.backward()
             self.optimizer.step()
@@ -387,7 +387,7 @@ class KL_DALE_PD(PrimalDualBase):
             with autocast():
                 adv_imgs, deltas = self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = F.cross_entropy(self.predict(imgs), labels)
+                clean_loss = self.classifier.loss(self.predict(imgs), labels)
                 robust_loss = self.kl_loss_fn(
                 F.log_softmax(self.predict(adv_imgs), dim=1),
                 F.softmax(self.predict(imgs), dim=1))
@@ -398,7 +398,7 @@ class KL_DALE_PD(PrimalDualBase):
         else:
             adv_imgs, deltas =self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            clean_loss = F.cross_entropy(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+            clean_loss = self.classifier.loss(self.predict(imgs), labels)
             robust_loss = self.kl_loss_fn(
                 F.log_softmax(self.predict(adv_imgs), dim=1),
                 F.softmax(self.predict(imgs), dim=1))
@@ -424,8 +424,8 @@ class Adversarial_Worst_Of_K(Algorithm):
                 with torch.no_grad():
                     adv_imgs, deltas =   self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = F.cross_entropy(self.predict(imgs), labels)
-                robust_loss = F.cross_entropy(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
+                clean_loss = self.classifier.loss(self.predict(imgs), labels)
+                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
                 total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
                 self.scaler.scale(total_loss).backward()
                 self.scaler.step(self.optimizer)
@@ -434,7 +434,7 @@ class Adversarial_Worst_Of_K(Algorithm):
             with torch.no_grad():
                 adv_imgs, deltas =   self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            loss = F.cross_entropy(self.predict(adv_imgs), labels)
+            loss = self.classifier.loss(self.predict(adv_imgs), labels)
             loss.backward()
             self.optimizer.step()
 
@@ -451,7 +451,7 @@ class Grid_Search(Algorithm):
                 with torch.no_grad():
                     adv_imgs, deltas =   self.attack(imgs, labels)
                     self.optimizer.zero_grad()
-                    loss = F.cross_entropy(self.predict(adv_imgs), labels)
+                    loss = self.classifier.loss(self.predict(adv_imgs), labels)
                     self.scaler.scale(loss).backward()
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
@@ -459,7 +459,7 @@ class Grid_Search(Algorithm):
             with torch.no_grad():
                 adv_imgs, deltas =   self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            loss = F.cross_entropy(self.predict(adv_imgs), labels)
+            loss = self.classifier.loss(self.predict(adv_imgs), labels)
             loss.backward()
             self.optimizer.step()
 
@@ -478,7 +478,7 @@ class Augmentation(Algorithm):
                 else:
                     adv_imgs = imgs
                 self.optimizer.zero_grad()
-                loss = F.cross_entropy(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
+                loss = self.classifier.loss(self.predict(adv_imgs), labels)
                 self.scaler.scale(loss).backward()
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
@@ -488,7 +488,7 @@ class Augmentation(Algorithm):
             else:
                 adv_imgs = imgs
             self.optimizer.zero_grad()
-            loss = F.cross_entropy(self.predict(adv_imgs), labels)
+            loss = self.classifier.loss(self.predict(adv_imgs), labels)
             loss.backward()
             self.optimizer.step()
 
@@ -501,7 +501,7 @@ class Batch_Random(Algorithm):
     def step(self, imgs, labels):
         adv_imgs, deltas, new_labels =   self.attack(imgs, labels)
         self.optimizer.zero_grad()
-        loss = F.cross_entropy(self.predict(adv_imgs), new_labels)
+        loss = self.classifier.loss(self.predict(adv_imgs), new_labels)
         loss.backward()
         self.optimizer.step()
 
@@ -515,7 +515,7 @@ class Batch_Grid(Algorithm):
     def step(self, imgs, labels):
         adv_imgs, deltas, new_labels =  self.attack(imgs, labels)
         self.optimizer.zero_grad()
-        loss = F.cross_entropy(self.predict(adv_imgs), new_labels)
+        loss = self.classifier.loss(self.predict(adv_imgs), new_labels)
         loss.backward()
         self.optimizer.step()
         self.meters['loss'].update(loss.item(), n=imgs.size(0))
@@ -555,8 +555,8 @@ class Discrete_DALE(PrimalDualBase):
                 with torch.no_grad():
                     adv_imgs, deltas, new_labels = self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = F.cross_entropy(self.predict(imgs), labels)
-                robust_loss = F.cross_entropy(self.predict(adv_imgs), new_labels, reduction='none')
+                clean_loss = self.classifier.loss(self.predict(imgs), labels)
+                robust_loss = self.classifier.loss(self.predict(adv_imgs), new_labels, reduction='none')
                 robust_loss = rearrange(robust_loss, '(B S) -> B S', B = imgs.shape[0])
                 total_loss = clean_loss +  torch.mean(robust_loss@self.dual_params['dual_var'].to(self.device))
                 self.scaler.scale(total_loss).backward()
@@ -566,8 +566,8 @@ class Discrete_DALE(PrimalDualBase):
             with torch.no_grad():
                 adv_imgs, deltas, new_labels =self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            clean_loss = F.cross_entropy(self.predict(imgs), labels)
-            robust_loss = F.cross_entropy(self.predict(adv_imgs), new_labels, reduction='none')
+            clean_loss = self.classifier.loss(self.predict(imgs), labels)
+            robust_loss = self.classifier.loss(self.predict(adv_imgs), new_labels, reduction='none')
             robust_loss = rearrange(robust_loss, '(B S) -> B S', B = imgs.shape[0])
             total_loss = clean_loss +  torch.mean(robust_loss@self.dual_params['dual_var'].to(self.device))
             total_loss.backward()

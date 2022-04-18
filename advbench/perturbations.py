@@ -102,3 +102,26 @@ class SE(Perturbation):
             eps = self.eps[i]
             delta_init[:,i] =   2*eps* torch.randn(imgs.shape[0], device = imgs.device, dtype=imgs.dtype)-eps
         return delta_init
+
+class PointcloudJitter(Translation):
+    def __init__(self, epsilon, dist = 'normal', std = 0.01):
+        super(PointcloudJitter, self).__init__(epsilon)
+        self.dist = dist
+        self.std = std
+
+    def _perturb(self, points, delta):
+        return points + delta
+
+    def clamp_delta(self, delta, imgs):
+        """Clamp delta so that (1) the perturbation is bounded
+       by self.hparams['epsilon']."""
+        return torch.clamp(delta, - self.eps, self.eps)
+
+    def delta_init(self, cloud):
+        self.dim = cloud.shape[1:]
+        delta_init = torch.empty(cloud.shape, device=cloud.device, dtype=cloud.dtype)
+        if self.dist =="normal":
+            delta_init =  self.std * torch.randn(cloud.shape, device = cloud.device, dtype=cloud.dtype)
+        elif self.dist =="uniform":
+            delta_init =   2*eps* (torch.rand(cloud.shape, device = cloud.device, dtype=cloud.dtype)-0.5)
+        return delta_init

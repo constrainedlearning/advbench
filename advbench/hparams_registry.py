@@ -27,6 +27,8 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     # Unconditional hparam definitions.
     if dataset == 'IMNET':
         _hparam('batch_size', 64, lambda r: int(2 ** r.uniform(3, 8)))
+    elif dataset == 'modelnet40':
+        _hparam('batch_size', 32, lambda r: int(2 ** r.uniform(3, 6)))
     else:
         _hparam('batch_size', 128, lambda r: int(2 ** r.uniform(3, 8)))
     _hparam('augmentation_prob', 0.5, lambda r: 0.5)
@@ -57,8 +59,13 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('lr_decay_start', 0, lambda r: 0)
         _hparam('lr_decay_factor', 0.8, lambda r: r.uniform(0.1, 0.3))
         _hparam('lr_decay_epoch', 1, lambda r: 1)
+    if dataset == 'modelnet40':
+        _hparam('learning_rate', 0.1, lambda r: 10 ** r.uniform(-1.5, -0.5))
+        _hparam('weight_decay', 1e-4, lambda r: 10 ** r.uniform(-4, -3))
+    else:
+        _hparam('weight_decay', 5e-4, lambda r: 10 ** r.uniform(-6, -3))
     _hparam('sgd_momentum', 0.9, lambda r: r.uniform(0.8, 0.95))
-    _hparam('weight_decay', 5e-4, lambda r: 10 ** r.uniform(-6, -3))
+    
     if perturbation == 'Linf':
         if dataset == 'MNIST':
             _hparam('epsilon', 0.3, lambda r: 0.3)
@@ -233,6 +240,46 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
        
         # Grid Search
         _hparam('grid_size', 120, lambda r: 120)
+    elif dataset=='modelnet40':
+        ##### Worst of K ######
+        _hparam('worst_of_k_steps', 10, lambda r:10)
+        if perturbation == "PointcloudTranslation":
+            _hparam('epsilon_tx', 0.25, lambda r:0.25)
+            _hparam('epsilon_ty', 0.2, lambda r:0.2)
+        elif perturbation == "PointcloudJitter":
+            _hparam('epsilon', 0.05, lambda r:0.05)
+        ##### PGD #####
+        _hparam('pgd_n_steps', 10, lambda r: 10)
+        _hparam('pgd_step_size', 0.1, lambda r: 0.1)
+        # DALE (Laplacian-HMC)
+        _hparam('l_dale_n_steps', 10, lambda r: 10)
+        _hparam('l_dale_step_size', 0.4, lambda r: 10 ** r.uniform(-2.0, -0.5))
+        _hparam('l_dale_noise_coeff', 0.02,lambda r: 10 ** r.uniform(-3.0, -1.5))
+        _hparam('l_dale_nu', 0.1, lambda r: 0.1)
+        _hparam('l_dale_eta', 0.001, lambda r: 0.001)
+
+        # DALE-PD (Gaussian-HMC)
+        _hparam('g_dale_pd_step_size', 2, lambda r: 2)
+        _hparam('g_dale_pd_eta', 0.0001, lambda r: 0.0001)
+        _hparam('g_dale_pd_margin', 0.16, lambda r: 0.16)
+
+        # DALE-PD-INV (Gaussian-HMC)
+        _hparam('g_dale_pd_inv_step_size', 0.4, lambda r: 10 ** r.uniform(-2.0, -0.5))
+        _hparam('g_dale_pd_inv_eta', 0.0001, lambda r: 0.0001)
+        _hparam('g_dale_pd_inv_margin', 0.2, lambda r: 0.2)
+
+        # DALE-PD-INV (Laplacian-HMC) 
+        if perturbation == "PointcloudTranslation":
+            _hparam('l_dale_pd_inv_step_size', 0.1, lambda r: 0.1)
+            _hparam('l_dale_pd_inv_eta', 0.0002, lambda r: 0.0002)
+            _hparam('l_dale_pd_inv_margin', 0.35, lambda r: 0.35)
+        elif perturbation == "PointcloudJitter":
+            _hparam('l_dale_pd_inv_step_size', 0.4, lambda r: 0.4)
+            _hparam('l_dale_pd_inv_eta', 0.000025, lambda r: 0.000025)
+            _hparam('l_dale_pd_inv_margin', 1.4, lambda r: 1.4)
+        
+        # Grid Search
+        _hparam('grid_size', 120, lambda r: 120)
 
     else:
         raise NotImplementedError
@@ -325,6 +372,45 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         _hparam('l_dale_n_steps', 40)
         _hparam('l_dale_step_size', 0.5)
         _hparam('l_dale_noise_coeff', 0.05)
+        _hparam('l_dale_nu', 0.1)
+
+    elif dataset=='modelnet40':
+        ##### Worst of K ######
+        if perturbation == "PointcloudTranslation":
+            _hparam('epsilon_tx', 0.25)
+            _hparam('epsilon_ty', 0.2)
+        else:
+            _hparam('epsilon', 0.02)
+        
+
+        ###### MCMC ###########
+        if perturbation == "PointcloudTranslation":
+            _hparam('mcmc_dale_scale', 0.2)
+        else:
+            _hparam('mcmc_dale_scale', 0.002)
+        _hparam('mcmc_dale_n_steps', 10)
+        _hparam('mcmc_proposal', 'Laplace')
+        
+
+        ##### PGD #####
+        _hparam('pgd_n_steps', 20)
+        if perturbation == "PointcloudTranslation":
+            _hparam('pgd_step_size', 0.02)
+        else:
+            _hparam('pgd_step_size', 0.01)
+        
+        # DALE (Laplacian-HMC)
+        _hparam('l_dale_n_steps', 20)
+        if perturbation == "PointcloudTranslation":
+            _hparam('l_dale_step_size', 0.1)
+        else:
+            _hparam('l_dale_step_size', 0.001)
+        _hparam('l_dale_pd_inv_margin', 0.35)
+        if perturbation == "PointcloudTranslation":
+            _hparam('l_dale_noise_coeff', 0.2)
+        else:
+            _hparam('l_dale_noise_coeff', 0.0002)
+        _hparam('l_dale_pd_inv_eta', 0.0002)
         _hparam('l_dale_nu', 0.1)
     else:
         raise NotImplementedError
