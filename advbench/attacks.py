@@ -42,10 +42,10 @@ class Fo(Attack_Linf):
         
     def forward(self, imgs, labels):
         self.classifier.eval()
-        delta = self.perturbation.delta_init(imgs).to(imgs.device)
         highest_loss = torch.zeros(imgs.shape[0], device = imgs.device)
         worst_delta = torch.empty_like(delta)
         for _ in range(self.hparams['fo_restarts']):
+            delta = self.perturbation.delta_init(imgs).to(imgs.device)
             delta, adv_loss = self.optimize_delta(imgs, labels, delta)
             worst_delta[adv_loss>highest_loss] = delta[adv_loss>highest_loss]
             highest_loss[adv_loss>highest_loss] = adv_loss[adv_loss>highest_loss]
