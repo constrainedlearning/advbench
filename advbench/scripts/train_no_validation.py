@@ -98,7 +98,7 @@ def main(args, hparams, test_hparams):
     for epoch in range(0, dataset.N_EPOCHS):
         adjust_lr(algorithm.optimizer, epoch, hparams)
         if wandb_log:
-            wandb.log({'lr': hparams['learning_rate'], 'epoch': epoch, 'step':step})
+            wandb.log({'lr': algorithm.optimizer.param_groups[0]['lr'], 'epoch': epoch, 'step':step})
         timer = meters.TimeMeter()
         epoch_start = time.time()
         for batch_idx, (imgs, labels) in enumerate(train_ldr):
