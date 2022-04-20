@@ -91,8 +91,13 @@ def to_loaders(all_datasets, hparams, device):
                                 pipelines={'image':all_datasets.transforms[split], 'label': label_pipeline}))
 
     return loaders
-        
 
+def sample_idxs(data, val_frac=0.3):
+    perm = torch.randperm(len(data))
+    k = int(val_frac*len(data))
+    train_idx = perm[:k]
+    val_idx = perm[k:]
+    return train_idx, val_idx   
 
 class AdvRobDataset(Dataset):
 
@@ -222,8 +227,8 @@ if FFCV_AVAILABLE:
             # self.splits['train'] = Subset(train_data, range(5000))
 
             train_data = CIFAR100_(root, train=True)
-            self.splits['val'] = Subset(train_data, range(45000, 50000))
-
+            _, val_idx = sample_idxs(train_data, val_frac=0.1)
+            self.splits['val'] =  Subset(train_data, val_idx)
             self.splits['test'] = CIFAR100_(root, train=False)
             self.write()
 
@@ -284,7 +289,8 @@ else:
             self.splits['train'] = train_data
 
             train_data = CIFAR10_(root, train=True, transform=train_transforms)
-            self.splits['val'] = Subset(train_data, range(45000, 50000))
+            _, val_idx = sample_idxs(train_data, val_frac=0.1)
+            self.splits['val'] =  Subset(train_data, val_idx)
 
             self.splits['test'] = CIFAR10_(root, train=False, transform=test_transforms)
 
@@ -336,10 +342,8 @@ else:
 
             train_data = CIFAR100_(root, train=True, transform=train_transforms, download=True)
             self.splits['train'] = train_data
-            # self.splits['train'] = Subset(train_data, range(5000))
-
-            train_data = CIFAR100_(root, train=True, transform=train_transforms)
-            self.splits['val'] = Subset(train_data, range(45000, 50000))
+            _, val_idx = sample_idxs(train_data, val_frac=0.1)
+            self.splits['val'] =  Subset(train_data, val_idx)
 
             self.splits['test'] = CIFAR100_(root, train=False, transform=test_transforms)
 
@@ -392,7 +396,8 @@ else:
             train_data = STL10_(root, split="train", transform=train_transforms, download=True)
             self.splits['train'] = train_data
             
-            self.splits['val'] = Subset(train_data, range(4000, 5000))
+            _, val_idx = sample_idxs(train_data, val_frac=0.1)
+            self.splits['val'] =  Subset(train_data, val_idx)
 
             self.splits['test'] = STL10_(root, split="test", transform=test_transforms)
 
@@ -423,7 +428,7 @@ class MNIST(AdvRobDataset):
     ATTACK_INTERVAL = 100
     LOSS_LANDSCAPE_INTERVAL = 100
     LOSS_LANDSCAPE_BATCHES = 20
-    HAS_LR_SCHEDULE = False
+    HAS_LR_SCHEDULE = True
     LOSS_LANDSCAPE_GSIZE = 1000
     ANGLE_GSIZE = 100
     LOSS_LANDSCAPE_BATCHES = 20
@@ -439,7 +444,8 @@ class MNIST(AdvRobDataset):
         # self.splits['train'] = Subset(train_data, range(60000))
 
         train_data = MNIST_(root, train=True, transform=xforms)
-        self.splits['val'] = Subset(train_data, range(54000, 60000))
+        _, val_idx = sample_idxs(train_data, val_frac=0.1)
+        self.splits['val'] =  Subset(train_data, val_idx)
 
         self.splits['test'] = MNIST_(root, train=False, transform=xforms)
 

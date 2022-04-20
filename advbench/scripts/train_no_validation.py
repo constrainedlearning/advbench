@@ -50,7 +50,9 @@ def main(args, hparams, test_hparams):
         dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True, exclude_translations=True)
     else:
         dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug)
-    train_ldr, _, test_ldr = datasets.to_loaders(dataset, hparams, device=device)
+    if args.epochs>0:
+        dataset.N_EPOCHS = args.epochs
+    train_ldr, val_ldr, test_ldr = datasets.to_loaders(dataset, hparams, device=device)
     kw_args = {"perturbation": args.perturbation}
     if args.algorithm in PD_ALGORITHMS: 
         if args.algorithm.endswith("Reverse"):
@@ -78,7 +80,7 @@ def main(args, hparams, test_hparams):
         defaults = [args.algorithm, args.dataset, args.trial_seed, args.output_dir]
         results_df.loc[len(results_df)] = data + defaults
     if wandb_log:
-        name = f"{args.perturbation} {args.algorithm} {args.model} {args.seed}"
+        name = f"{args.flags}{args.perturbation} {args.algorithm} {args.model} {args.seed}"
         wandb.init(project=f"DAug-{args.dataset}", name=name)
         wandb.config.update(args)
         wandb.config.update(hparams)
@@ -96,7 +98,8 @@ def main(args, hparams, test_hparams):
     total_time = 0
     step = 0
     for epoch in range(0, dataset.N_EPOCHS):
-        adjust_lr(algorithm.optimizer, epoch, hparams)
+        if adjust_lr is not None:
+            adjust_lr(algorithm.optimizer, epoch, hparams)
         if wandb_log:
             wandb.log({'lr': algorithm.optimizer.param_groups[0]['lr'], 'epoch': epoch, 'step':step})
         timer = meters.TimeMeter()
@@ -131,13 +134,20 @@ def main(args, hparams, test_hparams):
                 test_adv_acc, test_adv_acc_mean, adv_loss, accs, loss, deltas = misc.adv_accuracy_loss_delta(algorithm, test_ldr, device, attack)
                 add_results_row([epoch, test_adv_acc, attack_name, 'Test'])
                 test_adv_accs.append(test_adv_acc)
+                train_adv_acc, train_adv_acc_mean, train_adv_loss, train_accs, train_loss, train_deltas = misc.adv_accuracy_loss_delta(algorithm, val_ldr, device, attack)
+                add_results_row([epoch, train_adv_acc, attack_name, 'Train'])
+                test_adv_accs.append(test_adv_acc)
                 if wandb_log:
                     print(f"Logging {attack_name}...")
                     wandb.log({'test_acc_adv_'+attack_name: test_adv_acc,'mean_test_acc_adv'+attack_name: test_adv_acc_mean, 'test_loss_adv_'+attack_name: adv_loss,
                     'test_loss_adv_mean_'+attack_name: loss.mean(), 'epoch': epoch, 'step':step})
+                    wandb.log({'train_acc_adv_'+attack_name: train_adv_acc,'mean_train_acc_adv'+attack_name: train_adv_acc_mean, 'train_loss_adv_'+attack_name: train_adv_loss,
+                    'train_loss_adv_mean_'+attack_name: loss.mean(), 'epoch': epoch, 'step':step})
                     if args.perturbation!="Linf":
                         plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="table")
                         plotting.plot_perturbed_wandb(deltas, accs, name="test_acc_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="table")
+                        plotting.plot_perturbed_wandb(train_deltas, train_loss, name="train_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="table")
+                        plotting.plot_perturbed_wandb(train_deltas, train_accs, name="train_acc_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="table")
                     
                     if args.log_imgs:
                         imgs, labels = next(iter(test_ldr))
@@ -223,6 +233,8 @@ if __name__ == '__main__':
     parser.add_argument('--auto_augment_wo_translations', action='store_true')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use')
     parser.add_argument('--eps', type=float, default=0.0, help="Constant level")
+    parser.add_argument('--flags', type=str,default='', help='add to exp name')
+    parser.add_argument('--epochs', type=int,default=0, help='custom number of epochs, use defaults if 0')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
