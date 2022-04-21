@@ -241,7 +241,12 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         # Grid Search
         _hparam('grid_size', 120, lambda r: 120)
     elif dataset=='modelnet40':
-        ##### Worst of K ######
+        _hparam('fo_sgd_momentum', 0.1, lambda r:0.1)
+        _hparam('fo_adam_step_size', 0.1, lambda r:0.1)
+        _hparam('fo_n_steps', 10, lambda r:10)
+        _hparam('fo_restarts', 1, lambda r:1)
+        _hparam('pgd_n_steps', 10, lambda r: 10)
+        _hparam('pgd_step_size', 0.1, lambda r: 0.1)
         _hparam('worst_of_k_steps', 10, lambda r:10)
         if perturbation == "PointcloudTranslation":
             _hparam('epsilon_tx', 0.25, lambda r:0.25)

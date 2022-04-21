@@ -151,8 +151,8 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
     return adv_acc, adv_mean, adv_loss, np.concatenate(accs, axis=0), np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0)
 
 def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack):
-    adv_correct, correct, total, total_worst, adv_losses, bal_acc = 0, 0, 0, 0, 0, 0
-    losses, deltas, accs, worst_preds, all_labels = [], [], [], [], []
+    adv_correct, correct, total, total_worst, adv_losses = 0, 0, 0, 0, 0
+    losses, deltas, accs, worst_preds, all_labels, repeated_labels, all_preds = [], [], [], [], [], [], []
 
     algorithm.eval()
     algorithm.export()
@@ -176,8 +176,7 @@ def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack):
                     adv_imgs, delta, labels = attacked
                 output = algorithm.predict(adv_imgs)
                 loss = algorithm.classifier.loss(output, labels, reduction='none')
-                pred = output.argmax(dim=1)       
-            bal_acc += imgs.size(0)*balanced_accuracy_score(labels.cpu().numpy(), pred.cpu().numpy())
+                pred = output.argmax(dim=1)
             pred = rearrange(pred, '(B S) -> B S', B=imgs.shape[0])
             eq = pred.eq(labels.view_as(pred))
             accs.append(eq.view_as(loss).cpu().numpy())
@@ -192,13 +191,15 @@ def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack):
             total += adv_imgs.size(0)
             total_worst += imgs.size(0)
             worst_preds.append(worst.cpu().numpy())
+            all_preds.append(pred.cpu().numpy())
+            repeated_labels.append(labels.spu().numpy())
     algorithm.train()
     algorithm.unexport()
     adv_acc = 100. * adv_correct / total_worst
     adv_mean = 100. * correct / total
     adv_loss = adv_losses / total_worst
-    adv_acc_bal = balanced_accuracy_score(np.concatenate(all_labels, axis=0), np.concatenate(worst_preds, axis=0))
-    adv_mean_bal = 100. * bal_acc/total_worst
+    adv_acc_bal = 100. *balanced_accuracy_score(np.concatenate(all_labels, axis=0), np.concatenate(worst_preds, axis=0))
+    adv_mean_bal = 100. * balanced_accuracy_score(np.concatenate(repeated_labels, axis=0), np.concatenate(all_preds, axis=0))
     return adv_acc, adv_mean, adv_acc_bal, adv_mean_bal, adv_loss, np.concatenate(accs, axis=0), np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0)
 
 def adv_accuracy_loss_delta_ensembleacc(algorithm, loader, device, attack):
