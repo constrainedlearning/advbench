@@ -92,7 +92,7 @@ def to_loaders(all_datasets, hparams, device):
 
     return loaders
 
-def sample_idxs(data, val_frac=0.3):
+def sample_idxs(data, val_frac=0.08):
     perm = torch.randperm(len(data))
     k = int(val_frac*len(data))
     train_idx = perm[:k]
@@ -227,7 +227,7 @@ if FFCV_AVAILABLE:
             # self.splits['train'] = Subset(train_data, range(5000))
 
             train_data = CIFAR100_(root, train=True)
-            _, val_idx = sample_idxs(train_data, val_frac=0.1)
+            _, val_idx = sample_idxs(train_data, val_frac=0.05)
             self.splits['val'] =  Subset(train_data, val_idx)
             self.splits['test'] = CIFAR100_(root, train=False)
             self.write()
@@ -342,7 +342,7 @@ else:
 
             train_data = CIFAR100_(root, train=True, transform=train_transforms, download=True)
             self.splits['train'] = train_data
-            _, val_idx = sample_idxs(train_data, val_frac=0.1)
+            _, val_idx = sample_idxs(train_data, val_frac=0.05)
             self.splits['val'] =  Subset(train_data, val_idx)
 
             self.splits['test'] = CIFAR100_(root, train=False, transform=test_transforms)
