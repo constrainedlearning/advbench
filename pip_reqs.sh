@@ -1,0 +1,1 @@
+pip install einops wandb kornia humanfriendly e2cnn plotly h5py pandas timm torchsummary sklearn matplotlib scikit-image tqdm
