@@ -128,6 +128,10 @@ def main(args, hparams, test_hparams):
             add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
 
         if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
+            train_clean_acc = misc.accuracy(algorithm, val_ldr, device)
+            if wandb_log:
+                wandb.log({'train_clean_acc': train_clean_acc, 'epoch': epoch, 'step':step})
+            add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():
