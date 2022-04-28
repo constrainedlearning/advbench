@@ -1,10 +1,13 @@
-for seed in 0 1 2 3 4 5 6 7 8 9
+for seed in 0
 do
-    for algo in Laplacian_DALE_PD_Reverse
+    for perturbations in 'PointcloudJitter'
     do
-        for eps in  0.025 0.05 0.1 0.2
+        for algo in 'Laplacian_DALE_PD_Reverse'
         do
-            python -m advbench.scripts.train --dataset modelnet40 --algorithm $algo --output_dir train-output --test_attacks Fo_PGD Fo_Adam Rand_Aug_Batch Gaussian_Batch Laplacian_Batch --perturbation PointcloudJitter --model wrn-16-8 --seed $seed --eps $eps --flags pareto --device cuda:1
+            for eps in 0.7 2.8
+            do
+                python -m advbench.scripts.train --dataset modelnet40 --algorithm $algo --output_dir train-output --test_attacks Fo_PGD Fo_Adam Rand_Aug_Batch Gaussian_Batch Laplacian_Batch --perturbation $perturbations --model DGCNN --seed $seed --eps $eps --flags pareto
+            done
         done
     done
 done

@@ -232,8 +232,8 @@ if __name__ == '__main__':
     parser.add_argument('--auto_augment_wo_translations', action='store_true')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use')
     parser.add_argument('--no_augmentation', action='store_false')
+    parser.add_argument('--eps', type=float, default=0.0, help="Constraint level")
     parser.add_argument('--flags', type=str,default='', help='add to exp name')
-    parser.add_argument('--eps', type=float, default=0.0, help="Constant level")
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
@@ -259,6 +259,8 @@ if __name__ == '__main__':
 
     hparams['optimizer'] = args.optimizer
     hparams['label_smoothing'] = args.label_smoothing
+    if args.eps > 0:
+        hparams['l_dale_pd_inv_margin'] = args.eps
     print ('Hparams:')
     for k, v in sorted(hparams.items()):
         print(f'\t{k}: {v}')
