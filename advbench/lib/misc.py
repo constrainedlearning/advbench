@@ -109,7 +109,7 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
     losses, deltas, accs = [], [], []
 
     algorithm.eval()
-    algorithm.export()
+    #algorithm.export()
     with torch.no_grad():
         for imgs, labels in tqdm(loader):
             imgs, labels = imgs.to(device), labels.to(device)
@@ -143,8 +143,9 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
             deltas.append(delta.cpu().numpy())
             total += adv_imgs.size(0)
             total_worst += imgs.size(0)
+            break
     algorithm.train()
-    algorithm.unexport()
+    #algorithm.unexport()
     adv_acc = 100. * adv_correct / total_worst
     adv_mean = 100. * correct / total
     adv_loss = adv_losses / total_worst

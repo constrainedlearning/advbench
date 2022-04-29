@@ -319,6 +319,7 @@ else:
         ANGLE_GSIZE = 100
         LOSS_LANDSCAPE_BATCHES = 10
         HAS_LR_SCHEDULE = True
+        TEST_BATCH = 10
 
         def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=False):
             super(CIFAR100, self).__init__()
