@@ -253,9 +253,6 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('epsilon_ty', 0.2, lambda r:0.2)
         elif perturbation == "PointcloudJitter":
             _hparam('epsilon', 0.05, lambda r:0.05)
-        ##### PGD #####
-        _hparam('pgd_n_steps', 10, lambda r: 10)
-        _hparam('pgd_step_size', 0.1, lambda r: 0.1)
         # DALE (Laplacian-HMC)
         _hparam('l_dale_n_steps', 10, lambda r: 10)
         _hparam('l_dale_step_size', 0.4, lambda r: 10 ** r.uniform(-2.0, -0.5))

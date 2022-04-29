@@ -128,6 +128,10 @@ def main(args, hparams, test_hparams):
             add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
 
         if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
+            train_clean_acc = misc.accuracy(algorithm, val_ldr, device)
+            if wandb_log:
+                wandb.log({'train_clean_acc': train_clean_acc, 'epoch': epoch, 'step':step})
+            add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():
@@ -232,7 +236,7 @@ if __name__ == '__main__':
     parser.add_argument('--augment', action='store_true')
     parser.add_argument('--auto_augment_wo_translations', action='store_true')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use')
-    parser.add_argument('--eps', type=float, default=0.0, help="Constant level")
+    parser.add_argument('--eps', type=float, default=0.0, help="Constraint level")
     parser.add_argument('--flags', type=str,default='', help='add to exp name')
     parser.add_argument('--epochs', type=int,default=0, help='custom number of epochs, use defaults if 0')
     parser.add_argument('--max_rot', type=int,default=0, help='max angle in degrees')

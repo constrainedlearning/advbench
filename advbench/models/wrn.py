@@ -95,9 +95,16 @@ def wrn28_10(num_classes=10):
     model = Wide_ResNet(depth=28, widen_factor=10, dropRate=0.3, num_classes=num_classes)
     return model
 
-def wrn16_8(num_classes=10):
+def wrn16_8_stl(num_classes=10):
     """Constructs a Wide ResNet 16-8 model with initial stride of 2 as mentioned here:
     https://github.com/uoguelph-mlrg/Cutout/issues/2
     """
     model = Wide_ResNet(depth=16, widen_factor=8, dropRate=0.3, num_classes=num_classes, initial_stride=2)
+    return model
+
+def wrn16_8(num_classes=10):
+    """Constructs a Wide ResNet 16-8 model with initial stride of 2 as mentioned here:
+    https://github.com/uoguelph-mlrg/Cutout/issues/2
+    """
+    model = Wide_ResNet(depth=16, widen_factor=8, dropRate=0.3, num_classes=num_classes, initial_stride=1)
     return model

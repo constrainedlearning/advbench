@@ -1,6 +1,6 @@
 from advbench.models.e2_networks import e2wrn
 from advbench.models.e2_mnist import E2SFCNN, E2SFCNN_QUOT
-from advbench.models.wrn import wrn16_8, wrn28_10
+from advbench.models.wrn import wrn16_8, wrn16_8_stl, wrn28_10
 from advbench.models.resnet import ResNet18
 from advbench.models.mnist import MNISTNet, CnSteerableCNN, SteerableMNISTnet
 from advbench.models.dgcnn import DGCNN, cal_loss
@@ -61,6 +61,9 @@ def create_model(input_shape, num_classes, hparams):
         elif hparams["model"] == "wrn-28-10":
             print("Using WRN-28-10")
             return wrn28_10(num_classes=num_classes)
+        elif hparams["model"] == "wrn-16-8-stl":
+            print("Using WRN-16-8")
+            return wrn16_8_stl(num_classes=num_classes)
         elif hparams["model"] == "wrn-16-8":
             print("Using WRN-16-8")
             return wrn16_8(num_classes=num_classes)
