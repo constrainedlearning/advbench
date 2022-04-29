@@ -193,7 +193,7 @@ def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack):
             total_worst += imgs.size(0)
             worst_preds.append(worst.cpu().numpy())
             all_preds.append(pred.cpu().numpy())
-            repeated_labels.append(labels.spu().numpy())
+            repeated_labels.append(labels.cpu().numpy())
     algorithm.train()
     algorithm.unexport()
     adv_acc = 100. * adv_correct / total_worst
