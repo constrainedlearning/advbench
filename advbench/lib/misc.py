@@ -80,6 +80,38 @@ def accuracy_mean_overall(algorithm, loader, device):
     mean = balanced_accuracy_score(true, preds)
     return 100. * correct / total, 100. * mean
 
+@torch.no_grad()
+def accuracy_mean_overall_loss(algorithm, loader, device, max_batches = None):
+    correct, total = 0, 0
+    true = []
+    preds = []
+    losses = []
+    algorithm.eval()
+    algorithm.export()
+    for batch_idx, (imgs, labels) in tqdm(enumerate(loader)):
+        if max_batches is not None and batch_idx>max_batches-1:
+            break
+        imgs, labels = imgs.to(device), labels.to(device)
+        if FFCV_AVAILABLE:
+            with autocast():
+                output = algorithm.predict(imgs)
+        else:
+            output = algorithm.predict(imgs)
+        loss = algorithm.classifier.loss(output, labels, reduction='none')
+        pred = output.argmax(dim=1, keepdim=True)
+        true.append(labels.cpu().numpy())
+        preds.append(pred.detach().cpu().numpy())
+        correct += pred.eq(labels.view_as(pred)).sum().item()
+        losses.append(loss.detach().cpu().numpy())
+        total += imgs.size(0) 
+    algorithm.train()
+    algorithm.unexport()
+    true = np.concatenate(true)
+    preds = np.concatenate(preds)
+    loss = np.concatenate(losses)
+    mean = balanced_accuracy_score(true, preds)
+    return 100. * correct / total, 100. * mean, np.mean(loss)
+
 def adv_accuracy(algorithm, loader, device, attack):
     correct, total = 0, 0
 
@@ -104,14 +136,16 @@ def adv_accuracy(algorithm, loader, device, attack):
 
     return 100. * correct / total
 
-def adv_accuracy_loss_delta(algorithm, loader, device, attack):
+def adv_accuracy_loss_delta(algorithm, loader, device, attack, max_batches=None):
     adv_correct, correct, total, total_worst, adv_losses = 0, 0, 0, 0, 0
     losses, deltas, accs = [], [], []
 
     algorithm.eval()
     #algorithm.export()
     with torch.no_grad():
-        for imgs, labels in tqdm(loader):
+        for batch_idx, (imgs, labels) in tqdm(enumerate(loader)):
+            if max_batches is not None and batch_idx>max_batches-1:
+                break
             imgs, labels = imgs.to(device), labels.to(device)
             if FFCV_AVAILABLE:
                 with autocast():
@@ -151,14 +185,15 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack):
     adv_loss = adv_losses / total_worst
     return adv_acc, adv_mean, adv_loss, np.concatenate(accs, axis=0), np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0)
 
-def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack):
+def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack, max_batches = None):
     adv_correct, correct, total, total_worst, adv_losses = 0, 0, 0, 0, 0
     losses, deltas, accs, worst_preds, all_labels, repeated_labels, all_preds = [], [], [], [], [], [], []
-
     algorithm.eval()
     algorithm.export()
     with torch.no_grad():
-        for imgs, labels in tqdm(loader):
+        for batch_idx, (imgs, labels) in tqdm(enumerate(loader)):
+            if max_batches is not None and batch_idx>max_batches-1:
+                break
             imgs, labels = imgs.to(device), labels.to(device)
             all_labels.append(labels.cpu().numpy())
             if FFCV_AVAILABLE:
@@ -178,6 +213,8 @@ def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack):
                 output = algorithm.predict(adv_imgs)
                 loss = algorithm.classifier.loss(output, labels, reduction='none')
                 pred = output.argmax(dim=1)
+            all_preds.append(pred.cpu().numpy())
+            repeated_labels.append(labels.cpu().numpy())
             pred = rearrange(pred, '(B S) -> B S', B=imgs.shape[0])
             eq = pred.eq(labels.view_as(pred))
             accs.append(eq.view_as(loss).cpu().numpy())
@@ -192,8 +229,6 @@ def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack):
             total += adv_imgs.size(0)
             total_worst += imgs.size(0)
             worst_preds.append(worst.cpu().numpy())
-            all_preds.append(pred.cpu().numpy())
-            repeated_labels.append(labels.cpu().numpy())
     algorithm.train()
     algorithm.unexport()
     adv_acc = 100. * adv_correct / total_worst

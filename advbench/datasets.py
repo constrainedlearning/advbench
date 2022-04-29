@@ -674,3 +674,10 @@ def get_val(dataset):
     val_set = deepcopy(dataset)
     val_set.set_validation()
     return(val_set)
+
+def change_batch_size(loader, batch_size):   
+    dataset = loader.dataset
+    return DataLoader(
+        dataset=dataset, 
+        batch_size=batch_size,
+        num_workers=loader.num_workers)

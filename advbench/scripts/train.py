@@ -138,26 +138,35 @@ def main(args, hparams, test_hparams):
         add_results_row([epoch, val_clean_acc, 'ERM', 'Val'])
         if epoch == dataset.N_EPOCHS-1:
             algorithm.load_state_dict(torch.load(os.path.join(args.output_dir, f'{name}_best_ckpt.pkl')))
-            val_clean_acc, val_clean_mean_acc = misc.accuracy_mean_overall(algorithm, val_ldr, device)
-            test_clean_acc, test_clean_mean_acc = misc.accuracy_mean_overall(algorithm, test_ldr, device)
-            wandb.log({'best_val_clean_acc': val_clean_acc, 'best_val_clean_acc_bal': val_clean_mean_acc, 'epoch': epoch, 'step':step})
-            wandb.log({'test_clean_acc': test_clean_acc, 'test_clean_acc_bal': test_clean_mean_acc, 'epoch': epoch, 'step':step})
+            train_clean_acc, train_clean_mean_acc, train_clean_loss = misc.accuracy_mean_overall_loss(algorithm, train_ldr, device, max_batches=100)
+            val_clean_acc, val_clean_mean_acc, val_clean_loss = misc.accuracy_mean_overall_loss(algorithm, val_ldr, device)
+            test_clean_acc, test_clean_mean_acc, test_clean_loss = misc.accuracy_mean_overall_loss(algorithm, test_ldr, device)
+            wandb.log({'train_clean_loss': train_clean_loss,'train_clean_acc': train_clean_acc, 'train_clean_acc_bal': train_clean_mean_acc, 'epoch': epoch, 'step':step})
+            wandb.log({'best_val_clean_loss': val_cleanloss, 'best_val_clean_acc': val_clean_acc, 'best_val_clean_acc_bal': val_clean_mean_acc, 'epoch': epoch, 'step':step})
+            wandb.log({'test_clean_loss': test_clean_loss,'test_clean_acc': test_clean_acc, 'test_clean_acc_bal': test_clean_mean_acc, 'epoch': epoch, 'step':step})
             #test_clean_acc_voting, test_clean_mean_acc_voting = voting(algorithm, test_ldr, device)
             #wandb.log({'test_clean_oacc_voting': test_clean_acc_voting, 'test_clean_macc_voting': test_clean_mean_acc_voting, 'epoch': epoch, 'step':step})
         if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
             # compute save and log adversarial accuracies on validation/test sets
+            train_ldr_small = datasets.change_batch_size(train_ldr, 10)
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():
                 print(attack_name)
                 test_adv_acc, test_adv_acc_mean, test_adv_acc_bal, test_adv_acc_mean_bal, adv_loss, accs, loss, deltas = misc.adv_accuracy_loss_delta_balanced(algorithm, test_ldr, device, attack)
                 print("Test Adversarial Accuracy:", test_adv_acc)
                 print("Test Balanced Adversarial Accuracy:", test_adv_acc_bal)
+                train_adv_acc, train_adv_acc_mean, train_adv_acc_bal, train_adv_acc_mean_bal, adv_loss, train_accs, train_loss, train_deltas = misc.adv_accuracy_loss_delta_balanced(algorithm, train_ldr_small, device, attack, max_batches=200)
+                print("Train Adversarial Accuracy:", test_adv_acc)
+                print("Train Balanced Adversarial Accuracy:", test_adv_acc_bal)
                 add_results_row([epoch, test_adv_acc, attack_name, 'Test'])
+                add_results_row([epoch, train_adv_acc, attack_name, 'Train'])
                 test_adv_accs.append(test_adv_acc)
                 if wandb_log and args.perturbation!="Linf":
                     print(f"plotting and logging {attack_name}")
                     wandb.log({'test_adv_acc_'+attack_name: test_adv_acc,'test_adv_acc_mean_'+attack_name: test_adv_acc_mean, 'test_loss_adv_'+attack_name: loss.mean(),
                      'test_adv_acc_bal_'+attack_name: test_adv_acc_bal, 'test_adv_acc_mean_bal_'+attack_name: test_adv_acc_mean_bal, 'epoch': epoch, 'step':step})
+                    wandb.log({'train_adv_acc_'+attack_name: train_adv_acc,'train_adv_acc_mean_'+attack_name: train_adv_acc_mean, 'train_loss_adv_'+attack_name: loss.mean(),
+                     'train_adv_acc_bal_'+attack_name: train_adv_acc_bal, 'train_adv_acc_mean_bal_'+attack_name: train_adv_acc_mean_bal, 'epoch': epoch, 'step':step})
                     plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
                     plotting.plot_perturbed_wandb(deltas, accs, name="test_acc_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="scatter")
                     
