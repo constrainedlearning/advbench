@@ -142,7 +142,7 @@ def main(args, hparams, test_hparams):
             val_clean_acc, val_clean_mean_acc, val_clean_loss = misc.accuracy_mean_overall_loss(algorithm, val_ldr, device)
             test_clean_acc, test_clean_mean_acc, test_clean_loss = misc.accuracy_mean_overall_loss(algorithm, test_ldr, device)
             wandb.log({'train_clean_loss': train_clean_loss,'train_clean_acc': train_clean_acc, 'train_clean_acc_bal': train_clean_mean_acc, 'epoch': epoch, 'step':step})
-            wandb.log({'best_val_clean_loss': val_cleanloss, 'best_val_clean_acc': val_clean_acc, 'best_val_clean_acc_bal': val_clean_mean_acc, 'epoch': epoch, 'step':step})
+            wandb.log({'best_val_clean_loss': val_clean_loss, 'best_val_clean_acc': val_clean_acc, 'best_val_clean_acc_bal': val_clean_mean_acc, 'epoch': epoch, 'step':step})
             wandb.log({'test_clean_loss': test_clean_loss,'test_clean_acc': test_clean_acc, 'test_clean_acc_bal': test_clean_mean_acc, 'epoch': epoch, 'step':step})
             #test_clean_acc_voting, test_clean_mean_acc_voting = voting(algorithm, test_ldr, device)
             #wandb.log({'test_clean_oacc_voting': test_clean_acc_voting, 'test_clean_macc_voting': test_clean_mean_acc_voting, 'epoch': epoch, 'step':step})
