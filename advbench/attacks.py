@@ -267,9 +267,9 @@ class Worst_Of_K(Attack_Linf):
             delta = self.perturbation.clamp_delta(delta, repeated_images)
             adv_imgs = self.perturbation.perturb_img(repeated_images, delta)
             if len(labels.shape) == 1:
-                new_labels = repeat(labels, 'B -> (B S)', S=self.hparams['perturbation_batch_size'])
+                new_labels = repeat(labels, 'B -> (B S)', S=steps)
             else:
-                new_labels = repeat(labels, 'B D -> (B S) D', S=self.hparams['perturbation_batch_size'])
+                new_labels = repeat(labels, 'B D -> (B S) D', S=steps)
             adv_loss = self.classifier.loss(self.classifier(adv_imgs), new_labels, reduction="none")
             adv_loss = rearrange(adv_loss, '(B S) -> B S', B=batch_size, S=steps)
             max_idx = torch.argmax(adv_loss, dim=-1)
