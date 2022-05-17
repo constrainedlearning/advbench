@@ -436,15 +436,20 @@ class MNIST(AdvRobDataset):
     ANGLE_GSIZE = 100
     LOSS_LANDSCAPE_BATCHES = 20
 
-    def __init__(self, root, augmentation=False):
+    def __init__(self, root, augmentation=False, fracsamples=0):
         super(MNIST, self).__init__()
         self.ffcv = False
         
         xforms = transforms.ToTensor()
 
         train_data = MNIST_(root, train=True, transform=xforms,  download=True)
-        self.splits['train'] = train_data
-        # self.splits['train'] = Subset(train_data, range(60000))
+        if fracsamples>0 and fracsamples<1:
+            nsamples = int(len(train_data)*fracsamples)
+            print(f"Using only {nsamples} samples")
+            _, train_idx = sample_idxs(train_data, val_frac=fracsamples)#
+            self.splits['train'] = Subset(train_data, train_idx)
+        else:
+            self.splits['train'] = train_data
 
         train_data = MNIST_(root, train=True, transform=xforms)
         _, val_idx = sample_idxs(train_data, val_frac=0.1)

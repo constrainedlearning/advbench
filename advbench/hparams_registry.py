@@ -37,6 +37,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     _hparam('mh_proposal', 'Laplace', lambda r: 'Laplace')
     _hparam('gaussian_attack_std', 1, lambda r: 1 )
     _hparam('laplacian_attack_std', 1, lambda r: 1 )
+    _hparam('adv_penalty', 1, lambda r: 1)
 
     if dataset == 'IMNET':
         _hparam('label_smoothing', 0.1, lambda r: 0.1 )
