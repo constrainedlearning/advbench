@@ -42,8 +42,12 @@ def create_model(input_shape, num_classes, hparams):
             net.export()
             return net
         elif hparams["model"] == "MNISTnet":
-            print(f"input shape {input_shape}, num classes {num_classes}")
-            return MNISTNet(input_shape, num_classes)
+            if "n_layers" in hparams.keys():
+                num_layers = hparams["n_layers"]
+            else:
+                num_layers = 2
+            print(f"input shape {input_shape}, num classes {num_classes}, num layers {num_layers}")
+            return MNISTNet(input_shape, num_classes, n_layers = num_layers)
         else:
             raise NotImplementedError
     elif input_shape[0] == 3:

@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.laplace import Laplace
+from torch.distributions.normal import Normal
 from torch.optim import Adam
 from einops import rearrange, reduce, repeat
 
@@ -35,6 +36,7 @@ class Attack_Linf(Attack):
         else:
             eps = self.perturbation.eps
         self.step = (eps*self.hparams['pgd_step_size'])
+        self.batched = hparams['batched']
 
 class Fo(Attack_Linf):
     def __init__(self, classifier, hparams, device, perturbation='Linf'):
@@ -256,24 +258,37 @@ class Worst_Of_K(Attack_Linf):
         batch_size = imgs.size(0)
         delta = self.perturbation.delta_init(imgs)
         steps = self.hparams['worst_of_k_steps']
-        with torch.no_grad():
-            if len(imgs.shape) == 4:
-                repeated_images = repeat(imgs, 'B W H C -> (B S) W H C', B=batch_size, S=steps)
-            elif len(imgs.shape) == 3:
-                repeated_images = repeat(imgs, 'B C P -> (B S) C P', B=batch_size, S=steps)
-            else:
-                raise NotImplementedError
-            delta = self.perturbation.delta_init(repeated_images).to(imgs.device)
-            delta = self.perturbation.clamp_delta(delta, repeated_images)
-            adv_imgs = self.perturbation.perturb_img(repeated_images, delta)
-            if len(labels.shape) == 1:
-                new_labels = repeat(labels, 'B -> (B S)', S=steps)
-            else:
-                new_labels = repeat(labels, 'B D -> (B S) D', S=steps)
-            adv_loss = self.classifier.loss(self.classifier(adv_imgs), new_labels, reduction="none")
-            adv_loss = rearrange(adv_loss, '(B S) -> B S', B=batch_size, S=steps)
-            max_idx = torch.argmax(adv_loss, dim=-1)
-            delta = delta[max_idx]
+        if self.batched:
+            with torch.no_grad():
+                if len(imgs.shape) == 4:
+                    repeated_images = repeat(imgs, 'B W H C -> (B S) W H C', B=batch_size, S=steps)
+                elif len(imgs.shape) == 3:
+                    repeated_images = repeat(imgs, 'B C P -> (B S) C P', B=batch_size, S=steps)
+                else:
+                    raise NotImplementedError
+                delta = self.perturbation.delta_init(repeated_images).to(imgs.device)
+                delta = self.perturbation.clamp_delta(delta, repeated_images)
+                adv_imgs = self.perturbation.perturb_img(repeated_images, delta)
+                if len(labels.shape) == 1:
+                    new_labels = repeat(labels, 'B -> (B S)', S=steps)
+                else:
+                    new_labels = repeat(labels, 'B D -> (B S) D', S=steps)
+                adv_loss = self.classifier.loss(self.classifier(adv_imgs), new_labels, reduction="none")
+                adv_loss = rearrange(adv_loss, '(B S) -> B S', B=batch_size, S=steps)
+                max_idx = torch.argmax(adv_loss, dim=-1)
+                delta = delta[max_idx]
+        else:
+            worst_loss = -1
+            with torch.no_grad():
+                for _ in range(steps):
+                    delta = self.perturbation.delta_init(imgs).to(imgs.device)
+                    delta = self.perturbation.clamp_delta(delta, imgs)
+                    adv_imgs = self.perturbation.perturb_img(imgs, delta)
+                    adv_loss = self.classifier.loss(self.classifier(adv_imgs), labels)
+                    if adv_loss>worst_loss:
+                        worst_loss = adv_loss
+                        worst_delta = delta
+                delta = worst_delta
         adv_imgs = self.perturbation.perturb_img(imgs, delta)
         self.classifier.train()
         return adv_imgs.detach(), delta.detach()
@@ -286,9 +301,30 @@ class Rand_Aug(Attack_Linf):
         batch_size = imgs.size(0)
         self.classifier.eval()
         delta = self.perturbation.delta_init(imgs).to(imgs.device)
+        delta = self.sample(delta)
+        delta = self.perturbation.clamp_delta(delta, imgs)
         adv_imgs = self.perturbation.perturb_img(imgs, delta)
         self.classifier.train()
         return adv_imgs.detach(), delta.detach()
+    
+    def sample(self, delta):
+        return delta
+
+class Gaussian_aug(Rand_Aug):
+    def __init__(self, classifier,  hparams, device, perturbation='Linf'):
+        super(Gaussian_aug, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+        self.sigma = hparams["gaussian_attack_std"]*self.perturbation.eps
+
+    def sample(self, delta):
+        return torch.randn_like(delta)*self.sigma
+
+class Laplace_aug(Rand_Aug):
+    def __init__(self, classifier,  hparams, device, perturbation='Linf'):
+        super(Laplace_aug, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+        self.scale = hparams["laplacian_attack_std"]*self.perturbation.eps/sqrt(2)
+
+    def sample(self, delta):
+        return Laplace(torch.zeros_like(delta), self.scale).sample().to(device=delta.device, dtype=delta.dtype)
 
 class Rand_Aug_Batch(Attack_Linf):
     def __init__(self, classifier,  hparams, device, perturbation='Linf'):
@@ -350,7 +386,7 @@ class Laplacian_Batch(Dist_Batch):
         self.scale = hparams["laplacian_attack_std"]*self.perturbation.eps/sqrt(2)
 
     def sample(self, delta):
-        return torch.distributions.laplace.Laplace(torch.zeros_like(delta), self.scale).sample().to(device=delta.device, dtype=delta.dtype)
+        return Laplace(torch.zeros_like(delta), self.scale).sample().to(device=delta.device, dtype=delta.dtype)
     
 
 class Grid_Batch(Grid_Search):

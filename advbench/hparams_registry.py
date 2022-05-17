@@ -23,7 +23,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         assert(name not in hparams)
         random_state = np.random.RandomState(misc.seed_hash(random_seed, name))
         hparams[name] = (default_val, random_val_fn(random_state))
-
+    
     # Unconditional hparam definitions.
     if dataset == 'IMNET':
         _hparam('batch_size', 64, lambda r: int(2 ** r.uniform(3, 8)))
@@ -66,6 +66,12 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     else:
         _hparam('weight_decay', 5e-4, lambda r: 10 ** r.uniform(-6, -3))
     _hparam('sgd_momentum', 0.9, lambda r: r.uniform(0.8, 0.95))
+
+    # Wether to batch parrallelizable attacks, bigger mem footprint but faster
+    if dataset == 'STL10':
+        _hparam('batched', 0, lambda r: 0)
+    else:
+        _hparam('batched', 1, lambda r: 1)
     
     if perturbation == 'Linf':
         if dataset == 'MNIST':
@@ -77,7 +83,6 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('epsilon', 30, lambda r: 30)
         elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('epsilon', 30, lambda r: 30)
-
     # Perturbation Specific
     elif perturbation == 'Rotation':
         ##### PGD #####
@@ -308,6 +313,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
     _hparam('fo_adam_step_size', 0.1)
     _hparam('grid_size', 100)
     _hparam('worst_of_k_steps', 120)
+    _hparam('batched', 1)
 
     if perturbation=='Rotation':
         if dataset == 'MNIST':
