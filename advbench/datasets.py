@@ -321,7 +321,7 @@ else:
         HAS_LR_SCHEDULE = True
         TEST_BATCH = 10
 
-        def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=False):
+        def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=True):
             super(CIFAR100, self).__init__()
 
             self.ffcv=False
@@ -357,7 +357,7 @@ else:
             The learning rate is multiplied with base_factor every lr_decay_epoch epochs
             """
             lr = hparams['learning_rate']
-            if epoch > hparams['lr_decay_start']:
+            if epoch > hparams['lr_decay_start'] and epoch <= 200:
                 lr = hparams['learning_rate'] * (hparams['lr_decay_factor'] ** ((epoch - hparams['lr_decay_start']) // hparams['lr_decay_epoch']))
             print('learning rate = {:6f}'.format(lr))
             for param_group in optimizer.param_groups:

@@ -510,6 +510,18 @@ class Augmentation(Algorithm):
 
         self.meters['loss'].update(loss.item(), n=imgs.size(0))
 
+class Laplacian(Augmentation):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
+        super(Laplacian, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+        self.attack = attacks.Laplace_aug(self.classifier, self.hparams, device, perturbation=perturbation)
+        self.p = 1
+
+class Gaussian(Augmentation):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
+        super(Gaussian, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+        self.attack = attacks.Gaussian_aug(self.classifier, self.hparams, device, perturbation=perturbation)
+        self.p = 1
+
 class Batch_Random(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
         super(Batch_Random, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
