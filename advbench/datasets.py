@@ -321,7 +321,7 @@ else:
         HAS_LR_SCHEDULE = True
         TEST_BATCH = 10
 
-        def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=False):
+        def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=True):
             super(CIFAR100, self).__init__()
 
             self.ffcv=False
@@ -357,7 +357,7 @@ else:
             The learning rate is multiplied with base_factor every lr_decay_epoch epochs
             """
             lr = hparams['learning_rate']
-            if epoch > hparams['lr_decay_start']:
+            if epoch > hparams['lr_decay_start'] and epoch <= 200:
                 lr = hparams['learning_rate'] * (hparams['lr_decay_factor'] ** ((epoch - hparams['lr_decay_start']) // hparams['lr_decay_epoch']))
             print('learning rate = {:6f}'.format(lr))
             for param_group in optimizer.param_groups:
@@ -437,15 +437,20 @@ class MNIST(AdvRobDataset):
     ANGLE_GSIZE = 100
     LOSS_LANDSCAPE_BATCHES = 20
 
-    def __init__(self, root, augmentation=False):
+    def __init__(self, root, augmentation=False, fracsamples=0):
         super(MNIST, self).__init__()
         self.ffcv = False
         
         xforms = transforms.ToTensor()
 
         train_data = MNIST_(root, train=True, transform=xforms,  download=True)
-        self.splits['train'] = train_data
-        # self.splits['train'] = Subset(train_data, range(60000))
+        if fracsamples>0 and fracsamples<1:
+            nsamples = int(len(train_data)*fracsamples)
+            print(f"Using only {nsamples} samples")
+            _, train_idx = sample_idxs(train_data, val_frac=fracsamples)#
+            self.splits['train'] = Subset(train_data, train_idx)
+        else:
+            self.splits['train'] = train_data
 
         train_data = MNIST_(root, train=True, transform=xforms)
         _, val_idx = sample_idxs(train_data, val_frac=0.1)

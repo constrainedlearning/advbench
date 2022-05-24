@@ -45,11 +45,11 @@ def main(args, hparams, test_hparams):
         test_hparams['epsilon'] = torch.tensor([test_hparams[f'epsilon_{tfm}'] for tfm in ("tx","ty")]).to(device)
     aug = args.augment
     if args.auto_augment:
-        dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True)
+        dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True, fracsamples=args.fracsamples)
     elif args.auto_augment_wo_translations:
-        dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True, exclude_translations=True)
+        dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, auto_augment=True, exclude_translations=True, fracsamples=args.fracsamples)
     else:
-        dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug)
+        dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug, fracsamples=args.fracsamples)
     if args.epochs>0:
         dataset.N_EPOCHS = args.epochs
     train_ldr, val_ldr, test_ldr = datasets.to_loaders(dataset, hparams, device=device)
@@ -81,7 +81,7 @@ def main(args, hparams, test_hparams):
         results_df.loc[len(results_df)] = data + defaults
     if wandb_log:
         name = f"{args.flags}{args.perturbation} {args.algorithm} {args.model} {args.seed}"
-        wandb.init(project=f"DAug-{args.dataset}", name=name)
+        run = wandb.init(project=f"DAug-{args.dataset}", name=name, tags=["penalty"])
         wandb.config.update(args)
         wandb.config.update(hparams)
         wandb.config.update({"test_"+key:val for key, val in test_hparams.items()})
@@ -131,7 +131,7 @@ def main(args, hparams, test_hparams):
             train_clean_acc = misc.accuracy(algorithm, val_ldr, device)
             if wandb_log:
                 wandb.log({'train_clean_acc': train_clean_acc, 'epoch': epoch, 'step':step})
-            add_results_row([epoch, train_clean_acc, 'ERM', 'Train'])
+            add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():
@@ -241,6 +241,8 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int,default=0, help='custom number of epochs, use defaults if 0')
     parser.add_argument('--max_rot', type=int,default=0, help='max angle in degrees')
     parser.add_argument('--max_trans', type=int,default=0, help='max translation in pixels')
+    parser.add_argument('--fracsamples', type=float,default=0, help='limit train samples')
+    parser.add_argument('--adv_penalty', type=float,default=1.0, help='limit train samples')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
@@ -268,6 +270,12 @@ if __name__ == '__main__':
     if args.max_trans > 0:
         hparams['epsilon_tx'] = args.max_trans
         hparams['epsilon_ty'] = args.max_trans
+    
+    if args.max_trans > 0:
+        hparams['fracsamples'] = args.fracsamples
+        args.flags = args.flags+"n samples"
+    if args.adv_penalty != 1:
+        hparams['adv_penalty'] = args.adv_penalty
 
     hparams['optimizer'] = args.optimizer
     hparams['label_smoothing'] = args.label_smoothing

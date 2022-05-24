@@ -55,6 +55,28 @@ def accuracy(algorithm, loader, device):
     return 100. * correct / total
 
 @torch.no_grad()
+def accuracy_loss(algorithm, loader, device):
+    correct, total = 0, 0
+    losses = []
+    algorithm.eval()
+    algorithm.export()
+    for imgs, labels in tqdm(loader):
+        imgs, labels = imgs.to(device), labels.to(device)
+        if FFCV_AVAILABLE:
+            with autocast():
+                output = algorithm.predict(imgs)
+        else:
+            output = algorithm.predict(imgs)
+        pred = output.argmax(dim=1, keepdim=True)
+        loss = algorithm.classifier.loss(output, labels, reduction='none')
+        correct += pred.eq(labels.view_as(pred)).sum().item()
+        losses.append(loss.detach().cpu().numpy())
+        total += imgs.size(0)
+    algorithm.train()
+    algorithm.unexport()
+    loss = np.concatenate(losses)
+    return 100. * correct / total, np.mean(loss)
+@torch.no_grad()
 def accuracy_mean_overall(algorithm, loader, device):
     correct, total = 0, 0
     true = []
@@ -177,7 +199,6 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack, max_batches=None)
             deltas.append(delta.cpu().numpy())
             total += adv_imgs.size(0)
             total_worst += imgs.size(0)
-            break
     algorithm.train()
     #algorithm.unexport()
     adv_acc = 100. * adv_correct / total_worst

@@ -113,19 +113,25 @@ class ERM(Algorithm):
 class Adversarial(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
         super(Adversarial, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+        self.penalty = hparams["adv_penalty"]
 
     def step(self, imgs, labels):
         if FFCV_AVAILABLE:
             with autocast():
                 adv_imgs, deltas = self.attack(imgs, labels)
-                loss = self.classifier.loss(self.predict(adv_imgs), labels)
+                self.optimizer.zero_grad()
+                adv_loss = self.classifier.loss(self.predict(adv_imgs), labels)
+                clean_loss = self.classifier.loss(self.predict(imgs), labels)
+                loss = clean_loss+adv_loss*self.penalty
                 self.scaler.scale(loss).backward()
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
         else:
             adv_imgs, deltas =   self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            loss = self.classifier.loss(self.predict(adv_imgs), labels)
+            adv_loss = self.classifier.loss(self.predict(adv_imgs), labels)
+            clean_loss = self.classifier.loss(self.predict(imgs), labels)
+            loss = clean_loss+adv_loss*self.penalty
             loss.backward()
             self.optimizer.step()
 
@@ -145,6 +151,11 @@ class Adversarial_Adam(Adversarial):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
         super(Adversarial_Adam, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
         self.attack = attacks.Fo_Adam(self.classifier, self.hparams, device, perturbation=perturbation)
+
+class Adversarial_Smoothed(Adversarial):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
+        super(Adversarial_Smoothed, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+        self.attack = attacks.LMC_Laplacian_Linf(self.classifier, self.hparams, device, perturbation=perturbation)
 
 class Gaussian_DALE(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
@@ -493,6 +504,18 @@ class Augmentation(Algorithm):
             self.optimizer.step()
 
         self.meters['loss'].update(loss.item(), n=imgs.size(0))
+
+class Laplacian(Augmentation):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
+        super(Laplacian, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+        self.attack = attacks.Laplace_aug(self.classifier, self.hparams, device, perturbation=perturbation)
+        self.p = 1
+
+class Gaussian(Augmentation):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
+        super(Gaussian, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+        self.attack = attacks.Gaussian_aug(self.classifier, self.hparams, device, perturbation=perturbation)
+        self.p = 1
 
 class Batch_Random(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
