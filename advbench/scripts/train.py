@@ -209,6 +209,8 @@ def main(args, hparams, test_hparams):
         if wandb_log:
             wandb.save(model_filepath)
 
+        wandb.finish()
+
         # save results dataframe to file
         results_df.to_pickle(os.path.join(args.output_dir, 'results.pkl'))
 

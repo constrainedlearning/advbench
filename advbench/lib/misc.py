@@ -76,7 +76,6 @@ def accuracy_loss(algorithm, loader, device):
     algorithm.unexport()
     loss = np.concatenate(losses)
     return 100. * correct / total, np.mean(loss)
-
 @torch.no_grad()
 def accuracy_mean_overall(algorithm, loader, device):
     correct, total = 0, 0
