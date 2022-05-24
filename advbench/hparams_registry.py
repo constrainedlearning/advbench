@@ -246,6 +246,29 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
        
         # Grid Search
         _hparam('grid_size', 120, lambda r: 120)
+
+    elif perturbation=='TAUG':
+        _hparam('epsilon', 0.0, lambda r:0.0)
+        if dataset == 'MNIST':
+            _hparam('l_dale_pd_inv_step_size', 0.4, lambda r: 0.4)
+            _hparam('l_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
+            _hparam('l_dale_pd_inv_margin', 0.8, lambda r: 0.8)
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
+            _hparam('l_dale_pd_inv_step_size', 0.1, lambda r: 0.1)
+            _hparam('l_dale_pd_inv_eta', 0.0001, lambda r: 0.0001)
+            _hparam('l_dale_pd_inv_margin', 0.8, lambda r: 0.8)
+
+        _hparam('worst_of_k_steps', 5, lambda r: 5) 
+        _hparam('pgd_n_steps', 10, lambda r: 10)
+        _hparam('pgd_step_size', 0.1, lambda r: 0.1)
+        # DALE (Laplacian-HMC)
+        _hparam('l_dale_n_steps', 10, lambda r: 10)
+        _hparam('l_dale_step_size', 0.4, lambda r: 10 ** r.uniform(-2.0, -0.5))
+        _hparam('l_dale_noise_coeff', 0.02,lambda r: 10 ** r.uniform(-3.0, -1.5))
+        _hparam('l_dale_nu', 0.1, lambda r: 0.1)
+        _hparam('l_dale_eta', 0.002, lambda r: 0.002)
+        
+
     elif dataset=='modelnet40':
         _hparam('fo_sgd_momentum', 0.1, lambda r:0.1)
         _hparam('fo_adam_step_size', 0.1, lambda r:0.1)
@@ -348,6 +371,28 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         
         # DALE (Laplacian-HMC)
         _hparam('l_dale_n_steps', 20)
+        _hparam('l_dale_step_size', 0.2)
+        _hparam('l_dale_noise_coeff', 0.2)
+        _hparam('l_dale_nu', 0.1)
+    
+    elif perturbation=='TAUG':
+        _hparam('epsilon', 1)
+
+        ###### MH ###########
+        _hparam('mh_dale_scale', 0.2)
+        _hparam('mh_dale_n_steps', 10)
+        _hparam('mh_proposal', 'Laplace')
+        
+        ##### PGD #####
+        if dataset == 'MNIST':
+            _hparam('pgd_n_steps', 10)
+            _hparam('pgd_step_size', 0.5)
+        elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
+            _hparam('pgd_n_steps', 10)
+            _hparam('pgd_step_size', 0.2)
+        
+        # DALE (Laplacian-HMC)
+        _hparam('l_dale_n_steps', 10)
         _hparam('l_dale_step_size', 0.2)
         _hparam('l_dale_noise_coeff', 0.2)
         _hparam('l_dale_nu', 0.1)

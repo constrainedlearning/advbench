@@ -1,8 +1,10 @@
 from kornia.geometry import rotate
 import torch
-from torchvision.transforms import Pad
+from torchvision.transforms import Pad, TrivialAugmentWide, ToPILImage, ToTensor
 from advbench.lib.transformations import se_transform, translation
 from advbench.datasets import FFCV_AVAILABLE
+import torchvision.transforms as transforms
+from advbench.datasets import MEAN, STD
 
 class Perturbation():
     def __init__(self, epsilon):
@@ -125,3 +127,27 @@ class PointcloudJitter(Translation):
         elif self.dist =="uniform":
             delta_init =   2*eps* (torch.rand(cloud.shape, device = cloud.device, dtype=cloud.dtype)-0.5)
         return delta_init
+
+class TAUG(Perturbation):
+    def __init__(self, epsilon):
+        super(TAUG, self).__init__(epsilon)
+        self.dim = 2
+        self.names = ['Intensity', 'Transformation']
+        self.augment = TrivialAugmentWide(num_magnitude_bins = 3)
+        self.pil_to_tensor = ToTensor()
+        self.tensor_to_pil = ToPILImage()
+        #self.normalize = transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])
+
+    def clamp_delta(self, delta, imgs):
+        return delta
+
+    def _perturb(self, imgs, delta):
+        pert_imgs = torch.empty_like(imgs)
+        for i in range(imgs.shape[0]):
+            pert_imgs[i] = self.pil_to_tensor(self.augment(self.tensor_to_pil(imgs[i])))
+        return pert_imgs#self.normalize(pert_imgs)
+
+    def delta_init(self, imgs):
+        delta_init = torch.empty(imgs.shape[0], self.dim, device=imgs.device, dtype=imgs.dtype)
+        return delta_init
+
