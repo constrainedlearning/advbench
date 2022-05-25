@@ -1,10 +1,14 @@
 from kornia.geometry import rotate
 import torch
-from torchvision.transforms import Pad, TrivialAugmentWide, ToPILImage, ToTensor
+from torchvision.transforms import Pad, ToPILImage, ToTensor
 from advbench.lib.transformations import se_transform, translation
 from advbench.datasets import FFCV_AVAILABLE
 import torchvision.transforms as transforms
 from advbench.datasets import MEAN, STD
+from advbench.trivialaugment.aug_lib import TrivialAugment,  set_augmentation_space
+from  torch.utils.data import Subset, DataLoader
+
+set_augmentation_space("wide_standard", 31)
 
 class Perturbation():
     def __init__(self, epsilon):
@@ -129,23 +133,38 @@ class PointcloudJitter(Translation):
         return delta_init
 
 class TAUG(Perturbation):
-    def __init__(self, epsilon):
+    def __init__(self, epsilon, augmented_dset=None):
         super(TAUG, self).__init__(epsilon)
         self.dim = 2
         self.names = ['Intensity', 'Transformation']
-        self.augment = TrivialAugmentWide(num_magnitude_bins = 3)
-        self.pil_to_tensor = ToTensor()
-        self.tensor_to_pil = ToPILImage()
-        #self.normalize = transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])
+        self.augmented_dset = augmented_dset
 
     def clamp_delta(self, delta, imgs):
         return delta
 
-    def _perturb(self, imgs, delta):
-        pert_imgs = torch.empty_like(imgs)
-        for i in range(imgs.shape[0]):
-            pert_imgs[i] = self.pil_to_tensor(self.augment(self.tensor_to_pil(imgs[i])))
-        return pert_imgs#self.normalize(pert_imgs)
+    def _perturbo(self, imgs, indices):
+        return self.augmented_dset[indices]
+
+    def _perturb(self, imgs, indices):
+        #indices = indices.cpu().numpy()
+        my_subset = Subset(self.augmented_dset, indices)
+        loader = DataLoader(my_subset, batch_size=indices.shape[0], shuffle=False)
+        #print(len(self.augmented_dset))
+        #print(len(loader))
+        #print(len(my_subset))
+        return next(iter(loader))[0].to(imgs.device)
+
+    def _perturbu(self, imgs, indices):
+        im = []
+        print(len(self.augmented_dset))
+        for i in indices:
+            print(i.item())
+            x, _ =  self.augmented_dset[i.item()]
+            print(x.shape)
+            print(x.dtype)
+            im.append(x)
+        return torch.concat(im)
+
 
     def delta_init(self, imgs):
         delta_init = torch.empty(imgs.shape[0], self.dim, device=imgs.device, dtype=imgs.dtype)

@@ -31,7 +31,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('batch_size', 32, lambda r: int(2 ** r.uniform(3, 6)))
     else:
         _hparam('batch_size', 128, lambda r: int(2 ** r.uniform(3, 8)))
-    _hparam('augmentation_prob', 0.5, lambda r: 0.5)
+    _hparam('augmentation_prob', 1, lambda r: 1)
     _hparam('perturbation_batch_size', 10, lambda r: 10)
     _hparam('mh_dale_scale', 0.05, lambda r: 0.05)
     _hparam('mh_proposal', 'Laplace', lambda r: 'Laplace')
@@ -242,13 +242,14 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('d_dale_pd_inv_step_size', 0.2, lambda r: 0.2)
             _hparam('d_dale_pd_inv_eta', 0.00005, lambda r: 0.00005)
-            _hparam('d_dale_pd_inv_margin', 0.08, lambda r: 0.08)
+            _hparam('d_dale_pd_inv_margin', 0.9, lambda r: 0.9)
        
         # Grid Search
         _hparam('grid_size', 120, lambda r: 120)
 
     elif perturbation=='TAUG':
         _hparam('epsilon', 0.0, lambda r:0.0)
+        _hparam('mh_dale_n_steps', 5, lambda r:5)
         if dataset == 'MNIST':
             _hparam('l_dale_pd_inv_step_size', 0.4, lambda r: 0.4)
             _hparam('l_dale_pd_inv_eta', 0.0008, lambda r: 0.0008)
@@ -380,7 +381,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
 
         ###### MH ###########
         _hparam('mh_dale_scale', 0.2)
-        _hparam('mh_dale_n_steps', 10)
+        _hparam('mh_dale_n_steps', 5)
         _hparam('mh_proposal', 'Laplace')
         
         ##### PGD #####

@@ -16,19 +16,22 @@ from advbench.datasets import FFCV_AVAILABLE
 torch.backends.cudnn.benchmark = True
 
 class Attack(nn.Module):
-    def __init__(self, classifier, hparams, device, perturbation='Linf'):
+    def __init__(self, classifier, hparams, device, perturbation='Linf', augmented_dset = None):
         super(Attack, self).__init__()
         self.classifier = classifier
         self.hparams = hparams
         self.device = device
         eps = self.hparams['epsilon']
-        self.perturbation = vars(perturbations)[perturbation](eps)
-    def forward(self, imgs, labels):
+        if augmented_dset is not None:
+            self.perturbation = vars(perturbations)[perturbation](eps, augmented_dset = augmented_dset)
+        else:
+            self.perturbation = vars(perturbations)[perturbation](eps)
+    def forward(self, imgs, labels, indexes=None):
         raise NotImplementedError
 
 class Attack_Linf(Attack):
-    def __init__(self, classifier, hparams, device, perturbation='Linf'):
-        super(Attack_Linf, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+    def __init__(self, classifier, hparams, device, perturbation='Linf', augmented_dset = None):
+        super(Attack_Linf, self).__init__(classifier,  hparams, device,  perturbation=perturbation, augmented_dset = augmented_dset)
         if isinstance(self.perturbation.eps, torch.Tensor):
                 self.perturbation.eps.to(device)
         if isinstance(self.perturbation.eps, list):
@@ -250,46 +253,56 @@ class Grid_Search(Attack_Linf):
         return adv_imgs.detach(), delta.detach()
 
 class Worst_Of_K(Attack_Linf):
-    def __init__(self, classifier,  hparams, device, perturbation='Linf'):
-        super(Worst_Of_K, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+    def __init__(self, classifier,  hparams, device, perturbation='Linf', augmented_dset=None):
+        super(Worst_Of_K, self).__init__(classifier,  hparams, device,  perturbation=perturbation, augmented_dset=augmented_dset)
 
-    def forward(self, imgs, labels):
+    def forward(self, imgs, labels, indexes = None):
         self.classifier.eval()
         batch_size = imgs.size(0)
         delta = self.perturbation.delta_init(imgs)
         steps = self.hparams['worst_of_k_steps']
-        if self.batched:
-            with torch.no_grad():
-                if len(imgs.shape) == 4:
-                    repeated_images = repeat(imgs, 'B W H C -> (B S) W H C', B=batch_size, S=steps)
-                elif len(imgs.shape) == 3:
-                    repeated_images = repeat(imgs, 'B C P -> (B S) C P', B=batch_size, S=steps)
-                else:
-                    raise NotImplementedError
-                delta = self.perturbation.delta_init(repeated_images).to(imgs.device)
-                delta = self.perturbation.clamp_delta(delta, repeated_images)
-                adv_imgs = self.perturbation.perturb_img(repeated_images, delta)
-                if len(labels.shape) == 1:
-                    new_labels = repeat(labels, 'B -> (B S)', S=steps)
-                else:
-                    new_labels = repeat(labels, 'B D -> (B S) D', S=steps)
-                adv_loss = self.classifier.loss(self.classifier(adv_imgs), new_labels, reduction="none")
-                adv_loss = rearrange(adv_loss, '(B S) -> B S', B=batch_size, S=steps)
-                max_idx = torch.argmax(adv_loss, dim=-1)
-                delta = delta[max_idx]
+        if indexes is None:
+            if self.batched:
+                with torch.no_grad():
+                    if len(imgs.shape) == 4:
+                        repeated_images = repeat(imgs, 'B W H C -> (B S) W H C', B=batch_size, S=steps)
+                    elif len(imgs.shape) == 3:
+                        repeated_images = repeat(imgs, 'B C P -> (B S) C P', B=batch_size, S=steps)
+                    else:
+                        raise NotImplementedError
+                    delta = self.perturbation.delta_init(repeated_images).to(imgs.device)
+                    delta = self.perturbation.clamp_delta(delta, repeated_images)
+                    adv_imgs = self.perturbation.perturb_img(repeated_images, delta)
+                    if len(labels.shape) == 1:
+                        new_labels = repeat(labels, 'B -> (B S)', S=steps)
+                    else:
+                        new_labels = repeat(labels, 'B D -> (B S) D', S=steps)
+                    adv_loss = self.classifier.loss(self.classifier(adv_imgs), new_labels, reduction="none")
+                    adv_loss = rearrange(adv_loss, '(B S) -> B S', B=batch_size, S=steps)
+                    max_idx = torch.argmax(adv_loss, dim=-1)
+                    delta = delta[max_idx]
+            else:
+                worst_loss = -1
+                with torch.no_grad():
+                    for _ in range(steps):
+                        delta = self.perturbation.delta_init(imgs).to(imgs.device)
+                        delta = self.perturbation.clamp_delta(delta, imgs)
+                        adv_imgs = self.perturbation.perturb_img(imgs, delta)
+                        adv_loss = self.classifier.loss(self.classifier(adv_imgs), labels)
+                        if adv_loss>worst_loss:
+                            worst_loss = adv_loss
+                            worst_delta = delta
+                    delta = worst_delta
+            adv_imgs = self.perturbation.perturb_img(imgs, delta)
         else:
             worst_loss = -1
             with torch.no_grad():
                 for _ in range(steps):
-                    delta = self.perturbation.delta_init(imgs).to(imgs.device)
-                    delta = self.perturbation.clamp_delta(delta, imgs)
-                    adv_imgs = self.perturbation.perturb_img(imgs, delta)
+                    adv_imgs = self.perturbation.perturb_img(imgs, indexes)
                     adv_loss = self.classifier.loss(self.classifier(adv_imgs), labels)
                     if adv_loss>worst_loss:
                         worst_loss = adv_loss
-                        worst_delta = delta
-                delta = worst_delta
-        adv_imgs = self.perturbation.perturb_img(imgs, delta)
+                        adv_imgs = imgs
         self.classifier.train()
         return adv_imgs.detach(), delta.detach()
 

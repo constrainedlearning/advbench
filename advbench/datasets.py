@@ -36,6 +36,10 @@ from timm.data import create_transform
 
 from advbench.lib.AutoAugment.autoaugment import CIFAR10Policy
 
+from advbench.trivialaugment.aug_lib import TrivialAugment,  set_augmentation_space
+
+set_augmentation_space("wide_standard", 31)
+
 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 
 SPLITS = ['train', 'val', 'test']
@@ -54,6 +58,22 @@ STD = {
     'IMNET': IMAGENET_DEFAULT_STD,
 }
 
+def dataset_with_indices(cls):
+    """
+    Modifies the given Dataset class to return a tuple data, target, index
+    instead of just data, target.
+    Adapted from https://discuss.pytorch.org/t/how-to-retrieve-the-sample-indices-of-a-mini-batch/7948/18
+    """
+    def __getitem__(self, index):
+        data, target = cls.__getitem__(self, index)
+        return data, target, index
+
+    return type(cls.__name__, (cls,), {
+        '__getitem__': __getitem__,
+    })
+
+CIFAR100_index = dataset_with_indices(CIFAR100_)
+
 def to_loaders(all_datasets, hparams, device):
     if not all_datasets.ffcv:    
         def _to_loader(split, dataset):
@@ -68,8 +88,11 @@ def to_loaders(all_datasets, hparams, device):
                 batch_size=batch_size,
                 num_workers=all_datasets.N_WORKERS,
                 shuffle=(split == 'train'))
-    
-        return [_to_loader(s, d) for (s, d) in all_datasets.splits.items()]
+        loaders = []
+        for split in "train", "val", "test":
+            loaders.append(_to_loader(split, all_datasets.splits[split]))
+        loaders.append(all_datasets.splits["train_augmented"])
+        return loaders
     else:
         loaders = []
 
@@ -321,7 +344,7 @@ else:
         HAS_LR_SCHEDULE = True
         TEST_BATCH = 10
 
-        def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=True):
+        def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=False):
             super(CIFAR100, self).__init__()
 
             self.ffcv=False
@@ -340,11 +363,14 @@ else:
                 tfs += [transforms.RandomErasing(p=0.5, scale=(0.5, 0.5), ratio=(1, 1))]
 
             train_transforms = transforms.Compose(tfs)
+            ta_transforms = transforms.Compose([TrivialAugment()]+tfs)
             test_transforms = transforms.Compose([transforms.ToTensor(),
                                                     transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])])
 
-            train_data = CIFAR100_(root, train=True, transform=train_transforms, download=True)
+            train_data = CIFAR100_index(root, train=True, transform=train_transforms, download=True)
+            augmented_data = CIFAR100_(root, train=True, transform=ta_transforms, download=True)
             self.splits['train'] = train_data
+            self.splits['train_augmented'] = augmented_data
             _, val_idx = sample_idxs(train_data, val_frac=0.1)
             self.splits['val'] =  Subset(train_data, val_idx)
 

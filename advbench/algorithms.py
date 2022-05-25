@@ -303,8 +303,8 @@ class Laplacian_DALE_PD_Reverse(PrimalDualBase):
             parameters=self.dual_params,
             margin=self.hparams['l_dale_pd_inv_margin'],
             eta=self.hparams['l_dale_pd_inv_eta'])
-
-    def step(self, imgs, labels):
+            
+    def step(self, imgs, labels, indexes=None):
         if FFCV_AVAILABLE:
             with autocast():
                 adv_imgs, deltas = self.attack(imgs, labels)
@@ -316,7 +316,7 @@ class Laplacian_DALE_PD_Reverse(PrimalDualBase):
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
         else:
-            adv_imgs, deltas =self.attack(imgs, labels)
+            adv_imgs, deltas =self.attack(imgs, labels, indexes=indexes)
             self.optimizer.zero_grad()
             clean_loss = self.classifier.loss(self.predict(imgs), labels)
             robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
@@ -332,9 +332,9 @@ class Laplacian_DALE_PD_Reverse(PrimalDualBase):
         self.meters['delta hist'].update(deltas.cpu())
 
 class Worst_DALE_PD_Reverse(Laplacian_DALE_PD_Reverse):
-    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0, augmented_dset=None):
         super(Worst_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
-        self.attack = attacks.Worst_Of_K(self.classifier, self.hparams, device, perturbation=perturbation)
+        self.attack = attacks.Worst_Of_K(self.classifier, self.hparams, device, perturbation=perturbation, augmented_dset=augmented_dset)
 
 class PGD_DALE_PD_Reverse(Laplacian_DALE_PD_Reverse):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):

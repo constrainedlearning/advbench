@@ -52,27 +52,34 @@ def main(args, hparams, test_hparams):
         dataset = vars(datasets)[args.dataset](args.data_dir, augmentation= aug)
     if args.epochs>0:
         dataset.N_EPOCHS = args.epochs
-    train_ldr, val_ldr, test_ldr = datasets.to_loaders(dataset, hparams, device=device)
+    train_ldr, val_ldr, test_ldr, aug_dset = datasets.to_loaders(dataset, hparams, device=device)
     kw_args = {"perturbation": args.perturbation}
     if args.algorithm in PD_ALGORITHMS: 
         if args.algorithm.endswith("Reverse"):
             kw_args["init"] = 0.0
         else:
             kw_args["init"] = 1.0
+            
+    if args.perturbation=='TAUG':
+        kw_args["augmented_dset"] = aug_dset
     algorithm = vars(algorithms)[args.algorithm](
         dataset.INPUT_SHAPE, 
         dataset.NUM_CLASSES,
         hparams,
         device,
         **kw_args).to(device)
-    adjust_lr = None if dataset.HAS_LR_SCHEDULE is False else dataset.adjust_lr
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(algorithm.optimizer, T_max=dataset.N_EPOCHS, eta_min=0.)
     try:
         summary(algorithm.classifier, input_size=dataset.INPUT_SHAPE, device=device)
     except:
         print("Model summary failed, currently does not support devices other than cpu or cuda.")
-
-    test_attacks = {
-        a: vars(attacks)[a](algorithm.classifier, test_hparams, device, perturbation=args.perturbation) for a in args.test_attacks}
+    
+    if args.perturbation=='TAUG':
+        test_attacks = {
+            a: vars(attacks)[a](algorithm.classifier, test_hparams, device, perturbation=args.perturbation, augmented_dset=aug_dset) for a in args.test_attacks}
+    else:
+        test_attacks = {
+            a: vars(attacks)[a](algorithm.classifier, test_hparams, device, perturbation=args.perturbation) for a in args.test_attacks}
     
     columns = ['Epoch', 'Accuracy', 'Eval-Method', 'Split', 'Train-Alg', 'Dataset', 'Trial-Seed', 'Output-Dir']
     results_df = pd.DataFrame(columns=columns)
@@ -97,19 +104,17 @@ def main(args, hparams, test_hparams):
 
     total_time = 0
     step = 0
+    total_steps = len(train_ldr)
     for epoch in range(0, dataset.N_EPOCHS):
-        if adjust_lr is not None:
-            adjust_lr(algorithm.optimizer, epoch, hparams)
         if wandb_log:
             wandb.log({'lr': algorithm.optimizer.param_groups[0]['lr'], 'epoch': epoch, 'step':step})
         timer = meters.TimeMeter()
         epoch_start = time.time()
-        for batch_idx, (imgs, labels) in enumerate(train_ldr):
+        for batch_idx, (imgs, labels, indexes) in enumerate(train_ldr):
             step+=imgs.shape[0]
             timer.batch_start()
             imgs, labels = imgs.to(device), labels.to(device)
-            algorithm.step(imgs, labels)
-
+            algorithm.step(imgs, labels, indexes)
             if batch_idx % dataset.LOG_INTERVAL == 0:
                 print(f'Train epoch {epoch}/{dataset.N_EPOCHS} ', end='')
                 print(f'({100. * batch_idx / len(train_ldr):.0f}%)]\t', end='')
@@ -120,6 +125,7 @@ def main(args, hparams, test_hparams):
                             wandb.log({name+"_avg": meter.avg, 'epoch': epoch, 'step':step})
                 print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
             timer.batch_end()
+            scheduler.step(epoch + float(batch_idx) / total_steps)
         # save clean accuracies on validation/test sets
         if dataset.TEST_INTERVAL is None or epoch % dataset.TEST_INTERVAL == 0:
             test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
