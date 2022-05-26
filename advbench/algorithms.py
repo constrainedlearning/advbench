@@ -477,11 +477,11 @@ class Grid_Search(Algorithm):
         self.meters['loss'].update(loss.item(), n=imgs.size(0))
 
 class Augmentation(Algorithm):
-    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', augmented_dset=None):
         super(Augmentation, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
-        self.attack = attacks.Rand_Aug(self.classifier, self.hparams, device, perturbation=perturbation)
+        self.attack = attacks.Rand_Aug(self.classifier, self.hparams, device, perturbation=perturbation, augmented_dset=augmented_dset)
         self.p = hparams['augmentation_prob']
-    def step(self, imgs, labels):
+    def step(self, imgs, labels, indexes=None):
         if FFCV_AVAILABLE:
             with autocast():
                 if binomial(1, self.p):
@@ -495,7 +495,7 @@ class Augmentation(Algorithm):
                 self.scaler.update()
         else:        
             if binomial(1, self.p):
-                adv_imgs, _ =   self.attack(imgs, labels)
+                adv_imgs, _ =   self.attack(imgs, labels, indexes=indexes)
             else:
                 adv_imgs = imgs
             self.optimizer.zero_grad()

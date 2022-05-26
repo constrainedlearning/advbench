@@ -307,18 +307,15 @@ class Worst_Of_K(Attack_Linf):
         return adv_imgs.detach(), delta.detach()
 
 class Rand_Aug(Attack_Linf):
-    def __init__(self, classifier,  hparams, device, perturbation='Linf'):
-        super(Rand_Aug, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+    def __init__(self, classifier,  hparams, device, perturbation='Linf', augmented_dset=None):
+        super(Rand_Aug, self).__init__(classifier,  hparams, device,  perturbation=perturbation, augmented_dset=augmented_dset)
 
-    def forward(self, imgs, labels):
+    def forward(self, imgs, labels, indexes = None):
         batch_size = imgs.size(0)
         self.classifier.eval()
-        delta = self.perturbation.delta_init(imgs).to(imgs.device)
-        delta = self.sample(delta)
-        delta = self.perturbation.clamp_delta(delta, imgs)
-        adv_imgs = self.perturbation.perturb_img(imgs, delta)
+        adv_imgs = self.perturbation.perturb_img(imgs, indexes)
         self.classifier.train()
-        return adv_imgs.detach(), delta.detach()
+        return adv_imgs.detach(), self.perturbation.delta_init(imgs).to(imgs.device)
     
     def sample(self, delta):
         return delta

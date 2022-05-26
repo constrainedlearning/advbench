@@ -37,6 +37,7 @@ from timm.data import create_transform
 from advbench.lib.AutoAugment.autoaugment import CIFAR10Policy
 
 from advbench.trivialaugment.aug_lib import TrivialAugment,  set_augmentation_space
+from advbench.trivialaugment.TrivialAugment.augmentations import CutoutDefault
 
 set_augmentation_space("wide_standard", 31)
 
@@ -344,7 +345,7 @@ else:
         HAS_LR_SCHEDULE = True
         TEST_BATCH = 10
 
-        def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=False):
+        def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=True):
             super(CIFAR100, self).__init__()
 
             self.ffcv=False
@@ -360,7 +361,7 @@ else:
                     transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])]
 
             if auto_augment or cutout:
-                tfs += [transforms.RandomErasing(p=0.5, scale=(0.5, 0.5), ratio=(1, 1))]
+                tfs += [CutoutDefault(16)]
 
             train_transforms = transforms.Compose(tfs)
             ta_transforms = transforms.Compose([TrivialAugment()]+tfs)
