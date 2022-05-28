@@ -321,7 +321,7 @@ else:
         HAS_LR_SCHEDULE = True
         TEST_BATCH = 10
 
-        def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=True):
+        def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=False):
             super(CIFAR100, self).__init__()
 
             self.ffcv=False
