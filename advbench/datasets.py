@@ -321,7 +321,7 @@ else:
         HAS_LR_SCHEDULE = True
         TEST_BATCH = 10
 
-        def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=True):
+        def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=False):
             super(CIFAR100, self).__init__()
 
             self.ffcv=False
@@ -369,7 +369,7 @@ else:
         NUM_CLASSES = 10
         N_EPOCHS = 1000
         CHECKPOINT_FREQ = 100
-        TEST_INTERVAL = 50
+        TEST_INTERVAL = 1000
         LOG_INTERVAL = 100
         LOSS_LANDSCAPE_INTERVAL = 1000
         LOSS_LANDSCAPE_GSIZE = 500
@@ -377,6 +377,7 @@ else:
         LOSS_LANDSCAPE_BATCHES = 5
         HAS_LR_SCHEDULE = True
         ATTACK_INTERVAL = 1000
+        TEST_BATCH = 10
 
         def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=False, fracsamples=0):
             super(STL10, self).__init__()

@@ -351,6 +351,16 @@ class Adam_DALE_PD_Reverse(Laplacian_DALE_PD_Reverse):
         super(Adam_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
         self.attack = attacks.Fo_Adam(self.classifier, self.hparams, device, perturbation=perturbation)
 
+class Laplacian_PD_Reverse(Laplacian_DALE_PD_Reverse):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):
+        super(Laplacian_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
+        self.attack = attacks.Laplace_aug(self.classifier, self.hparams, device, perturbation=perturbation)
+
+class Gaussian_PD_Reverse(Laplacian_DALE_PD_Reverse):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):
+        super(Gaussian_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
+        self.attack = attacks.Gaussian_aug(self.classifier, self.hparams, device, perturbation=perturbation)
+
 class MH_DALE_PD_Reverse(PrimalDualBase):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):
         super(MH_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)

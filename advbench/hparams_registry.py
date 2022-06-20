@@ -31,7 +31,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('batch_size', 32, lambda r: int(2 ** r.uniform(3, 6)))
     else:
         _hparam('batch_size', 128, lambda r: int(2 ** r.uniform(3, 8)))
-    _hparam('augmentation_prob', 0.5, lambda r: 0.5)
+    _hparam('augmentation_prob', 1, lambda r: 1)
     _hparam('perturbation_batch_size', 10, lambda r: 10)
     _hparam('mh_dale_scale', 0.05, lambda r: 0.05)
     _hparam('mh_proposal', 'Laplace', lambda r: 'Laplace')
