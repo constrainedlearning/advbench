@@ -1,5 +1,6 @@
 import os
 import torch
+import numpy as np
 from torch.utils.data import Dataset, Subset, DataLoader
 import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10 as CIFAR10_
@@ -8,8 +9,8 @@ from torchvision.datasets import MNIST as MNIST_
 from torchvision.datasets import ImageFolder
 try:
     raise ImportError
-    from ffcv.fields import IntField, RGBImageField
-    from ffcv.fields.decoders import IntDecoder, SimpleRGBImageDecoder
+    from ffcv.fields import IntField, NDArrayField
+    from ffcv.fields.decoders import IntDecoder, NDArrayDecoder
     from ffcv.loader import Loader, OrderOption
     from ffcv.pipeline.operation import Operation
     from ffcv.transforms import RandomHorizontalFlip, Cutout, RandomTranslate, Convert, ToDevice, ToTensor, ToTorchImage
@@ -20,12 +21,12 @@ try:
     print("*"*80)
     FFCV_AVAILABLE=True
 except ImportError:
-    FFCV_AVAILABLE=False
+   FFCV_AVAILABLE=False
 
 
 
 from advbench.lib.AutoAugment.autoaugment import CIFAR10Policy
-from advbench.lib.pointMLP.data import ModelNet40
+from advbench.lib.pointMLP.data import ModelNet40, get_val
 
 SPLITS = ['train', 'val', 'test']
 DATASETS = ['CIFAR10', 'MNIST']
@@ -39,7 +40,7 @@ STD = {
     'CIFAR100': (0.2675, 0.2565, 0.2761)
 }
 
-def to_loaders(all_datasets, hparams):
+def to_loaders(all_datasets, hparams, device="cuda"):
     if not all_datasets.ffcv:    
         def _to_loader(split, dataset):
             batch_size = hparams['batch_size'] if split == 'train' else 10
@@ -55,15 +56,17 @@ def to_loaders(all_datasets, hparams):
 
         for split, path  in all_datasets.splits.items():           
         
-            ordering = OrderOption.RANDOM if split == 'train' else OrderOption.SEQUENTIAL
+            ordering = OrderOption.QUASI_RANDOM if split == 'train' else OrderOption.SEQUENTIAL
             
             batch_size = hparams['batch_size'] if split == 'train' else 48
 
-            label_pipeline = [IntDecoder(), ToTensor(), ToDevice('cuda:0'), Squeeze()]
+            label_pipeline = [IntDecoder(), ToTensor(), ToDevice(device), Squeeze()]
+
+            feature_pipeline = [NDArrayDecoder(), ToTensor(), ToDevice(device), Convert(torch.float16)]
             
             loaders.append(Loader(path, batch_size=batch_size, num_workers=all_datasets.N_WORKERS,
                                 order=ordering, drop_last=(split == 'train'),
-                                pipelines={'image':all_datasets.transforms[split], 'label': label_pipeline}))
+                                pipelines={'image':feature_pipeline, 'label': label_pipeline}, os_cache=True))
 
     return loaders
         
@@ -93,7 +96,7 @@ if FFCV_AVAILABLE:
         ATTACK_INTERVAL = 200
         INPUT_SHAPE = (3, 32, 32)
         NUM_CLASSES = 10
-        N_EPOCHS = 200
+        N_EPOCHS = 250
         CHECKPOINT_FREQ = 10
         LOG_INTERVAL = 100
         LOSS_LANDSCAPE_INTERVAL = 10
@@ -151,7 +154,6 @@ if FFCV_AVAILABLE:
                 lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
             elif epoch <= self.MIN_LR_EPOCH:
                 lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
-
 
         @staticmethod
         def adjust_lr(optimizer, epoch, hparams):
@@ -264,7 +266,50 @@ if FFCV_AVAILABLE:
                     path = os.path.join(folder, name+'.beton')
                     writer = DatasetWriter(path, fields)
                     writer.from_indexed_dataset(ds)
-                    self.splits[name] = path  
+                    self.splits[name] = path
+    
+    class modelnet40(AdvRobDataset):
+        INPUT_SHAPE = (3, 1024)
+        NUM_CLASSES = 40
+        N_EPOCHS = 1#250
+        NUM_POINTS = 1024
+        CHECKPOINT_FREQ = 100
+        LOG_INTERVAL = 100
+        ATTACK_INTERVAL = 100
+        LOSS_LANDSCAPE_INTERVAL = 300
+        LOSS_LANDSCAPE_GSIZE = 100
+        ANGLE_GSIZE = 100
+        LOSS_LANDSCAPE_BATCHES = 10
+        HAS_LR_SCHEDULE = True
+        MIN_LR = 0.005
+        START_EPOCH = 0
+
+        # test adversary parameters
+        ADV_STEP_SIZE = 2/255.
+        N_ADV_STEPS = 10
+
+        def __init__(self, root, augmentation=True):
+            super(modelnet40, self).__init__()
+            self.ffcv=True
+            self.transforms = {}
+            for split in ["train", "val", "test"]:
+                self.transforms[split] = transforms.Compose([NDArrayDecoder(), ToTensor(), ToDevice(torch.device('cuda')), Convert(torch.float16),])
+            self.splits['train']= ModelNet40(partition='train', num_points=self.NUM_POINTS,random_translate=False, validation=True)
+            self.splits['val'] = get_val(self.splits['train'])
+            self.splits['test'] =  ModelNet40(partition='test', num_points=self.NUM_POINTS)
+            self.write()
+        def write(self):
+            folder = os.path.join('data','ffcv', 'modelnet40')
+            for (name, ds) in self.splits.items():
+                fields = {
+                    'image': NDArrayField(np.dtype(np.single), self.INPUT_SHAPE),
+                    'label': IntField(),
+                }
+                os.makedirs(folder, exist_ok=True)
+                path = os.path.join(folder, name+'.beton')
+                writer = DatasetWriter(path, fields)
+                writer.from_indexed_dataset(ds)
+                self.splits[name] = path 
 
 else:
     class CIFAR10(AdvRobDataset):
@@ -403,7 +448,34 @@ else:
                 lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
             elif epoch <= self.MIN_LR_EPOCH:
                 lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
-            pd_optimizer.eta = lr 
+            pd_optimizer.eta = lr
+    
+    class modelnet40(AdvRobDataset):
+        INPUT_SHAPE = (3, 1024)
+        NUM_CLASSES = 40
+        N_EPOCHS = 250
+        NUM_POINTS = 1024
+        CHECKPOINT_FREQ = 100
+        LOG_INTERVAL = 100
+        ATTACK_INTERVAL = 100
+        LOSS_LANDSCAPE_INTERVAL = 300
+        LOSS_LANDSCAPE_GSIZE = 100
+        ANGLE_GSIZE = 100
+        LOSS_LANDSCAPE_BATCHES = 10
+        HAS_LR_SCHEDULE = True
+        MIN_LR = 0.005
+        START_EPOCH = 0
+
+        # test adversary parameters
+        ADV_STEP_SIZE = 2/255.
+        N_ADV_STEPS = 10
+
+        def __init__(self, root, augmentation=True):
+            super(modelnet40, self).__init__()
+            self.ffcv=False
+            self.splits['train']= ModelNet40(partition='train', num_points=self.NUM_POINTS,random_translate=False, validation=True)
+            self.splits['val'] = get_val(self.splits['train'])
+            self.splits['test'] =  ModelNet40(partition='test', num_points=self.NUM_POINTS)
 
 class MNIST(AdvRobDataset):
     INPUT_SHAPE = (1, 28, 28)
@@ -589,43 +661,3 @@ class IMNET(AdvRobDataset):
                 lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
             pd_optimizer.eta = lr
 
-class modelnet40(AdvRobDataset):
-    INPUT_SHAPE = (3, 1024)
-    NUM_CLASSES = 40
-    N_EPOCHS = 300
-    NUM_POINTS = 1024
-    CHECKPOINT_FREQ = 100
-    LOG_INTERVAL = 100
-    ATTACK_INTERVAL = 100
-    LOSS_LANDSCAPE_INTERVAL = 300
-    LOSS_LANDSCAPE_GSIZE = 100
-    ANGLE_GSIZE = 100
-    LOSS_LANDSCAPE_BATCHES = 10
-    HAS_LR_SCHEDULE = True
-    MIN_LR = 0.005
-    START_EPOCH = 0
-    HAS_LR_SCHEDULE_DUAL = True
-    MAX_DUAL_LR_FACTOR = 4
-    MAX_DUAL_LR_EPOCH = 200
-    MIN_DUAL_LR_EPOCH = 300
-    MIN_DUAL_LR_FACTOR = 0.01
-
-    # test adversary parameters
-    ADV_STEP_SIZE = 2/255.
-    N_ADV_STEPS = 10
-
-    def __init__(self, root, augmentation=True):
-        super(modelnet40, self).__init__()
-        self.ffcv=False 
-        self.splits['train'] = ModelNet40(partition='train', num_points=self.NUM_POINTS)
-        self.splits['val'] = self.splits['train'] 
-        self.splits['test'] =  ModelNet40(partition='test', num_points=self.NUM_POINTS)
-    
-    @staticmethod
-    def adjust_lr_dual(self, pd_optimizer, epoch):
-        lr = pd_optimizer.eta
-        if epoch <= self.MAX_DUAL_LR_EPOCH:
-            lr = lr*self.MAX_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)
-        elif epoch <= self.MIN_LR_EPOCH:
-            lr = lr*self.MIN_LR_FACTOR*(epoch-self.MAX_DUAL_LR_EPOCH)/(self.MIN_DUAL_LR_EPOCH-self.MAX_DUAL_LR_EPOCH)
-        pd_optimizer.eta = lr

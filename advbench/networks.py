@@ -13,12 +13,14 @@ import torch.nn.init as init
 import numpy as np
 try:
     from advbench.lib.pointMLP.models.pointmlp import pointMLP, pointMLPElite
-    from advbench.lib.pointMLP.utils import cal_loss
 except:
     print("pointMLP not available, pointops lib needs to be compiled")
+from advbench.lib.pointMLP.utils import cal_loss
+from advbench.lib.dgcnn.model import DGCNN
+
 def Classifier(input_shape, num_classes, hparams, loss=F.cross_entropy):
     model = create_model(input_shape, num_classes, hparams)
-    if hparams["model"] in ["pointmlp", "pointmlp_elite"]:
+    if hparams["model"] in ["pointmlp", "pointmlp_elite", "DGCNN"]:
         loss = cal_loss
     else:
         loss = F.cross_entropy
@@ -31,6 +33,9 @@ def create_model(input_shape, num_classes, hparams):
         return model
     elif hparams["model"] == "pointmlp_elite":
         model = pointMLPElite()
+        return model
+    elif hparams["model"] == "DGCNN":
+        model = DGCNN()
         return model
     if input_shape[0] == 1:
         if hparams["model"] == "CnSteerableCNN":
@@ -69,8 +74,6 @@ def create_model(input_shape, num_classes, hparams):
         elif hparams["model"] == "wrn-28-10":
             print("Using WRN-28-10")
             return wrn28_10(num_classes=num_classes)
-        #elif hparams["model"] == "convnext-T":
-            #return 0 timm.create_model('convnext_tiny', pretrained=True)
         elif hparams["model"] == "CnSteerableCNN":
             return CnSteerableCNN(num_channels=3, num_classes = num_classes)
         else:

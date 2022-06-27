@@ -56,7 +56,8 @@ if wandb:
             wandb.log({self.name: wandb.Histogram(val)})
     
     class WBDeltaMeter(WBHistogramMeter):
-        def __init__(self, names = [], dims = 0):
+        def __init__(self, names = [], dims = 0, max_points = 100):
+            self.max_points = max_points
             self.print = False
             self.dims = dims
             if isinstance(names, str):
@@ -67,8 +68,11 @@ if wandb:
             pass
 
         def update(self, vals):
-            if len(vals[0])>3:
+            if len(vals[0])>3 or self.dims>3:
                 pass
+            elif len(vals.shape)==3:
+                for i in range(len(self.meters)):
+                    self.meters[i].update(vals[:,i,:self.max_points].flatten())    
             else:
                 for i in range(len(vals[0])):
                     self.meters[i].update(vals[:,i])

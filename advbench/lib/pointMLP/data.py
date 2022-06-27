@@ -2,7 +2,9 @@ import os
 import glob
 import h5py
 import numpy as np
+from copy import deepcopy
 from torch.utils.data import Dataset
+from sklearn.model_selection import train_test_split
 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 
 def download():
@@ -17,7 +19,7 @@ def download():
         os.system('mv %s %s' % (zipfile[:-4], DATA_DIR))
         os.system('rm %s' % (zipfile))
 
-def load_data(partition):
+def load_data(partition, validation=False):
     download()
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     DATA_DIR = os.path.join(BASE_DIR, 'data')
@@ -33,7 +35,12 @@ def load_data(partition):
         all_label.append(label)
     all_data = np.concatenate(all_data, axis=0)
     all_label = np.concatenate(all_label, axis=0)
-    return all_data, all_label
+    if validation:
+        idx = np.arange(len(all_data))
+        train_idxs, val_idxs = train_test_split(idx, test_size=0.1)
+        return all_data, all_label, train_idxs, val_idxs
+    else:       
+        return all_data, all_label
 
 def random_point_dropout(pc, max_dropout_ratio=0.875):
     ''' batch_pc: BxNx3 '''
@@ -60,11 +67,25 @@ def jitter_pointcloud(pointcloud, sigma=0.01, clip=0.02):
 
 
 class ModelNet40(Dataset):
-    def __init__(self, num_points, partition='train', random_translate=True):
-        self.data, self.label = load_data(partition)
+    def __init__(self, num_points, partition='train', random_translate=True, validation=False):
+        self.validation = validation
+        if self.validation:
+            self.all_data, self.all_label, self.train_idx, self.val_idx = load_data(partition, validation=validation)
+            if partition=="train":
+                self.data, self.label =  self.all_data[self.train_idx], self.all_label[self.train_idx]
+            elif partition=="val":
+                self.data, self.label =  self.all_data[self.val_idx], self.all_label[self.val_idx]
+        else:
+            self.data, self.label = load_data(partition, validation=self.validation)
         self.num_points = num_points
         self.partition = partition
-        self.random_translate = random_translate      
+        self.random_translate = random_translate
+
+    def set_validation(self):
+        if self.validation:
+            self.data, self.label = self.all_data[self.val_idx], self.all_label[self.val_idx]
+        else:
+            print("Dataset has no validation set")
 
     def __getitem__(self, item):
         pointcloud = self.data[item][:self.num_points]
@@ -79,6 +100,10 @@ class ModelNet40(Dataset):
     def __len__(self):
         return self.data.shape[0]
 
+def get_val(dataset):
+    val_set = deepcopy(dataset)
+    val_set.set_validation()
+    return(val_set)
 
 if __name__ == '__main__':
     train = ModelNet40(1024)
@@ -88,8 +113,13 @@ if __name__ == '__main__':
                               batch_size=32, shuffle=True, drop_last=True)
     for batch_idx, (data, label) in enumerate(train_loader):
         print(f"batch_idx: {batch_idx}  | data shape: {data.shape} | ;lable shape: {label.shape}")
+        break
 
-    train_set = ModelNet40(partition='train', num_points=1024)
+    train_set = ModelNet40(partition='train', num_points=1024, validation=True)
+    val_set = get_val(train_set)
     test_set = ModelNet40(partition='test', num_points=1024)
+    print("Data type: " , train_set.all_data[0].dtype)
+    assert(train_set.val_idx[0]==val_set.val_idx[0])
     print(f"train_set size {train_set.__len__()}")
+    print(f"val_set size {val_set.__len__()}")
     print(f"test_set size {test_set.__len__()}")

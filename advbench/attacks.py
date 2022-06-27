@@ -100,8 +100,8 @@ class FGSM_Linf(Attack):
 class LMC_Gaussian_Linf(Attack_Linf):
     def __init__(self, classifier,  hparams, device, perturbation='Linf'):
         super(LMC_Gaussian_Linf, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
-        #self.step = self.perturbation.eps*self.hparams['g_dale_step_size']
-        #self.noise_coeff = self.perturbation.eps*self.hparams['g_dale_noise_coeff']
+        self.step = self.perturbation.eps*self.hparams['g_dale_step_size']
+        self.noise_coeff = self.perturbation.eps*self.hparams['g_dale_noise_coeff']
     def forward(self, imgs, labels):
         self.classifier.eval()
         batch_size = imgs.size(0)
@@ -128,13 +128,13 @@ class LMC_Laplacian_Linf(Attack_Linf):
         if isinstance(self.perturbation.eps, torch.Tensor):
                 self.perturbation.eps.to(device)
         if isinstance(self.perturbation.eps, list):
-            eps = torch.tensor(self.perturbation.eps).to(device)
+            self.eps = torch.tensor(self.perturbation.eps).to(device)
         else:
-            eps = self.perturbation.eps
-        self.step = (eps*self.hparams['l_dale_step_size'])
+            self.eps = self.perturbation.eps
+        self.step = (self.eps*self.hparams['l_dale_step_size'])
         if isinstance(self.step, torch.Tensor):
                 self.step = self.step.to(device)
-        self.noise_coeff = (eps*self.hparams['l_dale_noise_coeff'])
+        self.noise_coeff = (self.eps*self.hparams['l_dale_noise_coeff'])
     def forward(self, imgs, labels):
         self.classifier.eval()
         batch_size = imgs.size(0)
@@ -161,12 +161,12 @@ class MCMC(Attack_Linf):
         super(MCMC, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
         if self.hparams['mcmc_proposal']=='Laplace':
             if isinstance(self.perturbation.eps, list):
-                eps = torch.tensor(self.perturbation.eps).to(device)
+                self.eps = torch.tensor(self.perturbation.eps).to(device)
             else:
-                eps = self.perturbation.eps
-            if isinstance(eps, torch.Tensor):
-                eps = eps.to(device)
-            self.noise_dist = Laplace(torch.zeros(self.perturbation.dim, device=device), self.hparams['mcmc_dale_scale']*eps)
+                self.eps = self.perturbation.eps
+            if isinstance(self.eps, torch.Tensor):
+                self.eps = eps.to(device)
+            self.noise_dist = Laplace(torch.zeros(self.perturbation.dim, device=device), self.hparams['mcmc_dale_scale']*self.eps)
         else:
             raise NotImplementedError
         self.get_proposal = lambda x: x + self.noise_dist.sample([x.shape[0]]).to(x.device)
@@ -184,10 +184,11 @@ class MCMC(Attack_Linf):
             adv_imgs = self.perturbation.perturb_img(imgs, delta)
             last_loss = self.classifier.loss(self.classifier(adv_imgs), labels)
             ones = torch.ones_like(last_loss)
+            noise_dist = Laplace(torch.zeros(delta.shape[1:], device=imgs.device), self.hparams['mcmc_dale_scale']*self.eps)
             for _ in range(self.hparams['mcmc_dale_n_steps']):
-                proposal = self.get_proposal(delta)
-                if torch.allclose(delta, self.perturbation.clamp_delta(delta, adv_imgs)):
-                    adv_imgs = self.perturbation.perturb_img(imgs, delta)
+                proposal = delta + noise_dist.sample([delta.shape[0]])*self.eps
+                if torch.allclose(proposal, self.perturbation.clamp_delta(proposal, adv_imgs)): # reject if out of domain
+                    adv_imgs = self.perturbation.perturb_img(imgs, proposal)
                     proposal_loss = self.classifier.loss(self.classifier(adv_imgs), labels)
                     acceptance_ratio = (
                         torch.minimum((proposal_loss / last_loss), ones)

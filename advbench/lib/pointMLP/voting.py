@@ -23,7 +23,7 @@ class PointcloudScale(object):  # input random scaling
         bsize = pc.size()[0]
         for i in range(bsize):
             xyz1 = np.random.uniform(low=self.scale_low, high=self.scale_high, size=[3])
-            pc[i, :, 0:3] = torch.mul(pc[i, :, 0:3], torch.from_numpy(xyz1).float().cuda())
+            pc[i, :, 0:3] = torch.mul(pc[i, :, 0:3], torch.from_numpy(xyz1).float().to(pc.device))
 
         return pc
 
