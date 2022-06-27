@@ -157,6 +157,11 @@ class Adversarial_Smoothed(Adversarial):
         super(Adversarial_Smoothed, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
         self.attack = attacks.LMC_Laplacian_Linf(self.classifier, self.hparams, device, perturbation=perturbation)
 
+class Adversarial_Smoothed_MH(Adversarial):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
+        super(Adversarial_Smoothed_MH, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+        self.attack = attacks.MH(self.classifier, self.hparams, device, perturbation=perturbation)
+
 class Gaussian_DALE(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
         super(Gaussian_DALE, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)

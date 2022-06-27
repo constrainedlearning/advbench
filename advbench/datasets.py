@@ -379,7 +379,7 @@ else:
         ATTACK_INTERVAL = 1000
         TEST_BATCH = 10
 
-        def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=False):
+        def __init__(self, root, augmentation=True, auto_augment=False, exclude_translations=False, cutout=False, fracsamples=0):
             super(STL10, self).__init__()
 
             self.ffcv=False
@@ -398,7 +398,14 @@ else:
                                                     transforms.Normalize(MEAN['CIFAR10'], STD['CIFAR10'])])
 
             train_data = STL10_(root, split="train", transform=train_transforms, download=True)
-            self.splits['train'] = train_data
+            if fracsamples>0 and fracsamples<1:
+                nsamples = int(len(train_data)*fracsamples)
+                print(f"Using only {nsamples} samples")
+                _, train_idx = sample_idxs(train_data, val_frac=fracsamples)#
+                self.splits['train'] = Subset(train_data, train_idx)
+            else:
+                self.splits['train'] = train_data
+                self.splits['train'] = train_data
             
             _, val_idx = sample_idxs(train_data, val_frac=0.1)
             self.splits['val'] =  Subset(train_data, val_idx)
