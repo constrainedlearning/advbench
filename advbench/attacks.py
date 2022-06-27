@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.laplace import Laplace
 from torch.distributions.normal import Normal
+from torch.distributions.beta import Beta
 from torch.optim import Adam
 from einops import rearrange, reduce, repeat
 
@@ -325,6 +326,16 @@ class Laplace_aug(Rand_Aug):
 
     def sample(self, delta):
         return Laplace(torch.zeros_like(delta), self.scale).sample().to(device=delta.device, dtype=delta.dtype)
+
+class Beta_aug(Rand_Aug):
+    def __init__(self, classifier,  hparams, device, perturbation='Linf'):
+        super(Beta_aug, self).__init__(classifier,  hparams, device,  perturbation=perturbation)
+        self.alpha = hparams["beta_attack_alpha"]
+        self.beta= hparams["beta_attack_beta"]
+
+    def sample(self, delta):
+        ones = torch.ones_like(delta)
+        return Beta(ones*self.alpha, ones*self.beta).sample()#.to(device=delta.device, dtype=delta.dtype)
 
 class Rand_Aug_Batch(Attack_Linf):
     def __init__(self, classifier,  hparams, device, perturbation='Linf'):

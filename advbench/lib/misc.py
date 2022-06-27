@@ -158,49 +158,81 @@ def adv_accuracy(algorithm, loader, device, attack):
 
     return 100. * correct / total
 
-def adv_accuracy_loss_delta(algorithm, loader, device, attack, max_batches=None):
+def adv_accuracy_loss_delta(algorithm, loader, device, attack, max_batches=None, augs_per_batch=1, batched=True):
     adv_correct, correct, total, total_worst, adv_losses = 0, 0, 0, 0, 0
     losses, deltas, accs = [], [], []
-
     algorithm.eval()
-    #algorithm.export()
+    algorithm.export()
     with torch.no_grad():
         for batch_idx, (imgs, labels) in tqdm(enumerate(loader)):
             if max_batches is not None and batch_idx>max_batches-1:
                 break
             imgs, labels = imgs.to(device), labels.to(device)
-            if FFCV_AVAILABLE:
-                with autocast():
-                    attacked = attack(imgs, labels)
-                    if len(attacked) == 2:
-                        adv_imgs, delta = attacked
-                    elif len(attacked) == 3:
-                        adv_imgs, delta, labels = attacked
-                    output = algorithm.predict(adv_imgs)
+            if batched:
+                batch_losses , batch_preds, batch_deltas, batch_labels = [], [], [], []
+                for _ in range(augs_per_batch):
+                    if FFCV_AVAILABLE:
+                        with autocast():
+                            attacked = attack(imgs, labels)
+                            if len(attacked) == 2:
+                                adv_imgs, delta = attacked
+                            elif len(attacked) == 3:
+                                adv_imgs, delta, labels = attacked
+                            output = algorithm.predict(adv_imgs)
+                    else:
+                        attacked = attack(imgs, labels)
+                        if len(attacked) == 2:
+                            adv_imgs, delta = attacked
+                        elif len(attacked) == 3:
+                            adv_imgs, delta, labels = attacked
+                        output = algorithm.predict(adv_imgs)
+                        loss = algorithm.classifier.loss(output, labels, reduction='none')
+                        pred = output.argmax(dim=1)
+                    batch_losses.append(loss)
+                    batch_preds.append(pred)
+                    batch_deltas.append(delta)
+                    batch_labels.append(labels)
+                loss = torch.stack(batch_losses, dim=1)
+                pred = torch.stack(batch_preds, dim=1)
+                delta = torch.stack(batch_deltas, dim=1)
+                labels = torch.stack(batch_labels, dim=1)
+                #pred = rearrange(pred, '(B S) -> B S', B=imgs.shape[0])
+                eq = pred.eq(labels)
+                accs.append(eq.cpu().numpy())
+                worst , _ = eq.min(dim = 1)
+                adv_correct += worst.sum().item()
+                correct += eq.sum().item()
+                losses.append(loss.cpu().numpy())
+                #loss = rearrange(loss, '(B S) -> B S', B=imgs.shape[0])
+                worst_loss, _ = loss.max(dim=1)
+                adv_losses += worst_loss.sum().item()
+                deltas.append(delta.cpu().numpy())
+                total += torch.numel(labels)
+                total_worst += imgs.size(0)
             else:
                 attacked = attack(imgs, labels)
                 if len(attacked) == 2:
                     adv_imgs, delta = attacked
                 elif len(attacked) == 3:
                     adv_imgs, delta, labels = attacked
-                output = algorithm.predict(adv_imgs)
-                loss = algorithm.classifier.loss(output, labels, reduction='none')
-                pred = output.argmax(dim=1)       
-            pred = rearrange(pred, '(B S) -> B S', B=imgs.shape[0])
-            eq = pred.eq(labels.view_as(pred))
-            accs.append(eq.view_as(loss).cpu().numpy())
-            worst , _ = eq.min(dim = 1)
-            adv_correct += worst.sum().item()
-            correct += eq.sum().item()
-            losses.append(loss.cpu().numpy())
-            loss = rearrange(loss, '(B S) -> B S', B=imgs.shape[0])
-            worst_loss, _ = loss.max(dim=1)
-            adv_losses += worst_loss.sum().item()
-            deltas.append(delta.cpu().numpy())
-            total += adv_imgs.size(0)
-            total_worst += imgs.size(0)
+                    output = algorithm.predict(adv_imgs)
+                    loss = algorithm.classifier.loss(output, labels, reduction='none')
+                    pred = output.argmax(dim=1)       
+                pred = rearrange(pred, '(B S) -> B S', B=imgs.shape[0])
+                eq = pred.eq(labels.view_as(pred))
+                accs.append(eq.view_as(loss).cpu().numpy())
+                worst , _ = eq.min(dim = 1)
+                adv_correct += worst.sum().item()
+                correct += eq.sum().item()
+                losses.append(loss.cpu().numpy())
+                loss = rearrange(loss, '(B S) -> B S', B=imgs.shape[0])
+                worst_loss, _ = loss.max(dim=1)
+                adv_losses += worst_loss.sum().item()
+                deltas.append(delta.cpu().numpy())
+                total += adv_imgs.size(0)
+                total_worst += imgs.size(0)
     algorithm.train()
-    #algorithm.unexport()
+    algorithm.unexport()
     adv_acc = 100. * adv_correct / total_worst
     adv_mean = 100. * correct / total
     adv_loss = adv_losses / total_worst
@@ -255,7 +287,7 @@ def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack, max_batc
     adv_acc = 100. * adv_correct / total_worst
     adv_mean = 100. * correct / total
     adv_loss = adv_losses / total_worst
-    adv_acc_bal = 100. *balanced_accuracy_score(np.concatenate(all_labels, axis=0), np.concatenate(worst_preds, axis=0))
+    adv_acc_bal = 100. * balanced_accuracy_score(np.concatenate(all_labels, axis=0), np.concatenate(worst_preds, axis=0))
     adv_mean_bal = 100. * balanced_accuracy_score(np.concatenate(repeated_labels, axis=0), np.concatenate(all_preds, axis=0))
     return adv_acc, adv_mean, adv_acc_bal, adv_mean_bal, adv_loss, np.concatenate(accs, axis=0), np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0)
 

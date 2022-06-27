@@ -135,10 +135,10 @@ def main(args, hparams, test_hparams):
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():
-                test_adv_acc, test_adv_acc_mean, adv_loss, accs, loss, deltas = misc.adv_accuracy_loss_delta(algorithm, test_ldr, device, attack)
+                test_adv_acc, test_adv_acc_mean, adv_loss, accs, loss, deltas = misc.adv_accuracy_loss_delta(algorithm, test_ldr, device, attack, augs_per_batch=args.n_eval)
                 add_results_row([epoch, test_adv_acc, attack_name, 'Test'])
                 test_adv_accs.append(test_adv_acc)
-                train_adv_acc, train_adv_acc_mean, train_adv_loss, train_accs, train_loss, train_deltas = misc.adv_accuracy_loss_delta(algorithm, val_ldr, device, attack)
+                train_adv_acc, train_adv_acc_mean, train_adv_loss, train_accs, train_loss, train_deltas = misc.adv_accuracy_loss_delta(algorithm, val_ldr, device, attack, augs_per_batch=args.n_eval)
                 add_results_row([epoch, train_adv_acc, attack_name, 'Train'])
                 test_adv_accs.append(test_adv_acc)
                 if wandb_log:
@@ -228,6 +228,7 @@ if __name__ == '__main__':
     parser.add_argument('--hparams_seed', type=int, default=0, help='Seed for hyperparameters')
     parser.add_argument('--trial_seed', type=int, default=0, help='Trial number')
     parser.add_argument('--seed', type=int, default=0, help='Seed for everything else')
+    parser.add_argument('--n_eval', type=int, default=20, help='Number of transforms for evaluation')
     parser.add_argument('--model', type=str, default='resnet18', help='Model to use')
     parser.add_argument('--optimizer', type=str, default='SGD', help='Optimizer to use')
     parser.add_argument('--log_imgs', action='store_true')
