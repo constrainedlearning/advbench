@@ -149,13 +149,13 @@ class DGCNN(nn.Module):
         x = self.linear3(x)
         return x
 
-def cal_loss(pred, gold, smoothing=True, reduction='mean'):
+def cal_loss(pred, gold, label_smoothing=0.2, reduction='mean'):
     ''' Calculate cross entropy loss, apply label smoothing if needed. '''
 
     gold = gold.contiguous().view(-1)
 
-    if smoothing:
-        eps = 0.2
+    if label_smoothing:
+        eps = label_smoothing
         n_class = pred.size(1)
 
         one_hot = torch.zeros_like(pred).scatter(1, gold.view(-1, 1), 1)

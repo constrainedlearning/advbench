@@ -27,8 +27,10 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     # Unconditional hparam definitions.
     if dataset == 'modelnet40':
         _hparam('batch_size', 32, lambda r: int(2 ** r.uniform(3, 6)))
+        _hparam('label_smoothing', 0.2, lambda r: 0.2)
     else:
         _hparam('batch_size', 128, lambda r: int(2 ** r.uniform(3, 8)))
+        _hparam('label_smoothing', 0.0, lambda r: 0.0)
     _hparam('augmentation_prob', 1, lambda r: 1)
     _hparam('perturbation_batch_size', 10, lambda r: 10)
     _hparam('mh_dale_scale', 0.05, lambda r: 0.05)
@@ -36,7 +38,6 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     _hparam('gaussian_attack_std', 1, lambda r: 1 )
     _hparam('laplacian_attack_std', 1, lambda r: 1 )
     _hparam('adv_penalty', 1, lambda r: 1)
-    _hparam('label_smoothing', 0.0, lambda r: 0.0)
     
     # optimization
     if dataset == 'MNIST':
@@ -57,7 +58,8 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('lr_decay_epoch', 1, lambda r: 1)
     if dataset == 'modelnet40':
         _hparam('learning_rate', 0.1, lambda r: 10 ** r.uniform(-1.5, -0.5))
-        _hparam('weight_decay', 1e-4, lambda r: 10 ** r.uniform(-4, -3))
+        _hparam('weight_decay', 1e-4, lambda r: 10 ** r.uniform(-6, -3))
+        _hparam('clip_grad', 1, lambda r: 1)
     else:
         _hparam('weight_decay', 5e-4, lambda r: 10 ** r.uniform(-6, -3))
     _hparam('sgd_momentum', 0.9, lambda r: r.uniform(0.8, 0.95))
@@ -278,11 +280,11 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
 
         ###### MCMC ###########
         if perturbation == "PointcloudTranslation":
-            _hparam('mcmc_dale_scale', 0.2)
+            _hparam('mh_dale_scale', 0.2)
         else:
-            _hparam('mcmc_dale_scale', 0.002)
-        _hparam('mcmc_dale_n_steps', 10)
-        _hparam('mcmc_proposal', 'Laplace')
+            _hparam('mh_dale_scale', 0.002)
+        _hparam('mh_dale_n_steps', 10)
+        _hparam('mh_proposal', 'Laplace')
         
 
         ##### PGD #####

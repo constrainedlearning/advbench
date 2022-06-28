@@ -23,6 +23,7 @@ class Attack(nn.Module):
         self.hparams = hparams
         self.device = device
         eps = self.hparams['epsilon']
+        self.perturbation_name = perturbation
         self.perturbation = vars(perturbations)[perturbation](eps)
     def forward(self, imgs, labels):
         raise NotImplementedError
@@ -186,10 +187,11 @@ class MH(Attack_Linf):
             adv_imgs = self.perturbation.perturb_img(imgs, delta)
             last_loss = self.classifier.loss(self.classifier(adv_imgs), labels)
             ones = torch.ones_like(last_loss)
+            noise_dist = Laplace(torch.zeros(delta.shape[1:], device=imgs.device), self.hparams['mh_dale_scale']*self.eps)
             for _ in range(self.hparams['mh_dale_n_steps']):
-                proposal = self.get_proposal(delta)
+                proposal = delta +  noise_dist.sample([delta.shape[0]])*self.eps
                 if torch.allclose(proposal, self.perturbation.clamp_delta(proposal, adv_imgs)):
-                    adv_imgs = self.perturbation.perturb_img(imgs, delta)
+                    adv_imgs = self.perturbation.perturb_img(imgs, proposal)
                     proposal_loss = self.classifier.loss(self.classifier(adv_imgs), labels)
                     acceptance_ratio = (
                         torch.minimum((proposal_loss / last_loss), ones)
@@ -239,10 +241,20 @@ class Grid_Search(Attack_Linf):
         self.classifier.eval()
         batch_size = imgs.size(0)
         with torch.no_grad():
+            if len(imgs.shape) == 4:
+                repeated_imgs = repeat(imgs, 'B W H C -> (B S) W H C', B=batch_size, S=self.grid_size)
+            elif len(imgs.shape) == 3:
+                repeated_imgs = repeat(imgs, 'B C P -> (B S) C P', B=batch_size, S=self.grid_size)
+            else:
+                raise NotImplementedError
             adv_imgs = self.perturbation.perturb_img(
-                repeat(imgs, 'B W H C -> (B S) W H C', B=batch_size, S=self.grid_size),
+                repeated_imgs,
                 repeat(self.grid, 'S D -> (B S) D', B=batch_size, D=self.dim, S=self.grid_size))
-            adv_loss = self.classifier.loss(self.classifier(adv_imgs), repeat(labels, 'B -> (B S)', S=self.grid_size), reduction="none")
+            if len(labels.shape) == 1:
+                repeated_labels = repeat(labels, 'B -> (B S)', S=self.grid_size)
+            else:
+                repeated_labels = repeat(labels, 'B D -> (B S) D', S=self.grid_size)
+            adv_loss = self.classifier.loss(self.classifier(adv_imgs), repeated_labels, reduction="none")
         adv_loss = rearrange(adv_loss, '(B S) -> B S', B=batch_size, S=self.grid_size)
         max_idx = torch.argmax(adv_loss,dim=-1)
         delta = self.grid[max_idx]

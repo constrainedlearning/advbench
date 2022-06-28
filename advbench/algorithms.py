@@ -7,6 +7,7 @@ import pandas as pd
 from numpy.random import binomial
 from torch.cuda.amp import GradScaler, autocast
 from advbench.datasets import FFCV_AVAILABLE
+from torch.nn.utils import clip_grad_norm_
 
 from advbench import attacks, networks, optimizers, perturbations
 from advbench.lib import meters
@@ -60,6 +61,10 @@ class Algorithm(nn.Module):
             self.scaler = GradScaler()
         
         self.label_smoothing = hparams['label_smoothing']
+        if 'clip_grad' in hparams:
+            self.clip_grad = hparams['clip_grad']
+        else:
+            self.clip_grad = False
 
     def step(self, imgs, labels):
         raise NotImplementedError
@@ -99,13 +104,17 @@ class ERM(Algorithm):
         self.optimizer.zero_grad(set_to_none=True)
         if FFCV_AVAILABLE:
             with autocast():
-                loss = self.classifier.loss(self.predict(imgs), labels)
+                loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
                 self.scaler.scale(loss).backward()
+                if self.clip_grad:
+                    clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
         else:
-            loss = self.classifier.loss(self.predict(imgs), labels)
+            loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
             loss.backward()
+            if self.clip_grad:
+                clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
         self.optimizer.step()
         
         self.meters['loss'].update(loss.item(), n=imgs.size(0))
@@ -120,19 +129,23 @@ class Adversarial(Algorithm):
             with autocast():
                 adv_imgs, deltas = self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                adv_loss = self.classifier.loss(self.predict(adv_imgs), labels)
-                clean_loss = self.classifier.loss(self.predict(imgs), labels)
+                adv_loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
+                clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
                 loss = clean_loss+adv_loss*self.penalty
                 self.scaler.scale(loss).backward()
+                if self.clip_grad:
+                    clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
         else:
             adv_imgs, deltas =   self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            adv_loss = self.classifier.loss(self.predict(adv_imgs), labels)
-            clean_loss = self.classifier.loss(self.predict(imgs), labels)
+            adv_loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
+            clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
             loss = clean_loss+adv_loss*self.penalty
             loss.backward()
+            if self.clip_grad:
+                clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
             self.optimizer.step()
 
         self.meters['loss'].update(loss.item(), n=imgs.size(0))
@@ -175,19 +188,23 @@ class Gaussian_DALE(Algorithm):
                 adv_imgs, deltas = self.attack(imgs, labels)
                 adv_imgs, deltas =   self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = self.classifier.loss(self.predict(imgs), labels)
-                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
+                clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
                 total_loss = robust_loss + self.hparams['g_dale_nu'] * clean_loss
                 self.scaler.scale(total_loss).backward()
+                if self.clip_grad:
+                    clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
         else:
             adv_imgs, deltas =   self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            clean_loss = self.classifier.loss(self.predict(imgs), labels)
-            robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
+            clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+            robust_loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
             total_loss = robust_loss + self.hparams['g_dale_nu'] * clean_loss
             total_loss.backward()
+            if self.clip_grad:
+                clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
             self.optimizer.step()
 
         self.meters['loss'].update(total_loss.item(), n=imgs.size(0))
@@ -206,19 +223,23 @@ class Laplacian_DALE(Algorithm):
             with autocast():
                 adv_imgs, deltas =   self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = self.classifier.loss(self.predict(imgs), labels)
-                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
+                clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
                 total_loss = robust_loss + self.hparams['g_dale_nu'] * clean_loss
                 self.scaler.scale(total_loss).backward()
+                if self.clip_grad:
+                    clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
         else:
             adv_imgs, deltas =   self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            clean_loss = self.classifier.loss(self.predict(imgs), labels)
-            robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
+            clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+            robust_loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
             total_loss = robust_loss + self.hparams['l_dale_nu'] * clean_loss
             total_loss.backward()
+            if self.clip_grad:
+                clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
             self.optimizer.step()
 
         self.meters['loss'].update(total_loss.item(), n=imgs.size(0))
@@ -250,19 +271,23 @@ class Gaussian_DALE_PD(PrimalDualBase):
             with autocast():
                 adv_imgs, deltas = self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = self.classifier.loss(self.predict(imgs), labels)
-                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
+                clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
                 total_loss = robust_loss + self.hparams['g_dale_nu'] * clean_loss
                 self.scaler.scale(total_loss).backward()
+                if self.clip_grad:
+                    clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
         else:
             adv_imgs, deltas =self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            clean_loss = self.classifier.loss(self.predict(imgs), labels)
-            robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
+            clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+            robust_loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
             total_loss = robust_loss + self.dual_params['dual_var'] * clean_loss
             total_loss.backward()
+            if self.clip_grad:
+                clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
             self.optimizer.step()
         
         self.pd_optimizer.step(clean_loss.detach())
@@ -287,10 +312,12 @@ class Gaussian_DALE_PD_Reverse(PrimalDualBase):
     def step(self, imgs, labels):
         adv_imgs, deltas =self.attack(imgs, labels)
         self.optimizer.zero_grad()
-        clean_loss = self.classifier.loss(self.predict(imgs), labels)
-        robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
+        clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+        robust_loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
         total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
         total_loss.backward()
+        if self.clip_grad:
+            clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
         self.optimizer.step()
         self.pd_optimizer.step(robust_loss.detach())
         self.meters['loss'].update(total_loss.item(), n=imgs.size(0))
@@ -314,19 +341,23 @@ class Laplacian_DALE_PD_Reverse(PrimalDualBase):
             with autocast():
                 adv_imgs, deltas = self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = self.classifier.loss(self.predict(imgs), labels)
-                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
+                clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
                 total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
                 self.scaler.scale(total_loss).backward()
+                if self.clip_grad:
+                    clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
         else:
             adv_imgs, deltas =self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            clean_loss = self.classifier.loss(self.predict(imgs), labels)
-            robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
+            clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+            robust_loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
             total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
             total_loss.backward()
+            if self.clip_grad:
+                clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
             self.optimizer.step()
         self.pd_optimizer.step(robust_loss.detach())
         self.meters['loss'].update(total_loss.item(), n=imgs.size(0))
@@ -376,19 +407,23 @@ class MH_DALE_PD_Reverse(PrimalDualBase):
             with autocast():
                 adv_imgs, deltas = self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = self.classifier.loss(self.predict(imgs), labels)
-                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
+                clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
                 total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
                 self.scaler.scale(total_loss).backward()
+                if self.clip_grad:
+                    clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
         else:
             adv_imgs, deltas =self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            clean_loss = self.classifier.loss(self.predict(imgs), labels)
-            robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
+            clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+            robust_loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
             total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
             total_loss.backward()
+            if self.clip_grad:
+                clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
             self.optimizer.step()
         self.pd_optimizer.step(robust_loss.detach())
         self.meters['loss'].update(total_loss.item(), n=imgs.size(0))
@@ -413,23 +448,27 @@ class KL_DALE_PD(PrimalDualBase):
             with autocast():
                 adv_imgs, deltas = self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = self.classifier.loss(self.predict(imgs), labels)
+                clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
                 robust_loss = self.kl_loss_fn(
                 F.log_softmax(self.predict(adv_imgs), dim=1),
                 F.softmax(self.predict(imgs), dim=1))
                 total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
                 self.scaler.scale(total_loss).backward()
+                if self.clip_grad:
+                    clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
         else:
             adv_imgs, deltas =self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            clean_loss = self.classifier.loss(self.predict(imgs), labels)
+            clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
             robust_loss = self.kl_loss_fn(
                 F.log_softmax(self.predict(adv_imgs), dim=1),
                 F.softmax(self.predict(imgs), dim=1))
             total_loss = robust_loss + self.dual_params['dual_var'] * clean_loss
             total_loss.backward()
+            if self.clip_grad:
+                clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
             self.optimizer.step()
         self.pd_optimizer.step(clean_loss.detach())
 
@@ -450,18 +489,22 @@ class Adversarial_Worst_Of_K(Algorithm):
                 with torch.no_grad():
                     adv_imgs, deltas =   self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = self.classifier.loss(self.predict(imgs), labels)
-                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels)
+                clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
                 total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
                 self.scaler.scale(total_loss).backward()
+                if self.clip_grad:
+                    clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
         else:        
             with torch.no_grad():
                 adv_imgs, deltas =   self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            loss = self.classifier.loss(self.predict(adv_imgs), labels)
+            loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
             loss.backward()
+            if self.clip_grad:
+                clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
             self.optimizer.step()
 
         self.meters['loss'].update(loss.item(), n=imgs.size(0))
@@ -477,16 +520,20 @@ class Grid_Search(Algorithm):
                 with torch.no_grad():
                     adv_imgs, deltas =   self.attack(imgs, labels)
                     self.optimizer.zero_grad()
-                    loss = self.classifier.loss(self.predict(adv_imgs), labels)
+                    loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
                     self.scaler.scale(loss).backward()
+                    if self.clip_grad:
+                        clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
         else:
             with torch.no_grad():
                 adv_imgs, deltas =   self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            loss = self.classifier.loss(self.predict(adv_imgs), labels)
+            loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
             loss.backward()
+            if self.clip_grad:
+                clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
             self.optimizer.step()
 
         self.meters['loss'].update(loss.item(), n=imgs.size(0))
@@ -504,8 +551,10 @@ class Augmentation(Algorithm):
                 else:
                     adv_imgs = imgs
                 self.optimizer.zero_grad()
-                loss = self.classifier.loss(self.predict(adv_imgs), labels)
+                loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
                 self.scaler.scale(loss).backward()
+                if self.clip_grad:
+                    clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
         else:        
@@ -514,8 +563,10 @@ class Augmentation(Algorithm):
             else:
                 adv_imgs = imgs
             self.optimizer.zero_grad()
-            loss = self.classifier.loss(self.predict(adv_imgs), labels)
+            loss = self.classifier.loss(self.predict(adv_imgs), labels, label_smoothing=self.label_smoothing)
             loss.backward()
+            if self.clip_grad:
+                clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
             self.optimizer.step()
 
         self.meters['loss'].update(loss.item(), n=imgs.size(0))
@@ -539,7 +590,7 @@ class Batch_Random(Algorithm):
     def step(self, imgs, labels):
         adv_imgs, deltas, new_labels =   self.attack(imgs, labels)
         self.optimizer.zero_grad()
-        loss = self.classifier.loss(self.predict(adv_imgs), new_labels)
+        loss = self.classifier.loss(self.predict(adv_imgs), new_labels, label_smoothing=self.label_smoothing)
         loss.backward()
         self.optimizer.step()
 
@@ -553,8 +604,10 @@ class Batch_Grid(Algorithm):
     def step(self, imgs, labels):
         adv_imgs, deltas, new_labels =  self.attack(imgs, labels)
         self.optimizer.zero_grad()
-        loss = self.classifier.loss(self.predict(adv_imgs), new_labels)
+        loss = self.classifier.loss(self.predict(adv_imgs), new_labels, label_smoothing=self.label_smoothing)
         loss.backward()
+        if self.clip_grad:
+            clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
         self.optimizer.step()
         self.meters['loss'].update(loss.item(), n=imgs.size(0))
 
@@ -593,38 +646,35 @@ class Discrete_DALE(PrimalDualBase):
                 with torch.no_grad():
                     adv_imgs, deltas, new_labels = self.attack(imgs, labels)
                 self.optimizer.zero_grad()
-                clean_loss = self.classifier.loss(self.predict(imgs), labels)
-                robust_loss = self.classifier.loss(self.predict(adv_imgs), new_labels, reduction='none')
+                clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+                robust_loss = self.classifier.loss(self.predict(adv_imgs), new_labels, reduction='none', label_smoothing=self.label_smoothing)
                 robust_loss = rearrange(robust_loss, '(B S) -> B S', B = imgs.shape[0])
                 total_loss = clean_loss +  torch.mean(robust_loss@self.dual_params['dual_var'].to(self.device))
                 self.scaler.scale(total_loss).backward()
+                if self.clip_grad:
+                    clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
         else:
             with torch.no_grad():
                 adv_imgs, deltas, new_labels =self.attack(imgs, labels)
             self.optimizer.zero_grad()
-            clean_loss = self.classifier.loss(self.predict(imgs), labels)
-            robust_loss = self.classifier.loss(self.predict(adv_imgs), new_labels, reduction='none')
+            clean_loss = self.classifier.loss(self.predict(imgs), labels, label_smoothing=self.label_smoothing)
+            robust_loss = self.classifier.loss(self.predict(adv_imgs), new_labels, reduction='none', label_smoothing=self.label_smoothing)
             robust_loss = rearrange(robust_loss, '(B S) -> B S', B = imgs.shape[0])
             total_loss = clean_loss +  torch.mean(robust_loss@self.dual_params['dual_var'].to(self.device))
             total_loss.backward()
+            if self.clip_grad:
+                clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
             self.optimizer.step()
-        #print("rloss before", robust_loss[:10])
-        #print("dual before upd", self.dual_params['dual_var'])
         with torch.no_grad():
             self.pd_optimizer.step(torch.mean(robust_loss, 0).detach())
-        #print("rloss", robust_loss[:10])
-        #print("dual after upd", self.dual_params['dual_var'][:10])
-        #print(f"clean {clean_loss.item()}, robust {robust_loss.mean().item()}, total {total_loss.item()}, dual {self.dual_params['dual_var'].mean().item()}")
         self.meters['loss'].update(total_loss.item(), n=imgs.size(0))
         self.meters['clean loss'].update(clean_loss.item(), n=imgs.size(0))
         self.meters['robust loss'].update(robust_loss.mean().item(), n=imgs.size(0))
         self.meters['dual variable'].update(self.dual_params['dual_var'].mean().item(), n=1)
         self.meters['dual plot'].update(self.dual_params['dual_var'])
-        #print("dual after log", self.dual_params['dual_var'][:10])
 
-        
     def get_grid(self, tx, ty):
         angle_grid = self.attack.grid
         ones = torch.ones_like(angle_grid)

@@ -3,6 +3,7 @@ import torch
 import sys
 import glob
 import h5py
+import numpy as np
 from torch.utils.data import Dataset, Subset, DataLoader
 import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10 as CIFAR10_
@@ -259,7 +260,49 @@ if FFCV_AVAILABLE:
                     writer = DatasetWriter(path, fields)
                     writer.from_indexed_dataset(ds)
                     self.splits[name] = path
+    class modelnet40(AdvRobDataset):
+        INPUT_SHAPE = (3, 1024)
+        NUM_CLASSES = 40
+        N_EPOCHS = 1#250
+        NUM_POINTS = 1024
+        CHECKPOINT_FREQ = 100
+        LOG_INTERVAL = 100
+        ATTACK_INTERVAL = 100
+        LOSS_LANDSCAPE_INTERVAL = 300
+        LOSS_LANDSCAPE_GSIZE = 100
+        ANGLE_GSIZE = 100
+        LOSS_LANDSCAPE_BATCHES = 10
+        HAS_LR_SCHEDULE = True
+        MIN_LR = 0.005
+        START_EPOCH = 0
 
+        # test adversary parameters
+        ADV_STEP_SIZE = 2/255.
+        N_ADV_STEPS = 10
+
+        def __init__(self, root, augmentation=True):
+            super(modelnet40, self).__init__()
+            self.ffcv=True
+            self.transforms = {}
+            for split in ["train", "val", "test"]:
+                self.transforms[split] = transforms.Compose([NDArrayDecoder(), ToTensor(), ToDevice(torch.device('cuda')), Convert(torch.float16),])
+            self.splits['train']= ModelNet40(partition='train', num_points=self.NUM_POINTS,random_translate=False, validation=True)
+            self.splits['val'] = get_val(self.splits['train'])
+            self.splits['test'] =  ModelNet40(partition='test', num_points=self.NUM_POINTS)
+            self.write()
+        def write(self):
+            folder = os.path.join('data','ffcv', 'modelnet40')
+            for (name, ds) in self.splits.items():
+                fields = {
+                    'image': NDArrayField(np.dtype(np.single), self.INPUT_SHAPE),
+                    'label': IntField(),
+                }
+                os.makedirs(folder, exist_ok=True)
+                path = os.path.join(folder, name+'.beton')
+                writer = DatasetWriter(path, fields)
+                writer.from_indexed_dataset(ds)
+                self.splits[name] = path 
+                
 else:
     class CIFAR10(AdvRobDataset):
         INPUT_SHAPE = (3, 32, 32)
