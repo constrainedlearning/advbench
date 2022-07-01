@@ -142,6 +142,8 @@ def main(args, hparams, test_hparams):
                 add_results_row([epoch, train_adv_acc, attack_name, 'Train'])
                 test_adv_accs.append(test_adv_acc)
                 if wandb_log:
+                    if args.n_eval>1:
+                        attack_name = attack_name + "_Batch"
                     print(f"Logging {attack_name}...")
                     wandb.log({'test_acc_adv_'+attack_name: test_adv_acc,'mean_test_acc_adv'+attack_name: test_adv_acc_mean, 'test_loss_adv_'+attack_name: adv_loss,
                     'test_loss_adv_mean_'+attack_name: loss.mean(), 'epoch': epoch, 'step':step})

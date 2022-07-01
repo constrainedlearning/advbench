@@ -263,7 +263,7 @@ if FFCV_AVAILABLE:
     class modelnet40(AdvRobDataset):
         INPUT_SHAPE = (3, 1024)
         NUM_CLASSES = 40
-        N_EPOCHS = 1#250
+        N_EPOCHS = 250
         NUM_POINTS = 1024
         CHECKPOINT_FREQ = 100
         LOG_INTERVAL = 100

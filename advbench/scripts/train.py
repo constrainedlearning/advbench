@@ -151,11 +151,13 @@ def main(args, hparams, test_hparams):
             train_ldr_small = datasets.change_batch_size(train_ldr, 10)
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():
+                if args.n_eval>1:
+                    attack_name = attack_name + "_Batch"
                 print(attack_name)
-                test_adv_acc, test_adv_acc_mean, test_adv_acc_bal, test_adv_acc_mean_bal, adv_loss, accs, loss, deltas = misc.adv_accuracy_loss_delta_balanced(algorithm, test_ldr, device, attack)
+                test_adv_acc, test_adv_acc_mean, test_adv_acc_bal, test_adv_acc_mean_bal, adv_loss, accs, loss, deltas = misc.adv_accuracy_loss_delta_balanced(algorithm, test_ldr, device, attack, augs_per_batch=args.n_eval)
                 print("Test Adversarial Accuracy:", test_adv_acc)
                 print("Test Balanced Adversarial Accuracy:", test_adv_acc_bal)
-                train_adv_acc, train_adv_acc_mean, train_adv_acc_bal, train_adv_acc_mean_bal, adv_loss, train_accs, train_loss, train_deltas = misc.adv_accuracy_loss_delta_balanced(algorithm, train_ldr_small, device, attack, max_batches=200)
+                train_adv_acc, train_adv_acc_mean, train_adv_acc_bal, train_adv_acc_mean_bal, adv_loss, train_accs, train_loss, train_deltas = misc.adv_accuracy_loss_delta_balanced(algorithm, train_ldr_small, device, attack, augs_per_batch=args.n_eval)
                 print("Train Adversarial Accuracy:", test_adv_acc)
                 print("Train Balanced Adversarial Accuracy:", test_adv_acc_bal)
                 add_results_row([epoch, test_adv_acc, attack_name, 'Test'])
@@ -202,22 +204,22 @@ def main(args, hparams, test_hparams):
                 print(f'{attack_name} val. accuracy: {acc:.3f}\t', end='')
         print('\n')
 
-        # Save model
-        model_filepath = os.path.join(args.output_dir, f'{name}_ckpt.pkl')
-        torch.save(algorithm.state_dict(), model_filepath)
-        # Push it to wandb
-        if wandb_log:
-            wandb.save(model_filepath)
-
-        wandb.finish()
-
-        # save results dataframe to file
-        results_df.to_pickle(os.path.join(args.output_dir, 'results.pkl'))
-
         # reset all meters
         meters_df = algorithm.meters_to_df(epoch)
         meters_df.to_pickle(os.path.join(args.output_dir, 'meters.pkl'))
         algorithm.reset_meters()
+
+    # Save model
+    model_filepath = os.path.join(args.output_dir, f'{name}_ckpt.pkl')
+    torch.save(algorithm.state_dict(), model_filepath)
+    # Push it to wandb
+    if wandb_log:
+        wandb.save(model_filepath)
+
+    wandb.finish()
+
+    # save results dataframe to file
+    results_df.to_pickle(os.path.join(args.output_dir, 'results.pkl'))
 
     with open(os.path.join(args.output_dir, 'done'), 'w') as f:
         f.write('done')
@@ -245,6 +247,7 @@ if __name__ == '__main__':
     parser.add_argument('--no_augmentation', action='store_false')
     parser.add_argument('--eps', type=float, default=0.0, help="Constraint level")
     parser.add_argument('--flags', type=str,default='', help='add to exp name')
+    parser.add_argument('--n_eval', type=int, default=20, help='Number of transforms for evaluation')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
