@@ -238,7 +238,7 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack, max_batches=None,
     adv_loss = adv_losses / total_worst
     return adv_acc, adv_mean, adv_loss, np.concatenate(accs, axis=0), np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0)
 
-def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack, max_batches = None):
+def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack, max_batches = None, augs_per_batch=1, batched=True):
     adv_correct, correct, total, total_worst, adv_losses = 0, 0, 0, 0, 0
     losses, deltas, accs, worst_preds, all_labels, repeated_labels, all_preds = [], [], [], [], [], [], []
     algorithm.eval()
@@ -246,18 +246,10 @@ def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack, max_batc
     with torch.no_grad():
         for batch_idx, (imgs, labels) in tqdm(enumerate(loader)):
             if max_batches is not None and batch_idx>max_batches-1:
-                break
+                break 
             imgs, labels = imgs.to(device), labels.to(device)
             all_labels.append(labels.cpu().numpy())
-            if FFCV_AVAILABLE:
-                with autocast():
-                    attacked = attack(imgs, labels)
-                    if len(attacked) == 2:
-                        adv_imgs, delta = attacked
-                    elif len(attacked) == 3:
-                        adv_imgs, delta, labels = attacked
-                    output = algorithm.predict(adv_imgs)
-            else:
+            if not batched:
                 attacked = attack(imgs, labels)
                 if len(attacked) == 2:
                     adv_imgs, delta = attacked
@@ -266,6 +258,21 @@ def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack, max_batc
                 output = algorithm.predict(adv_imgs)
                 loss = algorithm.classifier.loss(output, labels, reduction='none')
                 pred = output.argmax(dim=1)
+            else:
+                batch_preds, batch_deltas, batch_labels, batch_losses = [], [], [], []
+                for _ in range(augs_per_batch):
+                    adv_imgs, delta = attack(imgs, labels)
+                    output = algorithm.predict(adv_imgs)
+                    loss = algorithm.classifier.loss(output, labels, reduction='none')
+                    pred = output.argmax(dim=1)
+                    batch_losses.append(loss)
+                    batch_preds.append(pred)
+                    batch_deltas.append(delta)
+                    batch_labels.append(labels)
+                loss = torch.concat(batch_losses, dim=0)
+                pred = torch.concat(batch_preds, dim=0)
+                delta = torch.concat(batch_deltas, dim=0)
+                labels = torch.concat(batch_labels, dim=0)
             all_preds.append(pred.cpu().numpy())
             repeated_labels.append(labels.cpu().numpy())
             pred = rearrange(pred, '(B S) -> B S', B=imgs.shape[0])
