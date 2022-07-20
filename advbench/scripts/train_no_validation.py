@@ -244,6 +244,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int,default=0, help='custom number of epochs, use defaults if 0')
     parser.add_argument('--max_rot', type=int,default=0, help='max angle in degrees')
     parser.add_argument('--max_trans', type=int,default=0, help='max translation in pixels')
+    parser.add_argument('--penalty', type=float,default=1.0, help='Penalised regularisation coeff for adv loss')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
@@ -271,6 +272,9 @@ if __name__ == '__main__':
     if args.max_trans > 0:
         hparams['epsilon_tx'] = args.max_trans
         hparams['epsilon_ty'] = args.max_trans
+
+    if args.penalty > 0.0:
+        hparams['adv_penalty'] = args.penalty
 
     hparams['optimizer'] = args.optimizer
     hparams['label_smoothing'] = args.label_smoothing
