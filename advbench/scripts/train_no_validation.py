@@ -182,6 +182,7 @@ def main(args, hparams, test_hparams):
                     plotting.plot_perturbed_wandb(deltas[:, 0], acc, name=f"{split} angle vs accuracy ({tx},{ty})", wandb_args = {'epoch': epoch, 'step':step, 'tx':tx, 'ty':ty})
         epoch_end = time.time()
         total_time += epoch_end - epoch_start
+        
 
         # print results
         print(f'Epoch: {epoch+1}/{dataset.N_EPOCHS}\t', end='')
@@ -246,6 +247,8 @@ if __name__ == '__main__':
     parser.add_argument('--max_rot', type=int,default=0, help='max angle in degrees')
     parser.add_argument('--max_trans', type=int,default=0, help='max translation in pixels')
     parser.add_argument('--penalty', type=float,default=1.0, help='Penalised regularisation coeff for adv loss')
+    parser.add_argument('--beta', type=float,default=0.0, help='Beta distribution beta coefficient')
+    parser.add_argument('--alpha', type=float,default=0.0, help='Beta distribution alpha coefficient')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
@@ -276,6 +279,9 @@ if __name__ == '__main__':
 
     if args.penalty > 0.0:
         hparams['adv_penalty'] = args.penalty
+    if args.alpha or args.beta:
+        hparams['beta_attack_alpha'] = args.alpha
+        hparams['beta_attack_beta'] = args.beta
 
     hparams['optimizer'] = args.optimizer
     hparams['label_smoothing'] = args.label_smoothing

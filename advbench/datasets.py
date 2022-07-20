@@ -66,7 +66,7 @@ def to_loaders(all_datasets, hparams, device):
                 batch_size = all_datasets.TEST_BATCH 
             return DataLoader(
                 dataset=dataset, 
-                batch_size=batch_size,
+                batch_size=int(batch_size),
                 num_workers=all_datasets.N_WORKERS,
                 shuffle=(split == 'train'))
     
