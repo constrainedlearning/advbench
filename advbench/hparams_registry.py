@@ -131,6 +131,9 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('d_dale_pd_inv_margin', 0.15, lambda r: 0.15)
         # Grid Search
         _hparam('grid_size', 120, lambda r: 120)
+        # Beta Aug
+        _hparam('beta_attack_alpha', 0.5, lambda r: 0.5)
+        _hparam('beta_attack_beta', 0.25, lambda r: 0.25)
 
     elif dataset=='modelnet40':
         _hparam('fo_sgd_momentum', 0.1, lambda r:0.1)
@@ -174,6 +177,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         
         # Grid Search
         _hparam('grid_size', 120, lambda r: 120)
+
 
     else:
         raise NotImplementedError

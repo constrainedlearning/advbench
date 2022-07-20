@@ -392,6 +392,11 @@ class Gaussian_PD_Reverse(Laplacian_DALE_PD_Reverse):
         super(Gaussian_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
         self.attack = attacks.Gaussian_aug(self.classifier, self.hparams, device, perturbation=perturbation)
 
+class Beta_PD_Reverse(Laplacian_DALE_PD_Reverse):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):
+        super(Beta_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
+        self.attack = attacks.Beta_aug(self.classifier, self.hparams, device, perturbation=perturbation)
+        
 class MH_DALE_PD_Reverse(PrimalDualBase):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf', init=0.0):
         super(MH_DALE_PD_Reverse, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation, init=init)
