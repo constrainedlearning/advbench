@@ -215,9 +215,7 @@ def main(args, hparams, test_hparams):
     if wandb_log:
         wandb.save(model_filepath)
         wandb.finish()
-
-    with open(os.path.join(args.output_dir, 'done'), 'w') as f:
-        f.write('done')
+    print("Finished")
 
 if __name__ == '__main__':
 

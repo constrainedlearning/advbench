@@ -43,7 +43,7 @@ def create_model(input_shape, num_classes, hparams):
             return net
         elif hparams["model"] == "MNISTnet":
             if "n_layers" in hparams.keys():
-                num_layers = hparams["n_layers"]
+                num_layers = int(hparams["n_layers"])
             else:
                 num_layers = 2
             print(f"input shape {input_shape}, num classes {num_classes}, num layers {num_layers}")
