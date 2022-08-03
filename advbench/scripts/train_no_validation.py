@@ -209,6 +209,7 @@ def main(args, hparams, test_hparams):
         meters_df.to_pickle(os.path.join(args.output_dir, 'meters.pkl'))
         algorithm.reset_meters()
     # Save model
+    name = f"{args.flags}{args.perturbation} {args.algorithm} {args.model} {args.seed}"
     model_filepath = os.path.join(args.output_dir, f'{name}_ckpt.pkl')
     torch.save(algorithm.state_dict(), model_filepath)
     # Push it to wandb
