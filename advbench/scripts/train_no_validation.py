@@ -128,6 +128,13 @@ def main(args, hparams, test_hparams):
             add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
 
         if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
+            # Save model
+        name = f"{args.flags}{args.perturbation} {args.algorithm} {args.model} {args.seed}"
+        model_filepath = os.path.join(args.output_dir, f'{name}_ckpt.pkl')
+        torch.save(algorithm.state_dict(), model_filepath)
+        # Push it to wandb
+        if wandb_log:
+            wandb.save(model_filepath)
             train_clean_acc = misc.accuracy(algorithm, val_ldr, device)
             if wandb_log:
                 wandb.log({'train_clean_acc': train_clean_acc, 'epoch': epoch, 'step':step})
@@ -208,14 +215,7 @@ def main(args, hparams, test_hparams):
         meters_df = algorithm.meters_to_df(epoch)
         meters_df.to_pickle(os.path.join(args.output_dir, 'meters.pkl'))
         algorithm.reset_meters()
-    # Save model
-    name = f"{args.flags}{args.perturbation} {args.algorithm} {args.model} {args.seed}"
-    model_filepath = os.path.join(args.output_dir, f'{name}_ckpt.pkl')
-    torch.save(algorithm.state_dict(), model_filepath)
-    # Push it to wandb
-    if wandb_log:
-        wandb.save(model_filepath)
-        wandb.finish()
+    wandb.finish()
     print("Finished")
 
 if __name__ == '__main__':

@@ -36,7 +36,7 @@ def print_full_df(df):
 @torch.no_grad()
 def accuracy(algorithm, loader, device):
     correct, total = 0, 0
-
+    algorithm_state = algorithm.training
     algorithm.eval()
     algorithm.export()
     for imgs, labels in tqdm(loader):
@@ -49,15 +49,17 @@ def accuracy(algorithm, loader, device):
         pred = output.argmax(dim=1, keepdim=True)
         correct += pred.eq(labels.view_as(pred)).sum().item()
         total += imgs.size(0)
-    algorithm.train()
+    assert(not algorithm.classifier.training)
+    if algorithm_state:
+        algorithm.train()
     algorithm.unexport()
-
     return 100. * correct / total
 
 @torch.no_grad()
 def accuracy_loss(algorithm, loader, device):
     correct, total = 0, 0
     losses = []
+    algorithm_state = algorithm.training
     algorithm.eval()
     algorithm.export()
     for imgs, labels in tqdm(loader):
@@ -72,7 +74,8 @@ def accuracy_loss(algorithm, loader, device):
         correct += pred.eq(labels.view_as(pred)).sum().item()
         losses.append(loss.detach().cpu().numpy())
         total += imgs.size(0)
-    algorithm.train()
+    if algorithm_state:
+        algorithm.train()
     algorithm.unexport()
     loss = np.concatenate(losses)
     return 100. * correct / total, np.mean(loss)
@@ -81,6 +84,7 @@ def accuracy_mean_overall(algorithm, loader, device):
     correct, total = 0, 0
     true = []
     preds = []
+    algorithm_state = algorithm.training
     algorithm.eval()
     algorithm.export()
     for imgs, labels in tqdm(loader):
@@ -95,7 +99,8 @@ def accuracy_mean_overall(algorithm, loader, device):
         preds.append(pred.detach().cpu().numpy())
         correct += pred.eq(labels.view_as(pred)).sum().item()
         total += imgs.size(0) 
-    algorithm.train()
+    if algorithm_state:
+        algorithm.train()
     algorithm.unexport()
     true = np.concatenate(true)
     preds = np.concatenate(preds)
@@ -108,6 +113,7 @@ def accuracy_mean_overall_loss(algorithm, loader, device, max_batches = None):
     true = []
     preds = []
     losses = []
+    algorithm_state = algorithm.training
     algorithm.eval()
     algorithm.export()
     for batch_idx, (imgs, labels) in tqdm(enumerate(loader)):
@@ -126,7 +132,8 @@ def accuracy_mean_overall_loss(algorithm, loader, device, max_batches = None):
         correct += pred.eq(labels.view_as(pred)).sum().item()
         losses.append(loss.detach().cpu().numpy())
         total += imgs.size(0) 
-    algorithm.train()
+    if algorithm_state:
+        algorithm.train()
     algorithm.unexport()
     true = np.concatenate(true)
     preds = np.concatenate(preds)
@@ -136,7 +143,7 @@ def accuracy_mean_overall_loss(algorithm, loader, device, max_batches = None):
 
 def adv_accuracy(algorithm, loader, device, attack):
     correct, total = 0, 0
-
+    algorithm_state = algorithm.training
     algorithm.eval()
     algorithm.export()
     for imgs, labels in loader:
@@ -153,14 +160,17 @@ def adv_accuracy(algorithm, loader, device, attack):
 
         correct += pred.eq(labels.view_as(pred)).sum().item()
         total += imgs.size(0)
-    algorithm.train()
+    if algorithm_state:
+        algorithm.train()
     algorithm.unexport()
 
     return 100. * correct / total
 
 def adv_accuracy_loss_delta(algorithm, loader, device, attack, max_batches=None, augs_per_batch=1, batched=True):
+
     adv_correct, correct, total, total_worst, adv_losses = 0, 0, 0, 0, 0
     losses, deltas, accs = [], [], []
+    algorithm_state = algorithm.training
     algorithm.eval()
     algorithm.export()
     with torch.no_grad():
@@ -180,7 +190,9 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack, max_batches=None,
                                 adv_imgs, delta, labels = attacked
                             output = algorithm.predict(adv_imgs)
                     else:
+                        assert(not algorithm.classifier.training)
                         attacked = attack(imgs, labels)
+                        assert(not algorithm.classifier.training)
                         if len(attacked) == 2:
                             adv_imgs, delta = attacked
                         elif len(attacked) == 3:
@@ -210,14 +222,16 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack, max_batches=None,
                 total += torch.numel(labels)
                 total_worst += imgs.size(0)
             else:
+                assert(not algorithm.classifier.training)
                 attacked = attack(imgs, labels)
+                assert(not algorithm.classifier.training)
                 if len(attacked) == 2:
                     adv_imgs, delta = attacked
                 elif len(attacked) == 3:
                     adv_imgs, delta, labels = attacked
-                    output = algorithm.predict(adv_imgs)
-                    loss = algorithm.classifier.loss(output, labels, reduction='none')
-                    pred = output.argmax(dim=1)       
+                output = algorithm.predict(adv_imgs)
+                loss = algorithm.classifier.loss(output, labels, reduction='none')
+                pred = output.argmax(dim=1)
                 pred = rearrange(pred, '(B S) -> B S', B=imgs.shape[0])
                 eq = pred.eq(labels.view_as(pred))
                 accs.append(eq.view_as(loss).cpu().numpy())
@@ -231,16 +245,21 @@ def adv_accuracy_loss_delta(algorithm, loader, device, attack, max_batches=None,
                 deltas.append(delta.cpu().numpy())
                 total += adv_imgs.size(0)
                 total_worst += imgs.size(0)
-    algorithm.train()
+    assert(not algorithm.classifier.training)
+    if algorithm_state:
+        algorithm.train()
     algorithm.unexport()
     adv_acc = 100. * adv_correct / total_worst
     adv_mean = 100. * correct / total
     adv_loss = adv_losses / total_worst
-    return adv_acc, adv_mean, adv_loss, np.concatenate(accs, axis=0), np.concatenate(losses, axis=0), np.concatenate(deltas, axis=0)
+    accs = np.array(accs)
+    losses = np.array(losses)
+    return adv_acc, adv_mean, adv_loss, accs, losses, np.concatenate(deltas, axis=0)
 
 def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack, max_batches = None, augs_per_batch=1, batched=True):
     adv_correct, correct, total, total_worst, adv_losses = 0, 0, 0, 0, 0
     losses, deltas, accs, worst_preds, all_labels, repeated_labels, all_preds = [], [], [], [], [], [], []
+    algorithm_state = algorithm.training
     algorithm.eval()
     algorithm.export()
     with torch.no_grad():
@@ -289,7 +308,8 @@ def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack, max_batc
             total += adv_imgs.size(0)
             total_worst += imgs.size(0)
             worst_preds.append(worst.cpu().numpy())
-    algorithm.train()
+    if algorithm_state:
+        algorithm.train()
     algorithm.unexport()
     adv_acc = 100. * adv_correct / total_worst
     adv_mean = 100. * correct / total
@@ -301,7 +321,7 @@ def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack, max_batc
 def adv_accuracy_loss_delta_ensembleacc(algorithm, loader, device, attack):
     correct, ensemble_correct, total, total_ens = 0, 0, 0, 0
     losses, accs, deltas = [], [], []
-
+    algorithm_state = algorithm.training
     algorithm.eval()
     algorithm.export()
     with torch.no_grad():
@@ -343,7 +363,8 @@ def adv_accuracy_loss_delta_ensembleacc(algorithm, loader, device, attack):
             correct += corr.sum().item()
             total += adv_imgs.size(0)
             total_ens += imgs.size(0)
-    algorithm.train()
+    if algorithm_state:
+        algorithm.train()
     algorithm.unexport()
     acc = 100. * correct / total
     ensemble_acc = 100. * ensemble_correct / total_ens

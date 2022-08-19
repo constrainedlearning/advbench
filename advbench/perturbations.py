@@ -133,9 +133,7 @@ class TAUG(Perturbation):
         super(TAUG, self).__init__(epsilon)
         self.dim = 2
         self.names = ['Intensity', 'Transformation']
-        self.augment = TrivialAugmentWide(num_magnitude_bins = 3)
-        self.pil_to_tensor = ToTensor()
-        self.tensor_to_pil = ToPILImage()
+        self.augment = TrivialAugmentWide(num_magnitude_bins = 31)
         #self.normalize = transforms.Normalize(MEAN['CIFAR100'], STD['CIFAR100'])
 
     def clamp_delta(self, delta, imgs):
@@ -143,11 +141,8 @@ class TAUG(Perturbation):
 
     def _perturb(self, imgs, delta):
         pert_imgs = torch.empty_like(imgs)
-        for i in range(imgs.shape[0]):
-            pert_imgs[i] = self.pil_to_tensor(self.augment(self.tensor_to_pil(imgs[i])))
-        return pert_imgs#self.normalize(pert_imgs)
+        return self.augment(imgs.to(torch.uint8)).float()
 
     def delta_init(self, imgs):
         delta_init = torch.empty(imgs.shape[0], self.dim, device=imgs.device, dtype=imgs.dtype)
         return delta_init
-
