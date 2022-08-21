@@ -92,8 +92,8 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
             _hparam('epsilon_ty', 3, lambda r:3)
 
         # DALE (Laplacian-HMC)
-        _hparam('l_dale_n_steps', 30, lambda r: 30)
-        _hparam('l_dale_step_size', 0.05, lambda r: 10 ** r.uniform(-2.0, -0.5))
+        _hparam('l_dale_n_steps', 10, lambda r: 10)
+        _hparam('l_dale_step_size', 0.1, lambda r: 10 ** r.uniform(-2.0, -0.5))
         _hparam('l_dale_noise_coeff', 0.01,lambda r: 10 ** r.uniform(-3.0, -1.5))
         _hparam('l_dale_nu', 0.1, lambda r: 0.1)
         _hparam('l_dale_eta', 0.001, lambda r: 0.001)
