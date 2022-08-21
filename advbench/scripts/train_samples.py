@@ -4,6 +4,7 @@ import torch
 import random
 import numpy as np
 import os
+import sys
 import json
 import pandas as pd
 import time
@@ -128,9 +129,10 @@ def main(args, hparams, test_hparams):
             add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
 
         if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
-            train_clean_acc = misc.accuracy(algorithm, val_ldr, device)
+            #train_clean_acc = misc.accuracy(algorithm, val_ldr, device)
+            train_clean_acc, train_clean_loss = misc.accuracy_loss(algorithm, val_ldr, device)
             if wandb_log:
-                wandb.log({'train_clean_acc': train_clean_acc, 'epoch': epoch, 'step':step})
+                wandb.log({'train_clean_acc': train_clean_acc, 'train_clean_loss': train_clean_loss, 'epoch': epoch, 'step':step})
             add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []
@@ -147,7 +149,7 @@ def main(args, hparams, test_hparams):
                     'test_loss_adv_mean_'+attack_name: loss.mean(), 'epoch': epoch, 'step':step})
                     wandb.log({'train_acc_adv_'+attack_name: train_adv_acc,'mean_train_acc_adv'+attack_name: train_adv_acc_mean, 'train_loss_adv_'+attack_name: train_adv_loss,
                     'train_loss_adv_mean_'+attack_name: loss.mean(), 'epoch': epoch, 'step':step})
-                    if args.perturbation!="Linf":
+                    if False:#args.perturbation!="Linf":
                         plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="table")
                         plotting.plot_perturbed_wandb(deltas, accs, name="test_acc_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="table")
                         plotting.plot_perturbed_wandb(train_deltas, train_loss, name="train_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="table")
@@ -168,7 +170,7 @@ def main(args, hparams, test_hparams):
                             wb_pert = wandb.Image(torch.stack([attacked[i], og]), caption=f"Perturbed and original image {i} {attack_name}")
                             wandb.log({'Test image '+attack_name: wb_pert,'epoch': epoch, 'step':step})
 
-        if args.perturbation =="SE" and wandb_log and ((epoch % dataset.LOSS_LANDSCAPE_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1):
+        if False:#args.perturbation =="SE" and wandb_log and ((epoch % dataset.LOSS_LANDSCAPE_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1):
         # log loss landscape
             print(f"plotting and logging loss landscape")
             for eval, split in zip([train_eval, test_eval], ['train', 'test']):
@@ -211,9 +213,12 @@ def main(args, hparams, test_hparams):
     # Push it to wandb
     if wandb_log:
         wandb.save(model_filepath)
-
-    with open(os.path.join(args.output_dir, 'done'), 'w') as f:
-        f.write('done')
+    
+    wandb.finish(quiet=True)
+    print("Finished")
+    exit()
+    #with open(os.path.join(args.output_dir, 'done'), 'w') as f:
+        #f.write('done')
 
 if __name__ == '__main__':
 

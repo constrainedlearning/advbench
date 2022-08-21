@@ -72,7 +72,13 @@ def main(args, hparams, test_hparams):
         print("Model summary failed, currently does not support devices other than cpu or cuda.")
 
     test_attacks = {
-        a: vars(attacks)[a](algorithm.classifier, test_hparams, device, perturbation=args.perturbation) for a in args.test_attacks}
+        a: vars(attacks)[a](algorithm.classifier, test_hparams, device, perturbation=args.perturbation) for a in args.test_attacks if 'Beta_aug' not in a}
+    
+    if 'Beta_aug'in args.test_attacks:
+        for alpha, beta in zip(args.alpha, args.beta):
+            test_hparams['beta_attack_alpha'] = alpha
+            test_hparams['beta_attack_beta'] =  beta
+            test_attacks[f'Beta_aug_{alpha}_{beta}'] =  vars(attacks)['Beta_aug'](algorithm.classifier, test_hparams, device, perturbation=args.perturbation)
     
     columns = ['Epoch', 'Accuracy', 'Eval-Method', 'Split', 'Train-Alg', 'Dataset', 'Trial-Seed', 'Output-Dir']
     results_df = pd.DataFrame(columns=columns)
@@ -129,9 +135,9 @@ def main(args, hparams, test_hparams):
 
         if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
             # Save model
-        name = f"{args.flags}{args.perturbation} {args.algorithm} {args.model} {args.seed}"
-        model_filepath = os.path.join(args.output_dir, f'{name}_ckpt.pkl')
-        torch.save(algorithm.state_dict(), model_filepath)
+            name = f"{args.flags}{args.perturbation} {args.algorithm} {args.model} {args.seed}"
+            model_filepath = os.path.join(args.output_dir, f'{name}_ckpt.pkl')
+            torch.save(algorithm.state_dict(), model_filepath)
         # Push it to wandb
         if wandb_log:
             wandb.save(model_filepath)
