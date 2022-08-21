@@ -231,7 +231,7 @@ if __name__ == '__main__':
     parser.add_argument('--hparams_seed', type=int, default=0, help='Seed for hyperparameters')
     parser.add_argument('--trial_seed', type=int, default=0, help='Trial number')
     parser.add_argument('--seed', type=int, default=0, help='Seed for everything else')
-    parser.add_argument('--n_eval', type=int, default=20, help='Number of transforms for evaluation')
+    parser.add_argument('--n_eval', type=int, default=1, help='Number of transforms for evaluation')
     parser.add_argument('--model', type=str, default='resnet18', help='Model to use')
     parser.add_argument('--optimizer', type=str, default='SGD', help='Optimizer to use')
     parser.add_argument('--log_imgs', action='store_true')
@@ -246,8 +246,8 @@ if __name__ == '__main__':
     parser.add_argument('--max_rot', type=int,default=0, help='max angle in degrees')
     parser.add_argument('--max_trans', type=int,default=0, help='max translation in pixels')
     parser.add_argument('--penalty', type=float,default=1.0, help='Penalised regularisation coeff for adv loss')
-    parser.add_argument('--beta', type=float,default=0.0, help='Beta distribution beta coefficient')
-    parser.add_argument('--alpha', type=float,default=0.0, help='Beta distribution alpha coefficient')
+    parser.add_argument('--beta', type=float, nargs='+', default=[0.0], help='Beta distribution beta coefficient')
+    parser.add_argument('--alpha', type=float,nargs='+', default=[0.0], help='Beta distribution alpha coefficient')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
@@ -278,9 +278,12 @@ if __name__ == '__main__':
 
     if args.penalty > 0.0:
         hparams['adv_penalty'] = args.penalty
-    if args.alpha or args.beta:
-        hparams['beta_attack_alpha'] = args.alpha
-        hparams['beta_attack_beta'] = args.beta
+    if args.alpha[0] or args.beta[0]:
+        for i, (alpha, beta) in enumerate(zip(args.alpha, args.beta)):
+            hparams[f'beta_attack_alpha_{i}'] = args.alpha
+            hparams[f'beta_attack_beta_{i}'] = args.beta
+            if i>0 or "Beta_aug" not in args.test_attacks:
+                args.test_attacks.append(f'Beta_aug')
 
     hparams['optimizer'] = args.optimizer
     hparams['label_smoothing'] = args.label_smoothing
@@ -305,4 +308,3 @@ if __name__ == '__main__':
     np.random.seed(args.seed)
 
     main(args, hparams, test_hparams)
-    
