@@ -138,9 +138,9 @@ def main(args, hparams, test_hparams):
             name = f"{args.flags}{args.perturbation} {args.algorithm} {args.model} {args.seed}"
             model_filepath = os.path.join(args.output_dir, f'{name}_ckpt.pkl')
             torch.save(algorithm.state_dict(), model_filepath)
-            # Push it to wandb
-            wandb.save(model_filepath)
-        if wandb_log:
+            if wandb_log:
+                # Push weights to wandb
+                wandb.save(model_filepath)
             train_clean_acc = misc.accuracy(algorithm, val_ldr, device)
             if wandb_log:
                 wandb.log({'train_clean_acc': train_clean_acc, 'epoch': epoch, 'step':step})
