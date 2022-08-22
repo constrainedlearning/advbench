@@ -87,7 +87,7 @@ def main(args, hparams, test_hparams):
         results_df.loc[len(results_df)] = data + defaults
     if wandb_log:
         name = f"{args.flags}{args.perturbation} {args.algorithm} {args.model} {args.seed}"
-        wandb.init(project=f"DAug-{args.dataset}", name=name)
+        wandb.init(project=f"{args.project}-{args.dataset}", name=name)
         wandb.config.update(args)
         wandb.config.update(hparams)
         wandb.config.update({"test_"+key:val for key, val in test_hparams.items()})
@@ -138,9 +138,9 @@ def main(args, hparams, test_hparams):
             name = f"{args.flags}{args.perturbation} {args.algorithm} {args.model} {args.seed}"
             model_filepath = os.path.join(args.output_dir, f'{name}_ckpt.pkl')
             torch.save(algorithm.state_dict(), model_filepath)
-        # Push it to wandb
-        if wandb_log:
+            # Push it to wandb
             wandb.save(model_filepath)
+        if wandb_log:
             train_clean_acc = misc.accuracy(algorithm, val_ldr, device)
             if wandb_log:
                 wandb.log({'train_clean_acc': train_clean_acc, 'epoch': epoch, 'step':step})
@@ -195,7 +195,6 @@ def main(args, hparams, test_hparams):
                     plotting.plot_perturbed_wandb(deltas[:, 0], acc, name=f"{split} angle vs accuracy ({tx},{ty})", wandb_args = {'epoch': epoch, 'step':step, 'tx':tx, 'ty':ty})
         epoch_end = time.time()
         total_time += epoch_end - epoch_start
-        
 
         # print results
         print(f'Epoch: {epoch+1}/{dataset.N_EPOCHS}\t', end='')
@@ -254,6 +253,7 @@ if __name__ == '__main__':
     parser.add_argument('--penalty', type=float,default=1.0, help='Penalised regularisation coeff for adv loss')
     parser.add_argument('--beta', type=float, nargs='+', default=[0.0], help='Beta distribution beta coefficient')
     parser.add_argument('--alpha', type=float,nargs='+', default=[0.0], help='Beta distribution alpha coefficient')
+    parser.add_argument('--project', type=str, default='DAug', help='wandb-project')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
