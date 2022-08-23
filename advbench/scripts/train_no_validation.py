@@ -127,11 +127,15 @@ def main(args, hparams, test_hparams):
                 print(f'Time: {timer.batch_time.val:.3f} (avg. {timer.batch_time.avg:.3f})')
             timer.batch_end()
         # save clean accuracies on validation/test sets
-        if dataset.TEST_INTERVAL is None or epoch % dataset.TEST_INTERVAL == 0:
+        if dataset.TEST_INTERVAL is None or epoch % dataset.TEST_INTERVAL == 0 or epoch == dataset.N_EPOCHS-1:
             test_clean_acc = misc.accuracy(algorithm, test_ldr, device)
             if wandb_log:
                 wandb.log({'test_clean_acc': test_clean_acc, 'epoch': epoch, 'step':step})
             add_results_row([epoch, test_clean_acc, 'ERM', 'Test'])
+            train_clean_acc = misc.accuracy(algorithm, val_ldr, device)
+            if wandb_log:
+                wandb.log({'train_clean_acc': train_clean_acc, 'epoch': epoch, 'step':step})
+            add_results_row([epoch, train_clean_acc, 'ERM', 'Train'])
 
         if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
             # Save model
@@ -141,10 +145,6 @@ def main(args, hparams, test_hparams):
             if wandb_log:
                 # Push weights to wandb
                 wandb.save(model_filepath)
-            train_clean_acc = misc.accuracy(algorithm, val_ldr, device)
-            if wandb_log:
-                wandb.log({'train_clean_acc': train_clean_acc, 'epoch': epoch, 'step':step})
-            add_results_row([epoch, train_clean_acc, 'ERM', 'Train'])
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():
@@ -158,9 +158,9 @@ def main(args, hparams, test_hparams):
                     if args.n_eval>1:
                         attack_name = attack_name + "_Batch"
                     print(f"Logging {attack_name}...")
-                    wandb.log({'test_acc_adv_'+attack_name: test_adv_acc,'mean_test_acc_adv'+attack_name: test_adv_acc_mean, 'test_loss_adv_'+attack_name: adv_loss,
+                    wandb.log({'test_acc_adv_'+attack_name: test_adv_acc,'mean_test_acc_adv_'+attack_name: test_adv_acc_mean, 'test_loss_adv_'+attack_name: adv_loss,
                     'test_loss_adv_mean_'+attack_name: loss.mean(), 'epoch': epoch, 'step':step})
-                    wandb.log({'train_acc_adv_'+attack_name: train_adv_acc,'mean_train_acc_adv'+attack_name: train_adv_acc_mean, 'train_loss_adv_'+attack_name: train_adv_loss,
+                    wandb.log({'train_acc_adv_'+attack_name: train_adv_acc,'mean_train_acc_adv_'+attack_name: train_adv_acc_mean, 'train_loss_adv_'+attack_name: train_adv_loss,
                     'train_loss_adv_mean_'+attack_name: loss.mean(), 'epoch': epoch, 'step':step})
                     if args.perturbation!="Linf":
                         plotting.plot_perturbed_wandb(deltas, loss, name="test_loss_adv"+attack_name, wandb_args = {'epoch': epoch, 'step':step}, plot_mode="table")

@@ -65,10 +65,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     _hparam('sgd_momentum', 0.9, lambda r: r.uniform(0.8, 0.95))
 
     # Wether to batch parrallelizable attacks, bigger mem footprint but faster
-    if dataset == 'STL10':
-        _hparam('batched', 0, lambda r: 0)
-    else:
-        _hparam('batched', 1, lambda r: 1)
+    _hparam('batched', 0, lambda r: 0)
     
     if perturbation=='SE':
         ##### Worst of K ######
@@ -203,7 +200,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
     _hparam('fo_adam_step_size', 0.1)
     _hparam('grid_size', 100)
     _hparam('worst_of_k_steps', 120)
-    _hparam('batched', 1)
+    _hparam('batched', 0)
 
     if perturbation=='Rotation':
         if dataset == 'MNIST':
