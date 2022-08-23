@@ -79,8 +79,14 @@ def main(args, hparams, test_hparams):
         print("Model summary failed, currently does not support devices other than cpu or cuda.")
 
     test_attacks = {
-        a: vars(attacks)[a](algorithm.classifier, test_hparams, device, perturbation=args.perturbation) for a in args.test_attacks}
+        a: vars(attacks)[a](algorithm.classifier, test_hparams, device, perturbation=args.perturbation) for a in args.test_attacks if 'Beta_aug' not in a}
     
+    if 'Beta_aug'in args.test_attacks:
+        for alpha, beta in zip(args.alpha, args.beta):
+            test_hparams['beta_attack_alpha'] = alpha
+            test_hparams['beta_attack_beta'] =  beta
+            test_attacks[f'Beta_aug_{alpha}_{beta}'] =  vars(attacks)['Beta_aug'](algorithm.classifier, test_hparams, device, perturbation=args.perturbation)
+
     columns = ['Epoch', 'Accuracy', 'Eval-Method', 'Split', 'Train-Alg', 'Dataset', 'Trial-Seed', 'Output-Dir']
     results_df = pd.DataFrame(columns=columns)
     def add_results_row(data):
@@ -88,7 +94,7 @@ def main(args, hparams, test_hparams):
         results_df.loc[len(results_df)] = data + defaults
     if wandb_log:
         name = f"{args.flags}{args.perturbation} {args.algorithm} {args.trial_seed} {args.seed}"
-        wandb.init(project=f"DAug-{args.dataset}", name=name)
+        wandb.init(project=f"{args.project}-{args.dataset}", name=name)
         wandb.config.update(args)
         wandb.config.update(hparams)
         wandb.config.update({"test_"+key:val for key, val in test_hparams.items()})
@@ -147,6 +153,13 @@ def main(args, hparams, test_hparams):
             #test_clean_acc_voting, test_clean_mean_acc_voting = voting(algorithm, test_ldr, device)
             #wandb.log({'test_clean_oacc_voting': test_clean_acc_voting, 'test_clean_macc_voting': test_clean_mean_acc_voting, 'epoch': epoch, 'step':step})
         if (epoch % dataset.ATTACK_INTERVAL == 0 and epoch>0) or epoch == dataset.N_EPOCHS-1:
+            # Save model
+            name = f"{args.flags}{args.perturbation} {args.algorithm} {args.model} {args.seed}"
+            model_filepath = os.path.join(args.output_dir, f'{name}_ckpt.pkl')
+            torch.save(algorithm.state_dict(), model_filepath)
+            # Push it to wandb
+            if wandb_log:
+                wandb.save(model_filepath)
             # compute save and log adversarial accuracies on validation/test sets
             train_ldr_small = datasets.change_batch_size(train_ldr, 10)
             test_adv_accs = []
@@ -209,14 +222,10 @@ def main(args, hparams, test_hparams):
         meters_df.to_pickle(os.path.join(args.output_dir, 'meters.pkl'))
         algorithm.reset_meters()
 
-    # Save model
-    model_filepath = os.path.join(args.output_dir, f'{name}_ckpt.pkl')
-    torch.save(algorithm.state_dict(), model_filepath)
-    # Push it to wandb
-    if wandb_log:
-        wandb.save(model_filepath)
+    
 
     wandb.finish()
+    print("Finished")
 
     # save results dataframe to file
     results_df.to_pickle(os.path.join(args.output_dir, 'results.pkl'))
@@ -248,6 +257,10 @@ if __name__ == '__main__':
     parser.add_argument('--eps', type=float, default=0.0, help="Constraint level")
     parser.add_argument('--flags', type=str,default='', help='add to exp name')
     parser.add_argument('--n_eval', type=int, default=20, help='Number of transforms for evaluation')
+    parser.add_argument('--penalty', type=float,default=1.0, help='Penalised regularisation coeff for adv loss')
+    parser.add_argument('--beta', type=float, nargs='+', default=[0.0], help='Beta distribution beta coefficient')
+    parser.add_argument('--alpha', type=float,nargs='+', default=[0.0], help='Beta distribution alpha coefficient')
+    parser.add_argument('--project', type=str, default='DAug', help='wandb-project')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
@@ -275,6 +288,14 @@ if __name__ == '__main__':
     hparams['label_smoothing'] = args.label_smoothing
     if args.eps > 0:
         hparams['l_dale_pd_inv_margin'] = args.eps
+    if args.penalty > 0.0:
+        hparams['adv_penalty'] = args.penalty
+    if args.alpha[0] or args.beta[0]:
+        for i, (alpha, beta) in enumerate(zip(args.alpha, args.beta)):
+            hparams[f'beta_attack_alpha_{i}'] = args.alpha
+            hparams[f'beta_attack_beta_{i}'] = args.beta
+            if i>0 or "Beta_aug" not in args.test_attacks:
+                args.test_attacks.append(f'Beta_aug')
     print ('Hparams:')
     for k, v in sorted(hparams.items()):
         print(f'\t{k}: {v}')
