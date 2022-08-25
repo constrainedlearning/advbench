@@ -144,7 +144,7 @@ def main(args, hparams, test_hparams):
             torch.save(algorithm.state_dict(), model_filepath)
             if wandb_log:
                 # Push weights to wandb
-                wandb.save(model_filepath)
+                wandb.save(model_filepath, policy='now')
             # compute save and log adversarial accuracies on validation/test sets
             test_adv_accs = []
             for attack_name, attack in test_attacks.items():
@@ -220,8 +220,8 @@ def main(args, hparams, test_hparams):
         meters_df = algorithm.meters_to_df(epoch)
         meters_df.to_pickle(os.path.join(args.output_dir, 'meters.pkl'))
         algorithm.reset_meters()
-    wandb.finish()
-    print("Finished")
+    wandb.finish(quiet=True)
+    return
 
 if __name__ == '__main__':
 
@@ -314,3 +314,4 @@ if __name__ == '__main__':
     np.random.seed(args.seed)
 
     main(args, hparams, test_hparams)
+    exit()
