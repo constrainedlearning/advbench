@@ -166,8 +166,7 @@ def adv_accuracy(algorithm, loader, device, attack):
 
     return 100. * correct / total
 
-def adv_accuracy_loss_delta(algorithm, loader, device, attack, max_batches=None, augs_per_batch=1, batched=True):
-
+def adv_accuracy_loss_delta(algorithm, loader, device, attack, max_batches=None, augs_per_batch=1, batched=False):
     adv_correct, correct, total, total_worst, adv_losses = 0, 0, 0, 0, 0
     losses, deltas, accs = [], [], []
     algorithm_state = algorithm.training
@@ -280,7 +279,11 @@ def adv_accuracy_loss_delta_balanced(algorithm, loader, device, attack, max_batc
             else:
                 batch_preds, batch_deltas, batch_labels, batch_losses = [], [], [], []
                 for _ in range(augs_per_batch):
-                    adv_imgs, delta = attack(imgs, labels)
+                    attacked = attack(imgs, labels)
+                    if len(attacked) == 2:
+                        adv_imgs, delta = attacked
+                    elif len(attacked) == 3:
+                        adv_imgs, delta, labels = attacked
                     output = algorithm.predict(adv_imgs)
                     loss = algorithm.classifier.loss(output, labels, reduction='none')
                     pred = output.argmax(dim=1)
