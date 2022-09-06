@@ -175,6 +175,11 @@ class Adversarial_Smoothed_MH(Adversarial):
         super(Adversarial_Smoothed_MH, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
         self.attack = attacks.MH(self.classifier, self.hparams, device, perturbation=perturbation)
 
+class Adversarial_Worst_Of_K(Adversarial):
+    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
+        super(Adversarial_Worst_Of_K, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
+        self.attack = attacks.Worst_Of_K(self.classifier, self.hparams, device, perturbation=perturbation)
+
 class Gaussian_DALE(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
         super(Gaussian_DALE, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
@@ -483,36 +488,8 @@ class KL_DALE_PD(PrimalDualBase):
         self.meters['dual variable'].update(self.dual_params['dual_var'].item(), n=1)
 
 
-class Adversarial_Worst_Of_K(Algorithm):
-    def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):
-        super(Adversarial_Worst_Of_K, self).__init__(input_shape, num_classes, hparams, device, perturbation=perturbation)
-        self.attack = attacks.Worst_Of_K(self.classifier, self.hparams, device, perturbation=perturbation)
 
-    def step(self, imgs, labels):
-        if FFCV_AVAILABLE:
-            with autocast():
-                with torch.no_grad():
-                    adv_imgs, deltas =   self.attack(imgs, labels)
-                self.optimizer.zero_grad()
-                clean_loss = self.classifier.loss(self.predict(imgs), labels  )
-                robust_loss = self.classifier.loss(self.predict(adv_imgs), labels  )
-                total_loss = clean_loss + self.dual_params['dual_var'] * robust_loss
-                self.scaler.scale(total_loss).backward()
-                if self.clip_grad:
-                    clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-        else:        
-            with torch.no_grad():
-                adv_imgs, deltas =   self.attack(imgs, labels)
-            self.optimizer.zero_grad()
-            loss = self.classifier.loss(self.predict(adv_imgs), labels  )
-            loss.backward()
-            if self.clip_grad:
-                clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
-            self.optimizer.step()
-
-        self.meters['loss'].update(loss.item(), n=imgs.size(0))
+        self.penalty = hparams["adv_penalty"]
 
 class Grid_Search(Algorithm):
     def __init__(self, input_shape, num_classes, hparams, device, perturbation='Linf'):

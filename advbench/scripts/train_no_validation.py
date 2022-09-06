@@ -312,6 +312,6 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
     random.seed(args.seed)
     np.random.seed(args.seed)
-
+    wandb.setup()
     main(args, hparams, test_hparams)
     exit()
