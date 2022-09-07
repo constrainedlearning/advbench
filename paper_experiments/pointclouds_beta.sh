@@ -2,7 +2,7 @@ for seed in 0 1 2 3 4
 do
     for perturbations in 'PointcloudJitter'
     do
-        for algo in 'Adversarial_Worst_Of_K'
+        for algo in 'Beta_PD_Reverse'
         do
             for penalty in 0.25 0.5 1.0 2.0
             do
