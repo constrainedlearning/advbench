@@ -640,7 +640,7 @@ class modelnet40(AdvRobDataset):
     LOSS_LANDSCAPE_GSIZE = 100
     ANGLE_GSIZE = 100
     LOSS_LANDSCAPE_BATCHES = 10
-    HAS_LR_SCHEDULE = True
+    HAS_LR_SCHEDULE = False
     MIN_LR = 0.005
     START_EPOCH = 0
     TEST_BATCH = 10
@@ -725,6 +725,104 @@ class _ModelNet40(Dataset):
         else:
             return all_data, all_label
     
+class _ScanObjectNN(Dataset):
+    def __init__(self, num_points, partition='training', random_translate=True, validation=False):
+        self.validation = validation
+        if self.validation:
+            self.all_data, self.all_label, self.train_idx, self.val_idx = self.load_data(partition, validation=validation)
+            if partition=="training":
+                self.data, self.label =  self.all_data[self.train_idx], self.all_label[self.train_idx]
+            elif partition=="val":
+                self.data, self.label =  self.all_data[self.val_idx], self.all_label[self.val_idx]
+        else:
+            self.data, self.label = self.load_data(partition, validation=self.validation)
+        self.num_points = num_points
+        self.partition = partition
+        self.random_translate = random_translate
+
+    def set_validation(self):
+        if self.validation:
+            self.data, self.label = self.all_data[self.val_idx], self.all_label[self.val_idx]
+        else:
+            print("Dataset has no validation set")
+
+    def __getitem__(self, item):
+        pointcloud = self.data[item][:self.num_points]
+        label = self.label[item]
+        if self.partition == 'train':
+            if self.random_translate:
+                pointcloud = translate_pointcloud(pointcloud)
+            np.random.shuffle(pointcloud)
+        return pointcloud.T, label
+
+    def __len__(self):
+        return self.data.shape[0]
+
+    def download(self):
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        DATA_DIR = os.path.join(BASE_DIR, 'data' )
+        zipfile = os.path.join(DATA_DIR, 'scanobjectnn', 'h5_files.zip')
+        if not os.path.exists(zipfile):
+            raise NotImplementedError
+        elif len(os.listdir(os.path.join(DATA_DIR, 'scanobjectnn')))==1:
+            # unzip file
+            os.system('unzip %s' % (zipfile))
+            os.system('mv %s %s' % ("h5_files/main_split", os.path.join(DATA_DIR, 'scanobjectnn')))
+            os.system('rm -r h5_files')
+        else:
+            pass
+
+    def load_data(self, partition, validation=False):
+        self.download()
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        DATA_DIR = os.path.join(BASE_DIR, 'data', 'scanobjectnn')
+        all_data = []
+        all_label = []
+
+
+        h5_name = BASE_DIR + '/data/scanobjectnn/main_split/' + partition + '_objectdataset.h5'
+        f = h5py.File(h5_name)
+        data = f['data'][:].astype('float32')
+        label = f['label'][:].astype('int64')
+        f.close()
+        all_data.append(data)
+        all_label.append(label)
+        all_data = np.concatenate(all_data, axis=0)
+        all_label = np.concatenate(all_label, axis=0)
+        if validation:
+            idx = np.arange(len(all_data))
+            train_idxs, val_idxs = train_test_split(idx, test_size=0.1)
+            return all_data, all_label, train_idxs, val_idxs
+        else:
+            return all_data, all_label
+
+class scanobjectnn(AdvRobDataset):
+    INPUT_SHAPE = (3, 1024)
+    NUM_CLASSES = 40
+    N_EPOCHS = 250
+    NUM_POINTS = 1024
+    CHECKPOINT_FREQ = 100
+    LOG_INTERVAL = 100
+    ATTACK_INTERVAL = 250
+    LOSS_LANDSCAPE_INTERVAL = 300
+    LOSS_LANDSCAPE_GSIZE = 100
+    ANGLE_GSIZE = 100
+    LOSS_LANDSCAPE_BATCHES = 10
+    HAS_LR_SCHEDULE = False
+    MIN_LR = 0.005
+    START_EPOCH = 0
+    TEST_BATCH = 10
+
+    # test adversary parameters
+    ADV_STEP_SIZE = 2/255.
+    N_ADV_STEPS = 10
+
+    def __init__(self, root, augmentation=True):
+        super(scanobjectnn, self).__init__()
+        self.ffcv=False
+        self.splits['train'] = _ScanObjectNN(partition='training', num_points=self.NUM_POINTS,random_translate=False, validation=True)
+        self.splits['val'] = get_val(self.splits['train'])
+        self.splits['test'] =  _ScanObjectNN(partition='test', num_points=self.NUM_POINTS)
 
 def get_val(dataset):
     val_set = deepcopy(dataset)
