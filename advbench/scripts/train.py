@@ -68,7 +68,7 @@ def main(args, hparams, test_hparams):
         hparams,
         device,
         **kw_args).to(device)
-    if args.dataset == "modelnet40":
+    if args.dataset in ["modelnet40", "scanobjectnn"]:
         adjust_lr = CosineAnnealingLR(algorithm.optimizer, dataset.N_EPOCHS, eta_min=dataset.MIN_LR, last_epoch=dataset.START_EPOCH - 1)
     else:
         adjust_lr = None if dataset.HAS_LR_SCHEDULE is False else dataset.adjust_lr
