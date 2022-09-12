@@ -25,7 +25,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         hparams[name] = (default_val, random_val_fn(random_state))
     
     # Unconditional hparam definitions.
-    if dataset == 'modelnet40':
+    if dataset in ['modelnet40', 'scanobjectnn']:
         _hparam('batch_size', 32, lambda r: int(2 ** r.uniform(3, 6)))
         _hparam('label_smoothing', 0.2, lambda r: 0.2)
     else:
@@ -59,7 +59,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('lr_decay_start', 0, lambda r: 0)
         _hparam('lr_decay_factor', 0.8, lambda r: r.uniform(0.1, 0.3))
         _hparam('lr_decay_epoch', 1, lambda r: 1)
-    if dataset == 'modelnet40':
+    if dataset in ['modelnet40', 'scanobjectnn']:
         _hparam('learning_rate', 0.1, lambda r: 10 ** r.uniform(-1.5, -0.5))
         _hparam('weight_decay', 1e-4, lambda r: 10 ** r.uniform(-6, -3))
         _hparam('clip_grad', 1, lambda r: 1)
@@ -133,7 +133,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         _hparam('grid_size', 120, lambda r: 120)
         
 
-    elif dataset=='modelnet40':
+    elif dataset in ['modelnet40', 'scanobjectnn']:
         _hparam('fo_sgd_momentum', 0.1, lambda r:0.1)
         _hparam('fo_adam_step_size', 0.1, lambda r:0.1)
         _hparam('fo_n_steps', 10, lambda r:10)
@@ -176,7 +176,6 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         # Grid Search
         _hparam('grid_size', 120, lambda r: 120)
 
-
     else:
         raise NotImplementedError
 
@@ -196,7 +195,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
     _hparam('laplacian_attack_std', 0.5)
     _hparam('fo_sgd_step_size', 10e2)
     _hparam('fo_sgd_momentum', 0.5)
-    if dataset == "modelnet40":
+    if perturbation == "PointcloudTranslation":
         _hparam('fo_n_steps', 200)
         _hparam('fo_restarts', 1)
         _hparam('fo_adam_step_size', 0.005)
@@ -238,7 +237,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         elif dataset == 'CIFAR10' or dataset == 'CIFAR100' or dataset == 'STL10':
             _hparam('pgd_n_steps', 20)
             _hparam('pgd_step_size', 0.2)
-        elif dataset == 'modelnet40':
+        elif dataset in ['modelnet40', 'scanobjectnn']:
             _hparam('pgd_n_steps', 200)
             _hparam('pgd_step_size', 0.05)
             
@@ -279,7 +278,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         _hparam('l_dale_noise_coeff', 0.05)
         _hparam('l_dale_nu', 0.1)
 
-    elif dataset=='modelnet40':
+    elif dataset in ['modelnet40', 'scanobjectnn']:
         ##### Worst of K ######
         if perturbation == "PointcloudTranslation":
             _hparam('epsilon_tx', 0.25)
