@@ -195,7 +195,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
     _hparam('laplacian_attack_std', 0.5)
     _hparam('fo_sgd_step_size', 10e2)
     _hparam('fo_sgd_momentum', 0.5)
-    if perturbation == "PointcloudTranslation":
+    if perturbation == "PointcloudJitter":
         _hparam('fo_n_steps', 200)
         _hparam('fo_restarts', 1)
         _hparam('fo_adam_step_size', 0.005)
@@ -284,7 +284,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
             _hparam('epsilon_tx', 0.25)
             _hparam('epsilon_ty', 0.2)
         else:
-            _hparam('epsilon', 0.02)
+            _hparam('epsilon', 0.05)
         
 
         ###### MCMC ###########
@@ -297,11 +297,11 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         
 
         ##### PGD #####
-        _hparam('pgd_n_steps', 10)
+        _hparam('pgd_n_steps', 200)
         if perturbation == "PointcloudTranslation":
             _hparam('pgd_step_size', 0.02)
         else:
-            _hparam('pgd_step_size', 0.01)
+            _hparam('pgd_step_size', 0.005)
         
         # DALE (Laplacian-HMC)
         _hparam('l_dale_n_steps', 10)
