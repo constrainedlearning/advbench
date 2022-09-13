@@ -198,7 +198,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
     if perturbation == "PointcloudJitter":
         _hparam('fo_n_steps', 200)
         _hparam('fo_restarts', 1)
-        _hparam('fo_adam_step_size', 0.005)
+        _hparam('fo_adam_step_size', 0.1)
     else:
         _hparam('fo_n_steps', 30)
         _hparam('fo_restarts', 10)
@@ -299,9 +299,9 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
         ##### PGD #####
         _hparam('pgd_n_steps', 200)
         if perturbation == "PointcloudTranslation":
-            _hparam('pgd_step_size', 0.02)
+            _hparam('pgd_step_size', 0.2)
         else:
-            _hparam('pgd_step_size', 0.005)
+            _hparam('pgd_step_size', 0.1)
         
         # DALE (Laplacian-HMC)
         _hparam('l_dale_n_steps', 10)

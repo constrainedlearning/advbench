@@ -257,7 +257,7 @@ if __name__ == '__main__':
     parser.add_argument('--eps', type=float, default=0.0, help="Constraint level")
     parser.add_argument('--flags', type=str,default='', help='add to exp name')
     parser.add_argument('--n_eval', type=int, default=20, help='Number of transforms for evaluation')
-    parser.add_argument('--penalty', type=float,default=1.0, help='Penalised regularisation coeff for adv loss')
+    parser.add_argument('--penalty', type=float,default=0.0, help='Penalised regularisation coeff for adv loss')
     parser.add_argument('--beta', type=float, nargs='+', default=[0.0], help='Beta distribution beta coefficient')
     parser.add_argument('--alpha', type=float,nargs='+', default=[0.0], help='Beta distribution alpha coefficient')
     parser.add_argument('--project', type=str, default='DAug', help='wandb-project')
