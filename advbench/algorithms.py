@@ -145,10 +145,10 @@ class Adversarial(Algorithm):
             self.optimizer.zero_grad()
             adv_loss = self.classifier.loss(self.predict(adv_imgs), labels  )
             if self.penalty>0:
-                    clean_loss = self.classifier.loss(self.predict(imgs), labels  )
-                    loss = clean_loss+adv_loss*self.penalty
-                else:
-                    loss = adv_loss
+                clean_loss = self.classifier.loss(self.predict(imgs), labels  )
+                loss = clean_loss+adv_loss*self.penalty
+            else:
+                loss = adv_loss
             loss.backward()
             if self.clip_grad:
                 clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
