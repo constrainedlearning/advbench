@@ -37,7 +37,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     _hparam('mh_proposal', 'Laplace', lambda r: 'Laplace')
     _hparam('gaussian_attack_std', 1, lambda r: 1 )
     _hparam('laplacian_attack_std', 1, lambda r: 1 )
-    _hparam('adv_penalty', 1, lambda r: 1)
+    _hparam('adv_penalty', 0, lambda r: 0)
     # Beta Aug
     _hparam('beta_attack_alpha', 0.5, lambda r: 0.5)
     _hparam('beta_attack_beta', 0.25, lambda r: 0.25)
@@ -136,7 +136,7 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
     elif dataset in ['modelnet40', 'scanobjectnn']:
         _hparam('fo_sgd_momentum', 0.1, lambda r:0.1)
         _hparam('fo_adam_step_size', 0.1, lambda r:0.1)
-        _hparam('fo_n_steps', 10, lambda r:10)
+        _hparam('fo_n_steps', 7, lambda r:7)
         _hparam('fo_restarts', 1, lambda r:1)
         _hparam('pgd_n_steps', 7, lambda r: 7)
         _hparam('pgd_step_size', 0.01, lambda r: 0.01)
