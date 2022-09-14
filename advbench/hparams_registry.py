@@ -134,20 +134,20 @@ def _hparams(algorithm: str, perturbation:str, dataset: str, random_seed: int):
         
 
     elif dataset in ['modelnet40', 'scanobjectnn']:
-        _hparam('fo_sgd_momentum', 0.1, lambda r:0.1)
-        _hparam('fo_adam_step_size', 0.1, lambda r:0.1)
-        _hparam('fo_n_steps', 10, lambda r:10)
+        _hparam('fo_sgd_momentum', 0.2, lambda r:0.2)
+        _hparam('fo_adam_step_size', 0.2, lambda r:0.2)
+        _hparam('fo_n_steps', 7, lambda r:7)
         _hparam('fo_restarts', 1, lambda r:1)
         _hparam('pgd_n_steps', 7, lambda r: 7)
-        _hparam('pgd_step_size', 0.01, lambda r: 0.01)
-        _hparam('worst_of_k_steps', 10, lambda r:10)
+        _hparam('pgd_step_size', 0.2, lambda r: 0.2)
+        _hparam('worst_of_k_steps', 7, lambda r:7)
         if perturbation == "PointcloudTranslation":
             _hparam('epsilon_tx', 0.25, lambda r:0.25)
             _hparam('epsilon_ty', 0.2, lambda r:0.2)
         elif perturbation == "PointcloudJitter":
             _hparam('epsilon', 0.05, lambda r:0.05)
         # DALE (Laplacian-HMC)
-        _hparam('l_dale_n_steps', 10, lambda r: 10)
+        _hparam('l_dale_n_steps', 7, lambda r: 7)
         _hparam('l_dale_step_size', 0.4, lambda r: 10 ** r.uniform(-2.0, -0.5))
         _hparam('l_dale_noise_coeff', 0.02,lambda r: 10 ** r.uniform(-3.0, -1.5))
         _hparam('l_dale_nu', 0.1, lambda r: 0.1)
