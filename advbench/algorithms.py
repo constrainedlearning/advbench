@@ -130,8 +130,11 @@ class Adversarial(Algorithm):
                 adv_imgs, deltas = self.attack(imgs, labels)
                 self.optimizer.zero_grad()
                 adv_loss = self.classifier.loss(self.predict(adv_imgs), labels  )
-                clean_loss = self.classifier.loss(self.predict(imgs), labels  )
-                loss = clean_loss+adv_loss*self.penalty
+                if self.penalty>0:
+                    clean_loss = self.classifier.loss(self.predict(imgs), labels  )
+                    loss = clean_loss+adv_loss*self.penalty
+                else:
+                    loss = adv_loss
                 self.scaler.scale(loss).backward()
                 if self.clip_grad:
                     clip_grad_norm_(self.classifier.parameters(), self.clip_grad)
@@ -141,8 +144,11 @@ class Adversarial(Algorithm):
             adv_imgs, deltas =   self.attack(imgs, labels)
             self.optimizer.zero_grad()
             adv_loss = self.classifier.loss(self.predict(adv_imgs), labels  )
-            clean_loss = self.classifier.loss(self.predict(imgs), labels  )
-            loss = clean_loss+adv_loss*self.penalty
+            if self.penalty>0:
+                clean_loss = self.classifier.loss(self.predict(imgs), labels  )
+                loss = clean_loss+adv_loss*self.penalty
+            else:
+                loss = adv_loss
             loss.backward()
             if self.clip_grad:
                 clip_grad_norm_(self.classifier.parameters(), self.clip_grad)

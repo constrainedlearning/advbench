@@ -3,7 +3,7 @@ from advbench.models.e2_mnist import E2SFCNN, E2SFCNN_QUOT
 from advbench.models.wrn import wrn16_8, wrn16_8_stl, wrn28_10
 from advbench.models.resnet import ResNet18
 from advbench.models.mnist import MNISTNet, CnSteerableCNN, SteerableMNISTnet
-from advbench.models.dgcnn import DGCNN, cal_loss
+from advbench.models.dgcnn import DGCNN, cal_loss, PointNet
 import torch.nn as nn
 from torch.nn.functional import cross_entropy
 import torch.nn.init as init
@@ -12,7 +12,7 @@ import timm
 
 def Classifier(input_shape, num_classes, hparams, loss=None):
     model = create_model(input_shape, num_classes, hparams)
-    if hparams["model"] == "DGCNN":
+    if hparams["model"] in ["DGCNN", "PointNet"]:
         loss = cal_loss
     elif 'label_smoothing' in hparams:
         loss = lambda pred, target, reduction='mean': cross_entropy(pred, target, reduction=reduction, label_smoothing=hparams['label_smoothing'])
@@ -25,6 +25,9 @@ def create_model(input_shape, num_classes, hparams):
     print("model", hparams["model"])
     if hparams["model"] == "DGCNN":
         model = DGCNN()
+        return model
+    elif hparams["model"] == "PointNet":
+        model = PointNet()
         return model
     elif input_shape[0] == 1:
         if hparams["model"] == "CnSteerableCNN":

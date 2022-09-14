@@ -198,7 +198,7 @@ def test_hparams(algorithm: str, perturbation:str, dataset: str):
     if perturbation == "PointcloudJitter":
         _hparam('fo_n_steps', 200)
         _hparam('fo_restarts', 1)
-        _hparam('fo_adam_step_size', 0.005)
+        _hparam('fo_adam_step_size', 0.1)
     else:
         _hparam('fo_n_steps', 30)
         _hparam('fo_restarts', 10)
