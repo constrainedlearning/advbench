@@ -250,7 +250,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int,default=0, help='custom number of epochs, use defaults if 0')
     parser.add_argument('--max_rot', type=int,default=0, help='max angle in degrees')
     parser.add_argument('--max_trans', type=int,default=0, help='max translation in pixels')
-    parser.add_argument('--penalty', type=float,default=1.0, help='Penalised regularisation coeff for adv loss')
+    parser.add_argument('--penalty', type=float,default=0.0, help='Penalised regularisation coeff for adv loss')
     parser.add_argument('--beta', type=float, nargs='+', default=[0.0], help='Beta distribution beta coefficient')
     parser.add_argument('--alpha', type=float,nargs='+', default=[0.0], help='Beta distribution alpha coefficient')
     parser.add_argument('--project', type=str, default='DAug', help='wandb-project')
